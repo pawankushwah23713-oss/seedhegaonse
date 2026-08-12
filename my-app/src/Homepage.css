@@ -61,7 +61,7 @@ body {
   color: var(--champagne-gold);
 }
 
-/* 2. HEADER */
+/* 2. HEADER & LOGO */
 .site-header {
   background: var(--card-bg);
   padding: 10px 4%;
@@ -92,6 +92,7 @@ body {
   line-height: 1;
 }
 
+/* BRAND LOGO STYLES */
 .brand-logo {
   display: flex;
   align-items: center;
@@ -99,17 +100,11 @@ body {
   text-decoration: none;
 }
 
-.logo-icon {
-  width: 36px;
-  height: 36px;
-  background: var(--primary-emerald);
-  color: var(--champagne-gold);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
+.brand-logo-img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .logo-text {
@@ -306,6 +301,12 @@ body {
   font-size: 18px;
   color: var(--champagne-gold);
   font-weight: 700;
+}
+
+.drawer-logo-img {
+  height: 35px;
+  width: auto;
+  object-fit: contain;
 }
 
 .close-drawer-btn {
@@ -808,11 +809,8 @@ body {
   z-index: 99;
 }
 
-/* =======================================
-   RESPONSIVE MEDIA QUERIES (MOBILE FIXES)
-======================================= */
+/* RESPONSIVE MEDIA QUERIES */
 
-/* Tablet & Below (<= 991px) */
 @media (max-width: 991px) {
   .desktop-only {
     display: none !important;
@@ -823,10 +821,13 @@ body {
   }
 }
 
-/* Mobile Screens (<= 768px) */
 @media (max-width: 768px) {
   .site-header {
     padding: 8px 12px;
+  }
+
+  .brand-logo-img {
+    height: 38px;
   }
 
   .brand-name {
@@ -837,17 +838,10 @@ body {
     font-size: 8px;
   }
 
-  .logo-icon {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-  }
-
   .cart-container {
     padding: 6px 10px;
   }
 
-  /* Hero section mobile */
   .hero-slider-section {
     height: 280px;
   }
@@ -867,7 +861,6 @@ body {
     font-size: 11px;
   }
 
-  /* 2 Column products layout on mobile */
   .modern-product-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
@@ -895,7 +888,6 @@ body {
     font-size: 9px;
   }
 
-  /* Highlights 2 Column */
   .highlights-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
@@ -905,7 +897,6 @@ body {
     font-size: 19px;
   }
 
-  /* Footer on mobile */
   .footer-top-grid {
     grid-template-columns: 1fr;
     gap: 18px;
@@ -917,8 +908,11 @@ body {
   }
 }
 
-/* Extra Small Phones (<= 400px) */
 @media (max-width: 400px) {
+  .brand-logo-img {
+    height: 32px;
+  }
+
   .brand-tagline {
     display: none;
   }

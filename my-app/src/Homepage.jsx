@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import './Homepage.css';
 
+// ---------------------------------------------------------------
+// IMPORTANT: Put your logo image file (e.g., logo.png or logo.svg)
+// in the same folder as Homepage.jsx, or adjust this path:
+// ---------------------------------------------------------------
+import logoImg from './assets/logo.png';
+
 const Homepage = () => {
   const [activeTab, setActiveTab] = useState('featured');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [openFaq, setOpenFaq] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // 1. HERO SLIDER IMAGES & CONTENT (Unique High-Quality Sweets Images)
+  // 1. HERO SLIDER DATA
   const heroSlides = [
     {
       id: 1,
@@ -47,7 +53,7 @@ const Homepage = () => {
     setCurrentSlide(currentSlide === 0 ? heroSlides.length - 1 : currentSlide - 1);
   };
 
-  // 2. PRODUCTS DATA (ALL UNIQUE & DISTINCT FOOD IMAGES)
+  // 2. PRODUCTS DATA
   const latestProducts = [
     { 
       id: 1, 
@@ -124,16 +130,16 @@ const Homepage = () => {
   ];
 
   const featuredProducts = [
-    latestProducts[1], // Shahi Balushahi
-    latestProducts[0], // Malai Peda
-    latestProducts[2], // Milk Cake
-    latestProducts[6]  // Kaju Katli
+    latestProducts[1],
+    latestProducts[0],
+    latestProducts[2],
+    latestProducts[6]
   ];
 
   const topRatedProducts = [
-    latestProducts[4], // Doodh Barfi
-    latestProducts[0], // Malai Peda
-    latestProducts[7]  // Motichur Laddu
+    latestProducts[4],
+    latestProducts[0],
+    latestProducts[7]
   ];
 
   // 3. FAQ DATA
@@ -162,7 +168,7 @@ const Homepage = () => {
 
   return (
     <div className="homepage-container">
-      {/* Floating WhatsApp */}
+      {/* Floating WhatsApp Button */}
       <a href="https://wa.me/919315911105" className="whatsapp-button" target="_blank" rel="noreferrer" title="WhatsApp">
         <i className="fa-brands fa-whatsapp"></i>
       </a>
@@ -176,7 +182,7 @@ const Homepage = () => {
         </div>
       </div>
 
-      {/* 2. HEADER */}
+      {/* 2. HEADER WITH LOGO IMAGE */}
       <header className="site-header">
         <div className="header-inner">
           {/* Mobile Hamburger Button */}
@@ -184,9 +190,9 @@ const Homepage = () => {
             <i className="fa-solid fa-bars"></i>
           </button>
 
-          {/* Logo */}
+          {/* Company Brand Logo */}
           <a href="#home" className="brand-logo">
-            <div className="logo-icon"><i className="fa-solid fa-leaf"></i></div>
+            <img src={logoImg} alt="Seedhe Gaon Se Logo" className="brand-logo-img" />
             <div className="logo-text">
               <span className="brand-name">Seedhe Gaon Se</span>
               <span className="brand-tagline">100% Authentic Sweets</span>
@@ -235,7 +241,7 @@ const Homepage = () => {
       <aside className={`mobile-nav-drawer ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="drawer-header">
           <div className="drawer-brand">
-            <i className="fa-solid fa-leaf"></i>
+            <img src={logoImg} alt="Seedhe Gaon Se Logo" className="drawer-logo-img" />
             <span>Seedhe Gaon Se</span>
           </div>
           <button className="close-drawer-btn" onClick={() => setMobileMenuOpen(false)} aria-label="Close Menu">
