@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Homepage.css';
 
-// Logo Image Import Path
+// Logo Image Import Path (Apne path ke according check kar lein)
 import logoImg from './assets/logo.png';
 
 const Homepage = () => {
@@ -25,7 +25,7 @@ const Homepage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 2. INTERSECTION OBSERVER FOR SCROLL ANIMATION
+  // 2. INTERSECTION OBSERVER FOR SCROLL ANIMATIONS
   useEffect(() => {
     const revealElements = document.querySelectorAll('.reveal');
     const observer = new IntersectionObserver(
@@ -41,7 +41,7 @@ const Homepage = () => {
 
     revealElements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [activeTab]);
+  }, []);
 
   // 3. HERO SLIDER DATA
   const heroSlides = [
@@ -116,9 +116,11 @@ const Homepage = () => {
 
   return (
     <div className="homepage-container">
-      {/* Floating WhatsApp Button */}
+      {/* FLOATING WHATSAPP BUTTON */}
       <a href="https://wa.me/919315911105" className="whatsapp-button pulse-anim" target="_blank" rel="noreferrer" title="WhatsApp">
-        <i className="fa-brands fa-whatsapp"></i>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="#ffffff">
+          <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984 0 1.762.459 3.48 1.333 5.001L2 22l5.122-1.343c1.468.802 3.123 1.225 4.887 1.226 5.507 0 9.989-4.478 9.99-9.985 0-5.507-4.482-9.998-9.987-9.998zm5.83 14.364c-.244.685-1.41 1.309-1.974 1.393-.505.075-1.144.106-1.844-.117-.424-.135-.97-.315-1.67-.616-2.937-1.268-4.854-4.258-5.001-4.453-.146-.195-1.195-1.591-1.195-3.033 0-1.441.758-2.151 1.026-2.443.268-.293.585-.366.78-.366.195 0 .39.002.561.01.18.008.421-.068.66.505.244.585.833 2.03.906 2.176.073.146.122.317.024.512-.098.195-.146.317-.293.488-.146.171-.307.382-.439.513-.146.146-.298.305-.128.597.171.293.758 1.252 1.626 2.025 1.118.995 2.062 1.304 2.355 1.45.293.146.463.122.634-.073.171-.195.732-.853.927-1.146.195-.293.39-.244.659-.146.268.098 1.708.805 2.001.951.293.146.488.22.561.341.073.122.073.71-.171 1.395z"/>
+        </svg>
       </a>
 
       {/* TOP ANNOUNCEMENT BAR */}
@@ -147,7 +149,10 @@ const Homepage = () => {
               
               <li className="nav-item has-dropdown">
                 <a href="#about-us" className="nav-link">
-                  About Us <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                  About Us 
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#our-story">Our Story</a></li>
@@ -158,7 +163,10 @@ const Homepage = () => {
 
               <li className="nav-item has-dropdown">
                 <a href="#sweets" className="nav-link">
-                  Sweets <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                  Sweets 
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#pedas">Hisar Malai Peda</a></li>
@@ -170,7 +178,10 @@ const Homepage = () => {
 
               <li className="nav-item has-dropdown">
                 <a href="#destinations" className="nav-link">
-                  Specialties <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                  Specialties 
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#haryana">Haryana Special</a></li>
@@ -183,7 +194,10 @@ const Homepage = () => {
 
               <li className="nav-item has-dropdown">
                 <a href="#branches" className="nav-link">
-                  Branches <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                  Branches 
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#delhi">Delhi NCR</a></li>
@@ -195,7 +209,10 @@ const Homepage = () => {
 
               <li className="nav-item has-dropdown">
                 <a href="#events" className="nav-link">
-                  Gifting <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                  Gifting 
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#festive">Festive Sweets Box</a></li>
@@ -211,7 +228,11 @@ const Homepage = () => {
 
           <div className="header-actions">
             <div className="cart-trigger cart-bounce" title="View Cart">
-              <i className="fa-solid fa-cart-shopping"></i>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+              </svg>
               <span className="cart-count">0</span>
             </div>
 
@@ -229,7 +250,10 @@ const Homepage = () => {
 
         <div className={`mobile-nav-menu ${mobileMenuOpen ? 'show' : ''}`}>
           <div className="mobile-search-bar">
-            <i className="fa-solid fa-magnifying-glass"></i>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="search-svg-icon">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
             <input type="text" placeholder="Search sweets, peda, milkcake..." />
           </div>
 
@@ -239,7 +263,9 @@ const Homepage = () => {
             <li className="mobile-dropdown-item">
               <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('about')}>
                 <span>About Us</span>
-                <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'about' ? 'rotate' : ''}`}></i>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={`mobile-arrow ${mobileDropdown === 'about' ? 'rotate' : ''}`}>
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
               </div>
               {mobileDropdown === 'about' && (
                 <ul className="mobile-submenu animate-accordion">
@@ -253,7 +279,9 @@ const Homepage = () => {
             <li className="mobile-dropdown-item">
               <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('sweets')}>
                 <span>Sweets Categories</span>
-                <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'sweets' ? 'rotate' : ''}`}></i>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={`mobile-arrow ${mobileDropdown === 'sweets' ? 'rotate' : ''}`}>
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
               </div>
               {mobileDropdown === 'sweets' && (
                 <ul className="mobile-submenu animate-accordion">
@@ -294,10 +322,15 @@ const Homepage = () => {
         ))}
 
         <button className="banner-nav prev-banner" onClick={prevSlide} aria-label="Previous">
-          <i className="fa-solid fa-chevron-left"></i>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
         </button>
+
         <button className="banner-nav next-banner" onClick={nextSlide} aria-label="Next">
-          <i className="fa-solid fa-chevron-right"></i>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
         </button>
 
         <div className="slide-dots">
@@ -311,12 +344,9 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* =========================================================
-          UPDATED HIGHLIGHTS SECTION (EXACT AS YOUR SCREENSHOT)
-         ========================================================= */}
+      {/* HIGHLIGHTS SECTION */}
       <section className="highlights-section">
         <div className="highlights-grid">
-          
           <div className="highlight-card reveal delay-1">
             <div className="hl-img-box">
               <img src="https://cdn-icons-png.flaticon.com/512/2830/2830305.png" alt="Same Day Delivery" className="hl-img" />
@@ -356,23 +386,22 @@ const Homepage = () => {
               <p>Village Artisans Recipe</p>
             </div>
           </div>
-
         </div>
       </section>
 
       {/* LATEST PRODUCTS SECTION */}
-      <section className="products-section container">
-        <div className="section-heading-wrap reveal">
+      <section className="products-section container reveal">
+        <div className="section-heading-wrap">
           <div>
             <span className="sub-heading">Fresh Arrivals</span>
             <h2 className="main-heading">Latest Sweets</h2>
           </div>
-          <a href="#view-all" className="view-all-link">View all <i className="fa-solid fa-arrow-right-long"></i></a>
+          <a href="#view-all" className="view-all-link">View all →</a>
         </div>
 
         <div className="modern-product-grid">
-          {latestProducts.map((p, idx) => (
-            <div key={p.id} className={`modern-product-card reveal delay-${(idx % 4) + 1}`}>
+          {latestProducts.map((p) => (
+            <div key={p.id} className="modern-product-card">
               <div className="product-image-box">
                 <span className="product-tag">{p.tag}</span>
                 <img src={p.img} alt={p.name} loading="lazy" className="zoom-on-hover" />
@@ -380,14 +409,12 @@ const Homepage = () => {
               <div className="product-info-box">
                 <h3 className="product-name">{p.name}</h3>
                 <div className="product-rating">
-                  <div className="stars">
-                    {[...Array(p.rating)].map((_, i) => <i key={i} className="fa-solid fa-star"></i>)}
-                  </div>
+                  <div className="stars">★★★★★</div>
                   <span className="reviews-count">({p.reviews})</span>
                 </div>
                 <div className="product-footer">
                   <span className="price">{p.price}</span>
-                  <button className="cart-btn btn-click-effect"><i className="fa-solid fa-plus"></i> Add</button>
+                  <button className="cart-btn btn-click-effect">+ Add</button>
                 </div>
               </div>
             </div>
@@ -396,8 +423,8 @@ const Homepage = () => {
       </section>
 
       {/* FEATURED & TABBED PRODUCTS */}
-      <section className="products-section container tabbed-section">
-        <div className="custom-tabs reveal">
+      <section className="products-section container tabbed-section reveal">
+        <div className="custom-tabs">
           <button 
             className={`tab-item ${activeTab === 'featured' ? 'active' : ''}`}
             onClick={() => setActiveTab('featured')}
@@ -413,8 +440,8 @@ const Homepage = () => {
         </div>
 
         <div className="modern-product-grid">
-          {(activeTab === 'featured' ? featuredProducts : topRatedProducts).map((p, idx) => (
-            <div key={p.id} className={`modern-product-card reveal delay-${idx + 1}`}>
+          {(activeTab === 'featured' ? featuredProducts : topRatedProducts).map((p) => (
+            <div key={p.id} className="modern-product-card">
               <div className="product-image-box">
                 <span className="product-tag">{p.tag}</span>
                 <img src={p.img} alt={p.name} loading="lazy" className="zoom-on-hover" />
@@ -422,14 +449,12 @@ const Homepage = () => {
               <div className="product-info-box">
                 <h3 className="product-name">{p.name}</h3>
                 <div className="product-rating">
-                  <div className="stars">
-                    {[...Array(p.rating)].map((_, i) => <i key={i} className="fa-solid fa-star"></i>)}
-                  </div>
+                  <div className="stars">★★★★★</div>
                   <span className="reviews-count">({p.reviews})</span>
                 </div>
                 <div className="product-footer">
                   <span className="price">{p.price}</span>
-                  <button className="cart-btn btn-click-effect"><i className="fa-solid fa-plus"></i> Add</button>
+                  <button className="cart-btn btn-click-effect">+ Add</button>
                 </div>
               </div>
             </div>
@@ -437,27 +462,38 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* FAQ SECTION */}
-      <section className="faq-section container">
-        <div className="section-heading-wrap text-center reveal">
+      {/* =========================================================
+          FAQ SECTION (FIXED: NO DISAPPEARING BUG ON CLICK)
+         ========================================================= */}
+      <section className="faq-section container reveal">
+        <div className="section-heading-wrap text-center">
           <span className="sub-heading">Got Questions?</span>
           <h2 className="main-heading">Frequently Asked Questions</h2>
         </div>
 
         <div className="faq-accordion">
-          {faqList.map((faq, idx) => (
-            <div key={idx} className={`faq-item reveal delay-${idx + 1} ${openFaq === idx ? 'open' : ''}`}>
-              <div className="faq-question" onClick={() => toggleFaq(idx)}>
-                <h4>{faq.q}</h4>
-                <i className={`fa-solid ${openFaq === idx ? 'fa-minus' : 'fa-plus'}`}></i>
-              </div>
-              {openFaq === idx && (
-                <div className="faq-answer accordion-open">
-                  <p>{faq.a}</p>
+          {faqList.map((faq, idx) => {
+            const isOpen = openFaq === idx;
+            return (
+              <div key={idx} className={`faq-item ${isOpen ? 'open' : ''}`}>
+                <button 
+                  type="button" 
+                  className="faq-question" 
+                  onClick={() => toggleFaq(idx)}
+                  aria-expanded={isOpen}
+                >
+                  <h4>{faq.q}</h4>
+                  <span className="faq-toggle-icon">{isOpen ? '−' : '+'}</span>
+                </button>
+                
+                <div className={`faq-answer-wrapper ${isOpen ? 'show' : ''}`}>
+                  <div className="faq-answer-content">
+                    <p>{faq.a}</p>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -499,9 +535,9 @@ const Homepage = () => {
 
             <h4 className="footer-head contact-head">Contact Us</h4>
             <div className="footer-contact-details">
-              <p><i className="fa-solid fa-phone"></i> +91 9315911105</p>
-              <p><i className="fa-solid fa-envelope"></i> info@seedhegaonse.in</p>
-              <p><i className="fa-solid fa-location-dot"></i> Janakpuri, New Delhi-110058</p>
+              <p>📞 +91 9315911105</p>
+              <p>✉️ info@seedhegaonse.in</p>
+              <p>📍 Janakpuri, New Delhi-110058</p>
             </div>
           </div>
         </div>
