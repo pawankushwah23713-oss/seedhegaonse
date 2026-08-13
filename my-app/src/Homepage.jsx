@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Homepage.css';
 
-// ---------------------------------------------------------------
-// IMPORTANT: Put your logo image file (e.g., logo.png or logo.svg)
-// in the same folder as Homepage.jsx, or adjust this path:
-// ---------------------------------------------------------------
+// Logo Image Import Path (Apne project path ke according check kar lein)
 import logoImg from './assets/logo.png';
 
 const Homepage = () => {
@@ -12,6 +9,7 @@ const Homepage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [openFaq, setOpenFaq] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileDropdown, setMobileDropdown] = useState(null);
 
   // 1. HERO SLIDER DATA
   const heroSlides = [
@@ -38,6 +36,7 @@ const Homepage = () => {
     }
   ];
 
+  // Auto Slide Effect
   useEffect(() => {
     const slideInterval = setInterval(() => {
       setCurrentSlide((prev) => (prev === heroSlides.length - 1 ? 0 : prev + 1));
@@ -55,125 +54,43 @@ const Homepage = () => {
 
   // 2. PRODUCTS DATA
   const latestProducts = [
-    { 
-      id: 1, 
-      name: 'HISAR KA MALAI PEDA', 
-      rating: 5, 
-      reviews: 12, 
-      price: '₹320.00', 
-      tag: 'Bestseller', 
-      img: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop' 
-    },
-    { 
-      id: 2, 
-      name: 'BAGHPAT SHAHI BALUSHAHI', 
-      rating: 5, 
-      reviews: 8, 
-      price: '₹400.00', 
-      tag: 'Desi Ghee', 
-      img: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=400&auto=format&fit=crop' 
-    },
-    { 
-      id: 3, 
-      name: 'ALWAR KA FAMOUS MILK CAKE', 
-      rating: 4, 
-      reviews: 15, 
-      price: '₹340.00', 
-      tag: 'Popular', 
-      img: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=400&auto=format&fit=crop' 
-    },
-    { 
-      id: 4, 
-      name: 'ROHTAK PALANGTOD KALAKAND', 
-      rating: 5, 
-      reviews: 9, 
-      price: '₹430.00', 
-      tag: 'Special', 
-      img: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?q=80&w=400&auto=format&fit=crop' 
-    },
-    { 
-      id: 5, 
-      name: 'JIND KI SPECIAL DOODH BARFI', 
-      rating: 4, 
-      reviews: 6, 
-      price: '₹360.00', 
-      tag: 'Authentic', 
-      img: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?q=80&w=400&auto=format&fit=crop' 
-    },
-    { 
-      id: 6, 
-      name: 'MATHURA KA SPECIAL DESI PEDA', 
-      rating: 5, 
-      reviews: 20, 
-      price: '₹350.00', 
-      tag: 'Famous', 
-      img: 'https://images.unsplash.com/photo-1576618148400-f54bed99fcfd?q=80&w=400&auto=format&fit=crop' 
-    },
-    { 
-      id: 7, 
-      name: 'MEERUT SHAHI KAJU KATLI', 
-      rating: 5, 
-      reviews: 25, 
-      price: '₹550.00', 
-      tag: 'Premium', 
-      img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?q=80&w=400&auto=format&fit=crop' 
-    },
-    { 
-      id: 8, 
-      name: 'PURE DESI GHEE MOTICHUR LADDU', 
-      rating: 5, 
-      reviews: 18, 
-      price: '₹310.00', 
-      tag: 'Fresh', 
-      img: 'https://images.unsplash.com/photo-1626132647523-66f5bf380027?q=80&w=400&auto=format&fit=crop' 
-    }
+    { id: 1, name: 'HISAR KA MALAI PEDA', rating: 5, reviews: 12, price: '₹320.00', tag: 'Bestseller', img: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop' },
+    { id: 2, name: 'BAGHPAT SHAHI BALUSHAHI', rating: 5, reviews: 8, price: '₹400.00', tag: 'Desi Ghee', img: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=400&auto=format&fit=crop' },
+    { id: 3, name: 'ALWAR KA FAMOUS MILK CAKE', rating: 4, reviews: 15, price: '₹340.00', tag: 'Popular', img: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=400&auto=format&fit=crop' },
+    { id: 4, name: 'ROHTAK PALANGTOD KALAKAND', rating: 5, reviews: 9, price: '₹430.00', tag: 'Special', img: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?q=80&w=400&auto=format&fit=crop' },
+    { id: 5, name: 'JIND KI SPECIAL DOODH BARFI', rating: 4, reviews: 6, price: '₹360.00', tag: 'Authentic', img: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?q=80&w=400&auto=format&fit=crop' },
+    { id: 6, name: 'MATHURA KA SPECIAL DESI PEDA', rating: 5, reviews: 20, price: '₹350.00', tag: 'Famous', img: 'https://images.unsplash.com/photo-1576618148400-f54bed99fcfd?q=80&w=400&auto=format&fit=crop' },
+    { id: 7, name: 'MEERUT SHAHI KAJU KATLI', rating: 5, reviews: 25, price: '₹550.00', tag: 'Premium', img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?q=80&w=400&auto=format&fit=crop' },
+    { id: 8, name: 'PURE DESI GHEE MOTICHUR LADDU', rating: 5, reviews: 18, price: '₹310.00', tag: 'Fresh', img: 'https://images.unsplash.com/photo-1626132647523-66f5bf380027?q=80&w=400&auto=format&fit=crop' }
   ];
 
-  const featuredProducts = [
-    latestProducts[1],
-    latestProducts[0],
-    latestProducts[2],
-    latestProducts[6]
-  ];
-
-  const topRatedProducts = [
-    latestProducts[4],
-    latestProducts[0],
-    latestProducts[7]
-  ];
+  const featuredProducts = [latestProducts[1], latestProducts[0], latestProducts[2], latestProducts[6]];
+  const topRatedProducts = [latestProducts[4], latestProducts[0], latestProducts[7]];
 
   // 3. FAQ DATA
   const faqList = [
-    {
-      q: 'How do you guarantee Same Day Delivery in Delhi NCR?',
-      a: 'All orders placed before 4 PM in Delhi NCR are freshly prepared in the morning and dispatched via our express delivery partners.'
-    },
-    {
-      q: 'Are preservatives or artificial flavours added?',
-      a: 'No! Absolutely 0 preservatives and 0 artificial flavours. We prepare sweets daily using 100% pure Desi Ghee.'
-    },
-    {
-      q: 'How do I claim my FLAT ₹50 OFF discount?',
-      a: 'Simply apply coupon code "SGS50" at the checkout page on your first order.'
-    },
-    {
-      q: 'Can I place Corporate or Bulk Gifting orders?',
-      a: 'Yes, we specialize in bulk and corporate gifting boxes. Please contact us via phone or WhatsApp at +91 9315911105.'
-    }
+    { q: 'How do you guarantee Same Day Delivery in Delhi NCR?', a: 'All orders placed before 4 PM in Delhi NCR are freshly prepared in the morning and dispatched via our express delivery partners.' },
+    { q: 'Are preservatives or artificial flavours added?', a: 'No! Absolutely 0 preservatives and 0 artificial flavours. We prepare sweets daily using 100% pure Desi Ghee.' },
+    { q: 'How do I claim my FLAT ₹50 OFF discount?', a: 'Simply apply coupon code "SGS50" at the checkout page on your first order.' },
+    { q: 'Can I place Corporate or Bulk Gifting orders?', a: 'Yes, we specialize in bulk and corporate gifting boxes. Please contact us via phone or WhatsApp at +91 9315911105.' }
   ];
 
   const toggleFaq = (index) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
+  const toggleMobileSubmenu = (menuName) => {
+    setMobileDropdown(mobileDropdown === menuName ? null : menuName);
+  };
+
   return (
     <div className="homepage-container">
-      {/* Floating WhatsApp Button */}
+      {/* WhatsApp Floating Button */}
       <a href="https://wa.me/919315911105" className="whatsapp-button" target="_blank" rel="noreferrer" title="WhatsApp">
         <i className="fa-brands fa-whatsapp"></i>
       </a>
 
-      {/* 1. TOP ANNOUNCEMENT BAR */}
+      {/* TOP ANNOUNCEMENT BAR */}
       <div className="announcement-bar">
         <div className="announcement-content">
           <span>🚚 <strong>SAME DAY DELIVERY IN DELHI NCR</strong></span>
@@ -182,90 +99,189 @@ const Homepage = () => {
         </div>
       </div>
 
-      {/* 2. HEADER WITH LOGO IMAGE */}
-      <header className="site-header">
-        <div className="header-inner">
-          {/* Mobile Hamburger Button */}
-          <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label="Open Menu">
-            <i className="fa-solid fa-bars"></i>
-          </button>
-
-          {/* Company Brand Logo */}
-          <a href="#home" className="brand-logo">
-            <img src={logoImg} alt="Seedhe Gaon Se Logo" className="brand-logo-img" />
-            <div className="logo-text">
-              <span className="brand-name">Seedhe Gaon Se</span>
-              <span className="brand-tagline">100% Authentic Sweets</span>
+      {/* =========================================================
+          MAIN HEADER NAVBAR (REPLICATED BASED ON YOUR IMAGES)
+         ========================================================= */}
+      <header className="main-header">
+        <div className="header-container">
+          
+          {/* LOGO SECTION (LEFT SIDE - IMAGE 1 & 2 STYLE) */}
+          <a href="#home" className="header-logo">
+            <img src={logoImg} alt="Brand Logo" className="logo-image" />
+            <div className="logo-info">
+              <span className="logo-brand-title">Seedhe Gaon Se</span>
+              <span className="logo-brand-tagline">Your Gateway to Pure Taste</span>
             </div>
           </a>
 
-          {/* Cart Section */}
-          <div className="cart-container">
-            <div className="cart-badge-wrap">
+          {/* DESKTOP NAVIGATION MENU (RIGHT SIDE - IMAGE 1 STYLE) */}
+          <nav className="desktop-navbar">
+            <ul className="nav-menu">
+              <li className="nav-item">
+                <a href="#home" className="nav-link active">Home</a>
+              </li>
+              
+              <li className="nav-item has-dropdown">
+                <a href="#about-us" className="nav-link">
+                  About Us <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                </a>
+                <ul className="dropdown-menu">
+                  <li><a href="#our-story">Our Story</a></li>
+                  <li><a href="#why-choose-us">Why Choose Us</a></li>
+                  <li><a href="#artisans">Village Artisans</a></li>
+                </ul>
+              </li>
+
+              <li className="nav-item has-dropdown">
+                <a href="#sweets" className="nav-link">
+                  Sweets <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                </a>
+                <ul className="dropdown-menu">
+                  <li><a href="#pedas">Hisar Malai Peda</a></li>
+                  <li><a href="#milkcake">Alwar Milk Cake</a></li>
+                  <li><a href="#balushahi">Baghpat Balushahi</a></li>
+                  <li><a href="#laddoo">Desi Ghee Laddoo</a></li>
+                </ul>
+              </li>
+
+              <li className="nav-item has-dropdown">
+                <a href="#destinations" className="nav-link">
+                  Specialties <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                </a>
+                <ul className="dropdown-menu">
+                  <li><a href="#haryana">Haryana Special</a></li>
+                  <li><a href="#rajasthan">Rajasthan Special</a></li>
+                  <li><a href="#up">UP Special</a></li>
+                </ul>
+              </li>
+
+              <li className="nav-item">
+                <a href="#scholarships" className="nav-link">Offers</a>
+              </li>
+
+              <li className="nav-item has-dropdown">
+                <a href="#branches" className="nav-link">
+                  Branches <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                </a>
+                <ul className="dropdown-menu">
+                  <li><a href="#delhi">Delhi NCR</a></li>
+                  <li><a href="#janakpuri">Janakpuri Branch</a></li>
+                </ul>
+              </li>
+
+              <li className="nav-item">
+                <a href="#gallery" className="nav-link">Gallery</a>
+              </li>
+
+              <li className="nav-item has-dropdown">
+                <a href="#events" className="nav-link">
+                  Gifting <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
+                </a>
+                <ul className="dropdown-menu">
+                  <li><a href="#festive">Festive Sweets Box</a></li>
+                  <li><a href="#corporate">Corporate Orders</a></li>
+                </ul>
+              </li>
+
+              <li className="nav-item">
+                <a href="#find-a-course" className="nav-link">Find Sweet</a>
+              </li>
+
+              <li className="nav-item">
+                <a href="#careers" className="nav-link">Careers</a>
+              </li>
+
+              <li className="nav-item">
+                <a href="#contact-us" className="nav-link">Contact Us</a>
+              </li>
+            </ul>
+          </nav>
+
+          {/* RIGHT ACTION: CART ICON & MOBILE HAMBURGER MENU (IMAGE 2 STYLE) */}
+          <div className="header-actions">
+            <div className="cart-trigger" title="View Cart">
               <i className="fa-solid fa-cart-shopping"></i>
-              <span className="cart-badge">0</span>
+              <span className="cart-count">0</span>
             </div>
-            <div className="cart-text desktop-only">
-              <span className="cart-title">My Cart</span>
-              <span className="cart-price">₹0.00</span>
-            </div>
+
+            {/* Mobile Hamburger Button (Three Horizontal Bars like Image 2) */}
+            <button 
+              className="mobile-hamburger-btn" 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle Mobile Menu"
+            >
+              <span className={`hamburger-bar ${mobileMenuOpen ? 'open' : ''}`}></span>
+              <span className={`hamburger-bar ${mobileMenuOpen ? 'open' : ''}`}></span>
+              <span className={`hamburger-bar ${mobileMenuOpen ? 'open' : ''}`}></span>
+            </button>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="header-search-wrap">
-          <div className="search-container">
-            <i className="fa-solid fa-magnifying-glass search-icon"></i>
+        {/* MOBILE SLIDE-DOWN NAVIGATION MENU */}
+        <div className={`mobile-nav-menu ${mobileMenuOpen ? 'show' : ''}`}>
+          <div className="mobile-search-bar">
+            <i className="fa-solid fa-magnifying-glass"></i>
             <input type="text" placeholder="Search sweets, peda, milkcake..." />
           </div>
+
+          <ul className="mobile-menu-list">
+            <li><a href="#home" onClick={() => setMobileMenuOpen(false)}>Home</a></li>
+            
+            <li className="mobile-dropdown-item">
+              <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('about')}>
+                <span>About Us</span>
+                <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'about' ? 'rotate' : ''}`}></i>
+              </div>
+              {mobileDropdown === 'about' && (
+                <ul className="mobile-submenu">
+                  <li><a href="#our-story" onClick={() => setMobileMenuOpen(false)}>Our Story</a></li>
+                  <li><a href="#why-choose-us" onClick={() => setMobileMenuOpen(false)}>Why Choose Us</a></li>
+                  <li><a href="#artisans" onClick={() => setMobileMenuOpen(false)}>Village Artisans</a></li>
+                </ul>
+              )}
+            </li>
+
+            <li className="mobile-dropdown-item">
+              <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('sweets')}>
+                <span>Sweets Categories</span>
+                <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'sweets' ? 'rotate' : ''}`}></i>
+              </div>
+              {mobileDropdown === 'sweets' && (
+                <ul className="mobile-submenu">
+                  <li><a href="#pedas" onClick={() => setMobileMenuOpen(false)}>Hisar Malai Peda</a></li>
+                  <li><a href="#milkcake" onClick={() => setMobileMenuOpen(false)}>Alwar Milk Cake</a></li>
+                  <li><a href="#balushahi" onClick={() => setMobileMenuOpen(false)}>Baghpat Balushahi</a></li>
+                  <li><a href="#laddoo" onClick={() => setMobileMenuOpen(false)}>Desi Ghee Laddoo</a></li>
+                </ul>
+              )}
+            </li>
+
+            <li className="mobile-dropdown-item">
+              <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('specialties')}>
+                <span>Specialties</span>
+                <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'specialties' ? 'rotate' : ''}`}></i>
+              </div>
+              {mobileDropdown === 'specialties' && (
+                <ul className="mobile-submenu">
+                  <li><a href="#haryana" onClick={() => setMobileMenuOpen(false)}>Haryana Special</a></li>
+                  <li><a href="#rajasthan" onClick={() => setMobileMenuOpen(false)}>Rajasthan Special</a></li>
+                  <li><a href="#up" onClick={() => setMobileMenuOpen(false)}>UP Special</a></li>
+                </ul>
+              )}
+            </li>
+
+            <li><a href="#scholarships" onClick={() => setMobileMenuOpen(false)}>Offers</a></li>
+            <li><a href="#branches" onClick={() => setMobileMenuOpen(false)}>Branches</a></li>
+            <li><a href="#gallery" onClick={() => setMobileMenuOpen(false)}>Gallery</a></li>
+            <li><a href="#events" onClick={() => setMobileMenuOpen(false)}>Gifting</a></li>
+            <li><a href="#find-a-course" onClick={() => setMobileMenuOpen(false)}>Find Sweet</a></li>
+            <li><a href="#careers" onClick={() => setMobileMenuOpen(false)}>Careers</a></li>
+            <li><a href="#contact-us" onClick={() => setMobileMenuOpen(false)}>Contact Us</a></li>
+          </ul>
         </div>
       </header>
 
-      {/* 3. DESKTOP NAVIGATION BAR */}
-      <nav className="main-nav ">
-        <div className="nav-container">
-          <ul>
-            <li><a href="#home" className="active-link">Home</a></li>
-            <li><a href="#sweets">Sweets</a></li>
-            <li><a href="#our-story">Our Story</a></li>
-            <li><a href="#why-choose-us">Why Choose Us</a></li>
-            <li><a href="#bulking-gifting">Bulking/Gifting</a></li>
-            <li><a href="#about-us">About Us</a></li>
-            <li><a href="#contact-us">Contact Us</a></li>
-          </ul>
-        </div>
-      </nav>
-
-      {/* MOBILE SLIDE-OUT DRAWER MENU */}
-      <div className={`mobile-backdrop ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)}></div>
-      <aside className={`mobile-nav-drawer ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="drawer-header">
-          <div className="drawer-brand">
-            <img src={logoImg} alt="Seedhe Gaon Se Logo" className="drawer-logo-img" />
-            <span>Seedhe Gaon Se</span>
-          </div>
-          <button className="close-drawer-btn" onClick={() => setMobileMenuOpen(false)} aria-label="Close Menu">
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-
-        <ul className="drawer-links">
-          <li><a href="#home" onClick={() => setMobileMenuOpen(false)}><i className="fa-solid fa-house"></i> Home</a></li>
-          <li><a href="#sweets" onClick={() => setMobileMenuOpen(false)}><i className="fa-solid fa-cookie-bite"></i> Sweets</a></li>
-          <li><a href="#our-story" onClick={() => setMobileMenuOpen(false)}><i className="fa-solid fa-book-open"></i> Our Story</a></li>
-          <li><a href="#why-choose-us" onClick={() => setMobileMenuOpen(false)}><i className="fa-solid fa-award"></i> Why Choose Us</a></li>
-          <li><a href="#bulking-gifting" onClick={() => setMobileMenuOpen(false)}><i className="fa-solid fa-gift"></i> Bulking/Gifting</a></li>
-          <li><a href="#about-us" onClick={() => setMobileMenuOpen(false)}><i className="fa-solid fa-circle-info"></i> About Us</a></li>
-          <li><a href="#contact-us" onClick={() => setMobileMenuOpen(false)}><i className="fa-solid fa-envelope"></i> Contact Us</a></li>
-        </ul>
-
-        <div className="drawer-footer">
-          <p><i className="fa-solid fa-phone"></i> +91 9315911105</p>
-          <p><i className="fa-solid fa-truck-fast"></i> Delivery in Delhi NCR</p>
-        </div>
-      </aside>
-
-      {/* 4. HERO SLIDER SECTION */}
+      {/* HERO SLIDER SECTION */}
       <section className="hero-slider-section">
         {heroSlides.map((slide, index) => (
           <div
@@ -302,7 +318,7 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* 5. USPs HIGHLIGHTS */}
+      {/* HIGHLIGHTS SECTION */}
       <section className="highlights-section">
         <div className="highlights-grid">
           <div className="highlight-card">
@@ -336,7 +352,7 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* 6. LATEST PRODUCTS */}
+      {/* LATEST PRODUCTS SECTION */}
       <section className="products-section container">
         <div className="section-heading-wrap">
           <div>
@@ -371,7 +387,7 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* 7. FEATURED & TABBED PRODUCTS */}
+      {/* FEATURED & TABBED PRODUCTS */}
       <section className="products-section container tabbed-section">
         <div className="custom-tabs">
           <button 
@@ -413,7 +429,7 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* 8. FAQ ACCORDION */}
+      {/* FAQ ACCORDION SECTION */}
       <section className="faq-section container">
         <div className="section-heading-wrap text-center">
           <span className="sub-heading">Got Questions?</span>
@@ -437,7 +453,7 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* 9. FOOTER */}
+      {/* FOOTER SECTION */}
       <footer className="modern-footer">
         <div className="footer-top-grid">
           <div className="footer-column">
