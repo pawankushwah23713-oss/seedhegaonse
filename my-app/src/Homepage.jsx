@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Homepage.css';
 
-// Logo Image Import Path (Apne project path ke according check kar lein)
+// Logo Image Import Path
 import logoImg from './assets/logo.png';
 
 const Homepage = () => {
@@ -10,8 +10,41 @@ const Homepage = () => {
   const [openFaq, setOpenFaq] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileDropdown, setMobileDropdown] = useState(null);
+  const [isScrolled, setIsScrolled] = useState(false);
 
-  // 1. HERO SLIDER DATA
+  // 1. SCROLL DETECTOR FOR NAVBAR ANIMATION
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 40) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // 2. INTERSECTION OBSERVER FOR SCROLL REVEAL ANIMATIONS
+  useEffect(() => {
+    const revealElements = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('active');
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+
+    revealElements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [activeTab]);
+
+  // 3. HERO SLIDER DATA
   const heroSlides = [
     {
       id: 1,
@@ -40,7 +73,7 @@ const Homepage = () => {
   useEffect(() => {
     const slideInterval = setInterval(() => {
       setCurrentSlide((prev) => (prev === heroSlides.length - 1 ? 0 : prev + 1));
-    }, 4000);
+    }, 4500);
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
@@ -52,7 +85,7 @@ const Homepage = () => {
     setCurrentSlide(currentSlide === 0 ? heroSlides.length - 1 : currentSlide - 1);
   };
 
-  // 2. PRODUCTS DATA
+  // 4. PRODUCTS DATA
   const latestProducts = [
     { id: 1, name: 'HISAR KA MALAI PEDA', rating: 5, reviews: 12, price: '₹320.00', tag: 'Bestseller', img: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop' },
     { id: 2, name: 'BAGHPAT SHAHI BALUSHAHI', rating: 5, reviews: 8, price: '₹400.00', tag: 'Desi Ghee', img: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=400&auto=format&fit=crop' },
@@ -67,7 +100,7 @@ const Homepage = () => {
   const featuredProducts = [latestProducts[1], latestProducts[0], latestProducts[2], latestProducts[6]];
   const topRatedProducts = [latestProducts[4], latestProducts[0], latestProducts[7]];
 
-  // 3. FAQ DATA
+  // 5. FAQ DATA
   const faqList = [
     { q: 'How do you guarantee Same Day Delivery in Delhi NCR?', a: 'All orders placed before 4 PM in Delhi NCR are freshly prepared in the morning and dispatched via our express delivery partners.' },
     { q: 'Are preservatives or artificial flavours added?', a: 'No! Absolutely 0 preservatives and 0 artificial flavours. We prepare sweets daily using 100% pure Desi Ghee.' },
@@ -85,8 +118,8 @@ const Homepage = () => {
 
   return (
     <div className="homepage-container">
-      {/* WhatsApp Floating Button */}
-      <a href="https://wa.me/919315911105" className="whatsapp-button" target="_blank" rel="noreferrer" title="WhatsApp">
+      {/* Floating Animated WhatsApp Button */}
+      <a href="https://wa.me/919315911105" className="whatsapp-button pulse-anim" target="_blank" rel="noreferrer" title="WhatsApp">
         <i className="fa-brands fa-whatsapp"></i>
       </a>
 
@@ -95,18 +128,16 @@ const Homepage = () => {
         <div className="announcement-content">
           <span>🚚 <strong>SAME DAY DELIVERY IN DELHI NCR</strong></span>
           <span className="divider">|</span>
-          <span>Use Code <span className="coupon-code">SGS50</span> for <strong>FLAT ₹50 OFF</strong></span>
+          <span>Use Code <span className="coupon-code shimmer-effect">SGS50</span> for <strong>FLAT ₹50 OFF</strong></span>
         </div>
       </div>
 
-      {/* =========================================================
-          MAIN HEADER NAVBAR (REPLICATED BASED ON YOUR IMAGES)
-         ========================================================= */}
-      <header className="main-header">
+      {/* HEADER NAVBAR (WITH SCROLL ANIMATION) */}
+      <header className={`main-header ${isScrolled ? 'scrolled-header' : ''}`}>
         <div className="header-container">
           
-          {/* LOGO SECTION (LEFT SIDE - IMAGE 1 & 2 STYLE) */}
-          <a href="#home" className="header-logo">
+          {/* LOGO SECTION */}
+          <a href="#home" className="header-logo logo-hover-anim">
             <img src={logoImg} alt="Brand Logo" className="logo-image" />
             <div className="logo-info">
               <span className="logo-brand-title">Seedhe Gaon Se</span>
@@ -114,18 +145,16 @@ const Homepage = () => {
             </div>
           </a>
 
-          {/* DESKTOP NAVIGATION MENU (RIGHT SIDE - IMAGE 1 STYLE) */}
+          {/* DESKTOP NAVBAR */}
           <nav className="desktop-navbar">
             <ul className="nav-menu">
-              <li className="nav-item">
-                <a href="#home" className="nav-link active">Home</a>
-              </li>
+              <li className="nav-item"><a href="#home" className="nav-link active">Home</a></li>
               
               <li className="nav-item has-dropdown">
                 <a href="#about-us" className="nav-link">
                   About Us <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
                 </a>
-                <ul className="dropdown-menu">
+                <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#our-story">Our Story</a></li>
                   <li><a href="#why-choose-us">Why Choose Us</a></li>
                   <li><a href="#artisans">Village Artisans</a></li>
@@ -136,7 +165,7 @@ const Homepage = () => {
                 <a href="#sweets" className="nav-link">
                   Sweets <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
                 </a>
-                <ul className="dropdown-menu">
+                <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#pedas">Hisar Malai Peda</a></li>
                   <li><a href="#milkcake">Alwar Milk Cake</a></li>
                   <li><a href="#balushahi">Baghpat Balushahi</a></li>
@@ -148,63 +177,50 @@ const Homepage = () => {
                 <a href="#destinations" className="nav-link">
                   Specialties <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
                 </a>
-                <ul className="dropdown-menu">
+                <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#haryana">Haryana Special</a></li>
                   <li><a href="#rajasthan">Rajasthan Special</a></li>
                   <li><a href="#up">UP Special</a></li>
                 </ul>
               </li>
 
-              <li className="nav-item">
-                <a href="#scholarships" className="nav-link">Offers</a>
-              </li>
+              <li className="nav-item"><a href="#scholarships" className="nav-link">Offers</a></li>
 
               <li className="nav-item has-dropdown">
                 <a href="#branches" className="nav-link">
                   Branches <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
                 </a>
-                <ul className="dropdown-menu">
+                <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#delhi">Delhi NCR</a></li>
                   <li><a href="#janakpuri">Janakpuri Branch</a></li>
                 </ul>
               </li>
 
-              <li className="nav-item">
-                <a href="#gallery" className="nav-link">Gallery</a>
-              </li>
+              <li className="nav-item"><a href="#gallery" className="nav-link">Gallery</a></li>
 
               <li className="nav-item has-dropdown">
                 <a href="#events" className="nav-link">
                   Gifting <i className="fa-solid fa-chevron-down dropdown-arrow"></i>
                 </a>
-                <ul className="dropdown-menu">
+                <ul className="dropdown-menu fade-slide-down">
                   <li><a href="#festive">Festive Sweets Box</a></li>
                   <li><a href="#corporate">Corporate Orders</a></li>
                 </ul>
               </li>
 
-              <li className="nav-item">
-                <a href="#find-a-course" className="nav-link">Find Sweet</a>
-              </li>
-
-              <li className="nav-item">
-                <a href="#careers" className="nav-link">Careers</a>
-              </li>
-
-              <li className="nav-item">
-                <a href="#contact-us" className="nav-link">Contact Us</a>
-              </li>
+              <li className="nav-item"><a href="#find-a-course" className="nav-link">Find Sweet</a></li>
+              <li className="nav-item"><a href="#careers" className="nav-link">Careers</a></li>
+              <li className="nav-item"><a href="#contact-us" className="nav-link">Contact Us</a></li>
             </ul>
           </nav>
 
-          {/* RIGHT ACTION: CART ICON & MOBILE HAMBURGER MENU (IMAGE 2 STYLE) */}
+          {/* ACTIONS & HAMBURGER */}
           <div className="header-actions">
-            <div className="cart-trigger" title="View Cart">
+            <div className="cart-trigger cart-bounce" title="View Cart">
               <i className="fa-solid fa-cart-shopping"></i>
               <span className="cart-count">0</span>
             </div>
 
-            {/* Mobile Hamburger Button (Three Horizontal Bars like Image 2) */}
             <button 
               className="mobile-hamburger-btn" 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -217,7 +233,7 @@ const Homepage = () => {
           </div>
         </div>
 
-        {/* MOBILE SLIDE-DOWN NAVIGATION MENU */}
+        {/* MOBILE SLIDE-DOWN MENU */}
         <div className={`mobile-nav-menu ${mobileMenuOpen ? 'show' : ''}`}>
           <div className="mobile-search-bar">
             <i className="fa-solid fa-magnifying-glass"></i>
@@ -233,7 +249,7 @@ const Homepage = () => {
                 <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'about' ? 'rotate' : ''}`}></i>
               </div>
               {mobileDropdown === 'about' && (
-                <ul className="mobile-submenu">
+                <ul className="mobile-submenu animate-accordion">
                   <li><a href="#our-story" onClick={() => setMobileMenuOpen(false)}>Our Story</a></li>
                   <li><a href="#why-choose-us" onClick={() => setMobileMenuOpen(false)}>Why Choose Us</a></li>
                   <li><a href="#artisans" onClick={() => setMobileMenuOpen(false)}>Village Artisans</a></li>
@@ -247,7 +263,7 @@ const Homepage = () => {
                 <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'sweets' ? 'rotate' : ''}`}></i>
               </div>
               {mobileDropdown === 'sweets' && (
-                <ul className="mobile-submenu">
+                <ul className="mobile-submenu animate-accordion">
                   <li><a href="#pedas" onClick={() => setMobileMenuOpen(false)}>Hisar Malai Peda</a></li>
                   <li><a href="#milkcake" onClick={() => setMobileMenuOpen(false)}>Alwar Milk Cake</a></li>
                   <li><a href="#balushahi" onClick={() => setMobileMenuOpen(false)}>Baghpat Balushahi</a></li>
@@ -256,32 +272,16 @@ const Homepage = () => {
               )}
             </li>
 
-            <li className="mobile-dropdown-item">
-              <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('specialties')}>
-                <span>Specialties</span>
-                <i className={`fa-solid fa-chevron-down ${mobileDropdown === 'specialties' ? 'rotate' : ''}`}></i>
-              </div>
-              {mobileDropdown === 'specialties' && (
-                <ul className="mobile-submenu">
-                  <li><a href="#haryana" onClick={() => setMobileMenuOpen(false)}>Haryana Special</a></li>
-                  <li><a href="#rajasthan" onClick={() => setMobileMenuOpen(false)}>Rajasthan Special</a></li>
-                  <li><a href="#up" onClick={() => setMobileMenuOpen(false)}>UP Special</a></li>
-                </ul>
-              )}
-            </li>
-
             <li><a href="#scholarships" onClick={() => setMobileMenuOpen(false)}>Offers</a></li>
             <li><a href="#branches" onClick={() => setMobileMenuOpen(false)}>Branches</a></li>
             <li><a href="#gallery" onClick={() => setMobileMenuOpen(false)}>Gallery</a></li>
             <li><a href="#events" onClick={() => setMobileMenuOpen(false)}>Gifting</a></li>
-            <li><a href="#find-a-course" onClick={() => setMobileMenuOpen(false)}>Find Sweet</a></li>
-            <li><a href="#careers" onClick={() => setMobileMenuOpen(false)}>Careers</a></li>
             <li><a href="#contact-us" onClick={() => setMobileMenuOpen(false)}>Contact Us</a></li>
           </ul>
         </div>
       </header>
 
-      {/* HERO SLIDER SECTION */}
+      {/* HERO SLIDER (ZOOM & FADE ANIMATION) */}
       <section className="hero-slider-section">
         {heroSlides.map((slide, index) => (
           <div
@@ -290,11 +290,11 @@ const Homepage = () => {
             style={{ backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.85) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})` }}
           >
             <div className="hero-box">
-              <span className="hero-subtitle">{slide.subtitle}</span>
-              <h1>{slide.title}</h1>
-              <p>{slide.description}</p>
-              <div className="hero-action-btns">
-                <button className="primary-btn">Explore Sweets</button>
+              <span className="hero-subtitle slide-up-anim">{slide.subtitle}</span>
+              <h1 className="slide-up-anim delay-1">{slide.title}</h1>
+              <p className="slide-up-anim delay-2">{slide.description}</p>
+              <div className="hero-action-btns slide-up-anim delay-3">
+                <button className="primary-btn btn-hover-grow">Explore Sweets</button>
               </div>
             </div>
           </div>
@@ -318,31 +318,31 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* HIGHLIGHTS SECTION */}
+      {/* HIGHLIGHTS SECTION (SCROLL REVEAL) */}
       <section className="highlights-section">
         <div className="highlights-grid">
-          <div className="highlight-card">
+          <div className="highlight-card reveal delay-1">
             <div className="hl-icon"><i className="fa-solid fa-truck-ramp-box"></i></div>
             <div className="hl-text">
               <h3>Same Day Delivery</h3>
               <p>In Delhi NCR</p>
             </div>
           </div>
-          <div className="highlight-card">
+          <div className="highlight-card reveal delay-2">
             <div className="hl-icon"><i className="fa-solid fa-shield-halved"></i></div>
             <div className="hl-text">
               <h3>No Preservatives</h3>
               <p>0% Artificial Flavours</p>
             </div>
           </div>
-          <div className="highlight-card">
+          <div className="highlight-card reveal delay-3">
             <div className="hl-icon"><i className="fa-solid fa-bowl-food"></i></div>
             <div className="hl-text">
               <h3>Fresh Made Daily</h3>
               <p>100% Pure Desi Ghee</p>
             </div>
           </div>
-          <div className="highlight-card">
+          <div className="highlight-card reveal delay-4">
             <div className="hl-icon"><i className="fa-solid fa-certificate"></i></div>
             <div className="hl-text">
               <h3>100% Authentic</h3>
@@ -352,9 +352,9 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* LATEST PRODUCTS SECTION */}
+      {/* LATEST PRODUCTS (SCROLL REVEAL GRID) */}
       <section className="products-section container">
-        <div className="section-heading-wrap">
+        <div className="section-heading-wrap reveal">
           <div>
             <span className="sub-heading">Fresh Arrivals</span>
             <h2 className="main-heading">Latest Sweets</h2>
@@ -363,11 +363,11 @@ const Homepage = () => {
         </div>
 
         <div className="modern-product-grid">
-          {latestProducts.map((p) => (
-            <div key={p.id} className="modern-product-card">
+          {latestProducts.map((p, idx) => (
+            <div key={p.id} className={`modern-product-card reveal delay-${(idx % 4) + 1}`}>
               <div className="product-image-box">
                 <span className="product-tag">{p.tag}</span>
-                <img src={p.img} alt={p.name} loading="lazy" />
+                <img src={p.img} alt={p.name} loading="lazy" className="zoom-on-hover" />
               </div>
               <div className="product-info-box">
                 <h3 className="product-name">{p.name}</h3>
@@ -379,7 +379,7 @@ const Homepage = () => {
                 </div>
                 <div className="product-footer">
                   <span className="price">{p.price}</span>
-                  <button className="cart-btn"><i className="fa-solid fa-plus"></i> Add</button>
+                  <button className="cart-btn btn-click-effect"><i className="fa-solid fa-plus"></i> Add</button>
                 </div>
               </div>
             </div>
@@ -389,7 +389,7 @@ const Homepage = () => {
 
       {/* FEATURED & TABBED PRODUCTS */}
       <section className="products-section container tabbed-section">
-        <div className="custom-tabs">
+        <div className="custom-tabs reveal">
           <button 
             className={`tab-item ${activeTab === 'featured' ? 'active' : ''}`}
             onClick={() => setActiveTab('featured')}
@@ -405,11 +405,11 @@ const Homepage = () => {
         </div>
 
         <div className="modern-product-grid">
-          {(activeTab === 'featured' ? featuredProducts : topRatedProducts).map((p) => (
-            <div key={p.id} className="modern-product-card">
+          {(activeTab === 'featured' ? featuredProducts : topRatedProducts).map((p, idx) => (
+            <div key={p.id} className={`modern-product-card reveal delay-${idx + 1}`}>
               <div className="product-image-box">
                 <span className="product-tag">{p.tag}</span>
-                <img src={p.img} alt={p.name} loading="lazy" />
+                <img src={p.img} alt={p.name} loading="lazy" className="zoom-on-hover" />
               </div>
               <div className="product-info-box">
                 <h3 className="product-name">{p.name}</h3>
@@ -421,7 +421,7 @@ const Homepage = () => {
                 </div>
                 <div className="product-footer">
                   <span className="price">{p.price}</span>
-                  <button className="cart-btn"><i className="fa-solid fa-plus"></i> Add</button>
+                  <button className="cart-btn btn-click-effect"><i className="fa-solid fa-plus"></i> Add</button>
                 </div>
               </div>
             </div>
@@ -429,22 +429,22 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* FAQ ACCORDION SECTION */}
+      {/* FAQ SECTION (ANIMATED ACCORDION) */}
       <section className="faq-section container">
-        <div className="section-heading-wrap text-center">
+        <div className="section-heading-wrap text-center reveal">
           <span className="sub-heading">Got Questions?</span>
           <h2 className="main-heading">Frequently Asked Questions</h2>
         </div>
 
         <div className="faq-accordion">
           {faqList.map((faq, idx) => (
-            <div key={idx} className={`faq-item ${openFaq === idx ? 'open' : ''}`}>
+            <div key={idx} className={`faq-item reveal delay-${idx + 1} ${openFaq === idx ? 'open' : ''}`}>
               <div className="faq-question" onClick={() => toggleFaq(idx)}>
                 <h4>{faq.q}</h4>
                 <i className={`fa-solid ${openFaq === idx ? 'fa-minus' : 'fa-plus'}`}></i>
               </div>
               {openFaq === idx && (
-                <div className="faq-answer">
+                <div className="faq-answer accordion-open">
                   <p>{faq.a}</p>
                 </div>
               )}
@@ -453,10 +453,10 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* FOOTER SECTION */}
+      {/* FOOTER */}
       <footer className="modern-footer">
         <div className="footer-top-grid">
-          <div className="footer-column">
+          <div className="footer-column reveal delay-1">
             <h4 className="footer-head">About Company</h4>
             <ul className="footer-links">
               <li><a href="#about-us">About Us</a></li>
@@ -472,7 +472,7 @@ const Homepage = () => {
             </div>
           </div>
 
-          <div className="footer-column">
+          <div className="footer-column reveal delay-2">
             <h4 className="footer-head">Policies</h4>
             <ul className="footer-links">
               <li><a href="#shipping">Shipping policy</a></li>
@@ -482,11 +482,11 @@ const Homepage = () => {
             </ul>
           </div>
 
-          <div className="footer-column newsletter-column">
+          <div className="footer-column newsletter-column reveal delay-3">
             <h4 className="footer-head">NEWSLETTER</h4>
             <div className="newsletter-form">
               <input type="email" placeholder="Your Email Address" />
-              <button>Subscribe</button>
+              <button className="btn-hover-grow">Subscribe</button>
             </div>
 
             <h4 className="footer-head contact-head">Contact Us</h4>

@@ -5,12 +5,17 @@
   --header-bg: #ffffff;
   --text-dark: #07231b;
   --text-link: #1d3328;
-  --champagne-gold: #d8a24a;
+  --champagne-gold: #939795;
   --gold-soft: #f5e8d3;
   --bg-pearl: #faf8f5;
   --card-bg: #ffffff;
   --border-light: #e8e3da;
   --radius-md: 10px;
+}
+
+/* Smooth Scrolling globally */
+html {
+  scroll-behavior: smooth;
 }
 
 * {
@@ -32,7 +37,28 @@ body {
 }
 
 /* ===================================================
-   1. ANNOUNCEMENT BAR
+   SCROLL REVEAL ANIMATIONS (IntersectionObserver)
+=================================================== */
+.reveal {
+  opacity: 0;
+  transform: translateY(35px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered Delay for grid cards */
+.delay-1 { transition-delay: 0.1s; }
+.delay-2 { transition-delay: 0.2s; }
+.delay-3 { transition-delay: 0.3s; }
+.delay-4 { transition-delay: 0.4s; }
+
+/* ===================================================
+   ANNOUNCEMENT BAR
 =================================================== */
 .announcement-bar {
   background: var(--text-dark);
@@ -57,6 +83,24 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 800;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer Light Effect */
+.shimmer-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  animation: shimmer 2.5s infinite;
+}
+
+@keyframes shimmer {
+  100% { left: 100%; }
 }
 
 .divider {
@@ -64,7 +108,7 @@ body {
 }
 
 /* ===================================================
-   2. MAIN HEADER & NAVBAR (Replicated From Image)
+   MAIN HEADER NAVBAR (SCROLL & HOVER ANIMATION)
 =================================================== */
 .main-header {
   background: var(--header-bg);
@@ -72,7 +116,15 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.main-header.scrolled-header {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .header-container {
@@ -85,7 +137,14 @@ body {
   gap: 15px;
 }
 
-/* LOGO SECTION (Exact style like Image 1 & 2) */
+/* Logo Hover Effect */
+.logo-hover-anim {
+  transition: transform 0.3s ease;
+}
+.logo-hover-anim:hover {
+  transform: scale(1.02);
+}
+
 .header-logo {
   display: flex;
   align-items: center;
@@ -95,7 +154,7 @@ body {
 }
 
 .logo-image {
-  height: 42px;
+  height: 50px;
   width: auto;
   object-fit: contain;
 }
@@ -122,7 +181,7 @@ body {
   margin-top: 2px;
 }
 
-/* DESKTOP NAVBAR LINKS (Matches Image 1) */
+/* Desktop Navbar */
 .desktop-navbar {
   display: flex;
   align-items: center;
@@ -154,15 +213,26 @@ body {
   white-space: nowrap;
 }
 
-.nav-link:hover,
-.nav-link.active {
-  color: var(--primary-green);
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  height: 2px;
+  background-color: var(--champagne-gold);
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
 }
 
 .dropdown-arrow {
   font-size: 9px;
   color: #8a9a93;
-  transition: transform 0.2s ease;
+  transition: transform 0.3s ease;
 }
 
 .nav-item.has-dropdown:hover .dropdown-arrow {
@@ -170,23 +240,23 @@ body {
   color: var(--primary-green);
 }
 
-/* DESKTOP DROPDOWN MENU */
+/* Dropdown Menu Animation */
 .dropdown-menu {
   position: absolute;
   top: 100%;
   left: 0;
   background: #ffffff;
-  min-width: 180px;
+  min-width: 185px;
   border: 1px solid var(--border-light);
   border-radius: 6px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   list-style: none;
   padding: 8px 0;
   margin: 0;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(10px);
-  transition: all 0.2s ease;
+  transform: translateY(12px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 100;
 }
 
@@ -203,15 +273,16 @@ body {
   text-decoration: none;
   font-size: 12px;
   font-weight: 500;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .dropdown-menu li a:hover {
   background: var(--bg-pearl);
   color: var(--primary-green);
+  padding-left: 20px;
 }
 
-/* HEADER ACTIONS (CART & HAMBURGER) */
+/* Header Actions */
 .header-actions {
   display: flex;
   align-items: center;
@@ -224,6 +295,11 @@ body {
   color: var(--primary-green);
   cursor: pointer;
   padding: 4px;
+  transition: transform 0.2s ease;
+}
+
+.cart-bounce:hover {
+  transform: scale(1.15) rotate(-5deg);
 }
 
 .cart-count {
@@ -242,7 +318,7 @@ body {
   justify-content: center;
 }
 
-/* MOBILE HAMBURGER BUTTON (Exact icon style like Image 2) */
+/* Mobile Hamburger Button */
 .mobile-hamburger-btn {
   display: none;
   flex-direction: column;
@@ -263,15 +339,30 @@ body {
   transition: all 0.3s ease;
 }
 
-/* ===================================================
-   3. MOBILE NAVIGATION DRAWER / MENU
-=================================================== */
+/* Mobile Hamburger Transformation */
+.hamburger-bar.open:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.hamburger-bar.open:nth-child(2) {
+  opacity: 0;
+}
+.hamburger-bar.open:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Mobile Navigation Dropdown */
 .mobile-nav-menu {
   display: none;
   background: #ffffff;
   border-top: 1px solid var(--border-light);
   padding: 15px 20px;
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+  animation: fadeInDown 0.3s ease forwards;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .mobile-search-bar {
@@ -343,6 +434,15 @@ body {
   border-radius: 6px;
 }
 
+.animate-accordion {
+  animation: expandMenu 0.3s ease forwards;
+}
+
+@keyframes expandMenu {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 200px; }
+}
+
 .mobile-submenu li a {
   display: block;
   padding: 8px 0;
@@ -351,41 +451,15 @@ body {
   text-decoration: none;
 }
 
-/* RESPONSIVE BREAKPOINTS (Desktop vs Mobile handling) */
+/* Breakpoint for Mobile Menu */
 @media (max-width: 1100px) {
-  .desktop-navbar {
-    display: none; /* Hide Desktop nav on smaller screens */
-  }
-
-  .mobile-hamburger-btn {
-    display: flex; /* Show Hamburger like Image 2 */
-  }
-
-  .mobile-nav-menu.show {
-    display: block; /* Show mobile drawer when active */
-  }
-}
-
-@media (max-width: 600px) {
-  .header-container {
-    padding: 10px 15px;
-  }
-
-  .logo-brand-title {
-    font-size: 15px;
-  }
-
-  .logo-brand-tagline {
-    font-size: 8px;
-  }
-
-  .logo-image {
-    height: 34px;
-  }
+  .desktop-navbar { display: none; }
+  .mobile-hamburger-btn { display: flex; }
+  .mobile-nav-menu.show { display: block; }
 }
 
 /* ===================================================
-   4. HERO SLIDER SECTION
+   HERO SLIDER ANIMATION
 =================================================== */
 .hero-slider-section {
   position: relative;
@@ -408,18 +482,35 @@ body {
   color: #ffffff;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.8s ease-in-out;
+  transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), transform 6s linear;
+  transform: scale(1.08);
   padding: 0 20px;
 }
 
 .hero-slide.active-slide {
   opacity: 1;
   visibility: visible;
+  transform: scale(1);
 }
 
-.hero-box {
-  max-width: 600px;
+.slide-up-anim {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: slideUp 0.8s ease forwards;
 }
+
+.active-slide .slide-up-anim {
+  animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-box { max-width: 600px; }
 
 .hero-subtitle {
   color: var(--champagne-gold);
@@ -433,7 +524,7 @@ body {
 
 .hero-box h1 {
   font-family: 'Playfair Display', serif;
-  font-size: 32px;
+  font-size: 34px;
   margin: 0 0 10px 0;
   line-height: 1.2;
 }
@@ -453,6 +544,12 @@ body {
   font-weight: 800;
   font-size: 13px;
   cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.btn-hover-grow:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 6px 15px rgba(216, 162, 74, 0.4);
 }
 
 .banner-nav {
@@ -462,14 +559,21 @@ body {
   background: rgba(0, 0, 0, 0.4);
   color: #ffffff;
   border: none;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 10;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.banner-nav:hover {
+  background: var(--champagne-gold);
+  color: var(--text-dark);
+  transform: translateY(-50%) scale(1.1);
 }
 
 .prev-banner { left: 10px; }
@@ -491,6 +595,7 @@ body {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.4);
   cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .dot.active-dot {
@@ -500,12 +605,12 @@ body {
 }
 
 /* ===================================================
-   5. HIGHLIGHTS SECTION
+   HIGHLIGHTS & PRODUCT HOVER ANIMATIONS
 =================================================== */
 .highlights-section {
   background: var(--card-bg);
   border-bottom: 1px solid var(--border-light);
-  padding: 16px 4%;
+  padding: 18px 4%;
 }
 
 .highlights-grid {
@@ -520,6 +625,14 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.highlight-card:hover {
+  transform: translateY(-3px);
+  background: var(--bg-pearl);
 }
 
 .hl-icon {
@@ -534,6 +647,13 @@ body {
   justify-content: center;
   font-size: 16px;
   flex-shrink: 0;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.highlight-card:hover .hl-icon {
+  transform: scale(1.1);
+  background: var(--primary-green);
+  color: #ffffff;
 }
 
 .hl-text h3 {
@@ -549,12 +669,10 @@ body {
   color: #5c6b64;
 }
 
-/* ===================================================
-   6. PRODUCTS SECTION
-=================================================== */
+/* Products Section */
 .container {
   max-width: 1200px;
-  margin: 28px auto;
+  margin: 32px auto;
   padding: 0 15px;
 }
 
@@ -574,7 +692,7 @@ body {
 
 .main-heading {
   font-family: 'Playfair Display', serif;
-  font-size: 22px;
+  font-size: 24px;
   color: var(--primary-green);
   margin: 2px 0 0 0;
 }
@@ -584,6 +702,15 @@ body {
   font-weight: 700;
   font-size: 12px;
   text-decoration: none;
+  transition: color 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.view-all-link:hover {
+  color: var(--champagne-gold);
+  transform: translateX(3px);
 }
 
 .modern-product-grid {
@@ -599,18 +726,30 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+
+.modern-product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.08);
 }
 
 .product-image-box {
   position: relative;
   height: 150px;
   background: var(--bg-pearl);
+  overflow: hidden;
 }
 
-.product-image-box img {
+.zoom-on-hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.modern-product-card:hover .zoom-on-hover {
+  transform: scale(1.08);
 }
 
 .product-tag {
@@ -623,6 +762,7 @@ body {
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 10px;
+  z-index: 2;
 }
 
 .product-info-box {
@@ -674,11 +814,17 @@ body {
   font-weight: 700;
   font-size: 10px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* ===================================================
-   7. TABS
-=================================================== */
+.btn-click-effect:hover {
+  background: var(--primary-green);
+  color: #ffffff;
+  border-color: var(--primary-green);
+  transform: scale(1.05);
+}
+
+/* Custom Tabs */
 .custom-tabs {
   display: flex;
   gap: 15px;
@@ -696,6 +842,7 @@ body {
   padding-bottom: 8px;
   cursor: pointer;
   white-space: nowrap;
+  transition: color 0.3s ease;
 }
 
 .tab-item.active {
@@ -705,11 +852,9 @@ body {
 }
 
 /* ===================================================
-   8. FAQ ACCORDION
+   FAQ ACCORDION ANIMATION
 =================================================== */
-.faq-section {
-  max-width: 800px;
-}
+.faq-section { max-width: 800px; }
 
 .faq-accordion {
   margin-top: 15px;
@@ -722,6 +867,11 @@ body {
   background: var(--card-bg);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
+  transition: box-shadow 0.3s ease;
+}
+
+.faq-item.open {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .faq-question {
@@ -745,6 +895,15 @@ body {
   background: var(--bg-pearl);
 }
 
+.accordion-open {
+  animation: slideDown 0.3s ease forwards;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .faq-answer p {
   margin: 6px 0 0 0;
   font-size: 12px;
@@ -752,13 +911,13 @@ body {
 }
 
 /* ===================================================
-   9. FOOTER
+   FOOTER & WHATSAPP PULSE
 =================================================== */
 .modern-footer {
   background: var(--text-dark);
   color: #b3c4be;
-  padding: 30px 4% 15px 4%;
-  margin-top: 40px;
+  padding: 35px 4% 15px 4%;
+  margin-top: 50px;
   border-top: 3px solid var(--champagne-gold);
 }
 
@@ -779,7 +938,17 @@ body {
 
 .footer-links { list-style: none; padding: 0; margin: 0; }
 .footer-links li { margin-bottom: 6px; }
-.footer-links a { color: #b3c4be; text-decoration: none; font-size: 12px; }
+.footer-links a {
+  color: #b3c4be;
+  text-decoration: none;
+  font-size: 12px;
+  transition: color 0.2s ease, padding-left 0.2s ease;
+}
+
+.footer-links a:hover {
+  color: var(--champagne-gold);
+  padding-left: 4px;
+}
 
 .partner-badges { display: flex; gap: 8px; margin-top: 6px; }
 .badge-swiggy, .badge-zomato { background: #ffffff; padding: 3px 8px; border-radius: 4px; font-weight: 800; font-size: 10px; }
@@ -793,6 +962,7 @@ body {
   border: none;
   font-size: 12px;
   margin-bottom: 6px;
+  outline: none;
 }
 
 .newsletter-form button {
@@ -804,6 +974,7 @@ body {
   border-radius: 4px;
   font-weight: 800;
   font-size: 12px;
+  cursor: pointer;
 }
 
 .footer-contact-details p { font-size: 12px; margin-bottom: 6px; display: flex; gap: 8px; }
@@ -821,19 +992,36 @@ body {
   font-size: 11px;
 }
 
+/* Floating WhatsApp Pulse Animation */
 .whatsapp-button {
   position: fixed;
-  bottom: 18px;
-  right: 18px;
+  bottom: 20px;
+  right: 20px;
   background: #25d366;
   color: #ffffff;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 26px;
   text-decoration: none;
-  z-index: 99;
+  z-index: 999;
+  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.pulse-anim {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+  70% { box-shadow: 0 0 0 12px rgba(37, 211, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+.whatsapp-button:hover {
+  transform: scale(1.1);
 }
