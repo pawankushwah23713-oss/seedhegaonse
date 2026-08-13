@@ -222,7 +222,7 @@ const Homepage = () => {
       </header>
 
       {/* 3. DESKTOP NAVIGATION BAR */}
-      <nav className="main-nav desktop-only">
+      <nav className="main-nav ">
         <div className="nav-container">
           <ul>
             <li><a href="#home" className="active-link">Home</a></li>

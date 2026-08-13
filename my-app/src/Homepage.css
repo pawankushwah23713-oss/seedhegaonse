@@ -7,7 +7,7 @@
   --gold-soft: #F5E8D3;
   --bg-pearl: #FAF8F5;
   --card-bg: #FFFFFF;
-  --text-main: #1C2823;
+  --text-main: #28261c;
   --text-muted: #5C6B64;
   --border-light: #E8E3DA;
   --radius-md: 10px;
@@ -211,9 +211,10 @@ body {
   color: var(--primary-emerald);
 }
 
-/* 3. DESKTOP NAV */
+/* 3. NAV BAR (desktop + mobile) */
 .main-nav {
   background: var(--primary-emerald);
+  display: block;
 }
 
 .nav-container {
@@ -819,6 +820,36 @@ body {
   .mobile-menu-toggle {
     display: flex;
   }
+
+  /* NAVBAR: keep visible on mobile as horizontal scrollable bar */
+  .main-nav {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 80;
+  }
+
+  .main-nav ul {
+    justify-content: flex-start;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .main-nav ul::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+
+  .main-nav ul li {
+    flex-shrink: 0;
+  }
+
+  .main-nav ul li a {
+    padding: 10px 14px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 768px) {
@@ -927,5 +958,10 @@ body {
 
   .product-image-box {
     height: 105px;
+  }
+
+  .main-nav ul li a {
+    padding: 9px 10px;
+    font-size: 11px;
   }
 }
