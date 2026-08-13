@@ -12,7 +12,7 @@ const Homepage = () => {
   const [mobileDropdown, setMobileDropdown] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // 1. SCROLL DETECTOR FOR NAVBAR ANIMATION
+  // 1. SCROLL DETECTOR FOR NAVBAR
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 40) {
@@ -25,7 +25,7 @@ const Homepage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 2. INTERSECTION OBSERVER FOR SCROLL REVEAL ANIMATIONS
+  // 2. INTERSECTION OBSERVER FOR SCROLL ANIMATION
   useEffect(() => {
     const revealElements = document.querySelectorAll('.reveal');
     const observer = new IntersectionObserver(
@@ -40,7 +40,6 @@ const Homepage = () => {
     );
 
     revealElements.forEach((el) => observer.observe(el));
-
     return () => observer.disconnect();
   }, [activeTab]);
 
@@ -69,7 +68,6 @@ const Homepage = () => {
     }
   ];
 
-  // Auto Slide Effect
   useEffect(() => {
     const slideInterval = setInterval(() => {
       setCurrentSlide((prev) => (prev === heroSlides.length - 1 ? 0 : prev + 1));
@@ -118,7 +116,7 @@ const Homepage = () => {
 
   return (
     <div className="homepage-container">
-      {/* Floating Animated WhatsApp Button */}
+      {/* Floating WhatsApp Button */}
       <a href="https://wa.me/919315911105" className="whatsapp-button pulse-anim" target="_blank" rel="noreferrer" title="WhatsApp">
         <i className="fa-brands fa-whatsapp"></i>
       </a>
@@ -132,11 +130,9 @@ const Homepage = () => {
         </div>
       </div>
 
-      {/* HEADER NAVBAR (WITH SCROLL ANIMATION) */}
+      {/* HEADER NAVBAR */}
       <header className={`main-header ${isScrolled ? 'scrolled-header' : ''}`}>
         <div className="header-container">
-          
-          {/* LOGO SECTION */}
           <a href="#home" className="header-logo logo-hover-anim">
             <img src={logoImg} alt="Brand Logo" className="logo-image" />
             <div className="logo-info">
@@ -145,7 +141,6 @@ const Homepage = () => {
             </div>
           </a>
 
-          {/* DESKTOP NAVBAR */}
           <nav className="desktop-navbar">
             <ul className="nav-menu">
               <li className="nav-item"><a href="#home" className="nav-link active">Home</a></li>
@@ -214,7 +209,6 @@ const Homepage = () => {
             </ul>
           </nav>
 
-          {/* ACTIONS & HAMBURGER */}
           <div className="header-actions">
             <div className="cart-trigger cart-bounce" title="View Cart">
               <i className="fa-solid fa-cart-shopping"></i>
@@ -233,7 +227,6 @@ const Homepage = () => {
           </div>
         </div>
 
-        {/* MOBILE SLIDE-DOWN MENU */}
         <div className={`mobile-nav-menu ${mobileMenuOpen ? 'show' : ''}`}>
           <div className="mobile-search-bar">
             <i className="fa-solid fa-magnifying-glass"></i>
@@ -281,7 +274,7 @@ const Homepage = () => {
         </div>
       </header>
 
-      {/* HERO SLIDER (ZOOM & FADE ANIMATION) */}
+      {/* HERO SLIDER SECTION */}
       <section className="hero-slider-section">
         {heroSlides.map((slide, index) => (
           <div
@@ -318,41 +311,56 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* HIGHLIGHTS SECTION (SCROLL REVEAL) */}
+      {/* =========================================================
+          UPDATED HIGHLIGHTS SECTION (EXACT AS YOUR SCREENSHOT)
+         ========================================================= */}
       <section className="highlights-section">
         <div className="highlights-grid">
+          
           <div className="highlight-card reveal delay-1">
-            <div className="hl-icon"><i className="fa-solid fa-truck-ramp-box"></i></div>
+            <div className="hl-img-box">
+              <img src="https://cdn-icons-png.flaticon.com/512/2830/2830305.png" alt="Same Day Delivery" className="hl-img" />
+            </div>
             <div className="hl-text">
               <h3>Same Day Delivery</h3>
               <p>In Delhi NCR</p>
             </div>
           </div>
+
           <div className="highlight-card reveal delay-2">
-            <div className="hl-icon"><i className="fa-solid fa-shield-halved"></i></div>
+            <div className="hl-img-box">
+              <img src="https://cdn-icons-png.flaticon.com/512/2913/2913520.png" alt="No Preservatives" className="hl-img" />
+            </div>
             <div className="hl-text">
               <h3>No Preservatives</h3>
               <p>0% Artificial Flavours</p>
             </div>
           </div>
+
           <div className="highlight-card reveal delay-3">
-            <div className="hl-icon"><i className="fa-solid fa-bowl-food"></i></div>
+            <div className="hl-img-box">
+              <img src="https://cdn-icons-png.flaticon.com/512/3081/3081986.png" alt="Fresh Made Daily" className="hl-img" />
+            </div>
             <div className="hl-text">
               <h3>Fresh Made Daily</h3>
               <p>100% Pure Desi Ghee</p>
             </div>
           </div>
+
           <div className="highlight-card reveal delay-4">
-            <div className="hl-icon"><i className="fa-solid fa-certificate"></i></div>
+            <div className="hl-img-box">
+              <img src="https://cdn-icons-png.flaticon.com/512/1067/1067357.png" alt="100% Authentic" className="hl-img" />
+            </div>
             <div className="hl-text">
               <h3>100% Authentic</h3>
               <p>Village Artisans Recipe</p>
             </div>
           </div>
+
         </div>
       </section>
 
-      {/* LATEST PRODUCTS (SCROLL REVEAL GRID) */}
+      {/* LATEST PRODUCTS SECTION */}
       <section className="products-section container">
         <div className="section-heading-wrap reveal">
           <div>
@@ -429,7 +437,7 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* FAQ SECTION (ANIMATED ACCORDION) */}
+      {/* FAQ SECTION */}
       <section className="faq-section container">
         <div className="section-heading-wrap text-center reveal">
           <span className="sub-heading">Got Questions?</span>
@@ -453,7 +461,7 @@ const Homepage = () => {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* FOOTER SECTION */}
       <footer className="modern-footer">
         <div className="footer-top-grid">
           <div className="footer-column reveal delay-1">
