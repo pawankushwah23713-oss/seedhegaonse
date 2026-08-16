@@ -1,0 +1,229 @@
+/* =========================================================
+   PROFILE INFO PAGE (Exact Match to Screenshot)
+   ========================================================= */
+.profile-page-container {
+  max-width: 950px;
+  margin: 40px auto;
+  padding: 0 20px;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.profile-main-title {
+  text-align: center;
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 28px;
+}
+
+.profile-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 36px 40px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid #eef2f6;
+}
+
+/* Alerts */
+.profile-alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 500;
+}
+.profile-alert.error {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.profile-alert.success {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Top Avatar */
+.profile-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.profile-avatar-box {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+
+.profile-avatar-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder-icon {
+  font-size: 1.4rem;
+  color: #94a3b8;
+}
+
+.profile-avatar-info h3 {
+  margin: 0 0 3px 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.change-profile-text {
+  font-size: 0.88rem;
+  color: #dc2626;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ratio-hint {
+  font-size: 0.78rem;
+  color: #ef4444;
+}
+
+/* Form Styles */
+.section-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 20px 0;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-bottom: 20px;
+}
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-field label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.required-hint {
+  font-size: 0.78rem;
+  color: #dc2626;
+  font-weight: normal;
+}
+
+.input-field input {
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  background: #ffffff;
+  color: #1e293b;
+  transition: border-color 0.2s;
+}
+
+.input-field input:focus {
+  border-color: #881337;
+}
+
+/* Password Eye Button */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper input {
+  width: 100%;
+  padding-right: 40px;
+  box-sizing: border-box;
+}
+
+.eye-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #94a3b8;
+}
+
+/* Footer Buttons */
+.profile-actions-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 36px;
+  padding-top: 10px;
+}
+
+.btn-delete-account {
+  padding: 12px 24px;
+  background: #e11d48;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-delete-account:hover {
+  background: #be123c;
+}
+
+.btn-update-profile {
+  padding: 12px 34px;
+  background: #881337;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-update-profile:hover {
+  background: #4c0519;
+}
+
+.btn-update-profile:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 650px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .profile-card {
+    padding: 24px 20px;
+  }
+  .profile-actions-footer {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .btn-delete-account, .btn-update-profile {
+    width: 100%;
+  }
+}

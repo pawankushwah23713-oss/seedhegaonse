@@ -1,0 +1,381 @@
+/* =================================================== */
+/* ROOT STYLES & CONTAINER                             */
+/* =================================================== */
+.footer-wrapper {
+  background-color: #080e0a; /* Exact Dark brownish-charcoal shade as in the image */
+  color: #d1d5db;
+  font-family: inherit;
+  width: 100%;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.footer-main-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 45px 30px 25px 30px;
+}
+
+/* =================================================== */
+/* 4 COLUMNS GRID                                      */
+/* =================================================== */
+.footer-top-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1.2fr 1.5fr;
+  gap: 35px;
+  margin-bottom: 35px;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-title {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 18px 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.footer-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-list li a {
+  color: #dcd8d8;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 400;
+  transition: color 0.2s ease, padding-left 0.2s ease;
+  display: inline-block;
+}
+
+.footer-list li a:hover {
+  color: #ffffff;
+  padding-left: 4px;
+}
+
+/* =================================================== */
+/* DELIVERY BADGES (SWIGGY & ZOMATO)                   */
+/* =================================================== */
+.delivery-partners {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.partner-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.partner-badge:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+.swiggy-badge {
+  background-color: #fc8019;
+  color: #ffffff;
+  padding: 0 12px;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: -0.2px;
+}
+
+.zomato-badge {
+  background-color: #e23744;
+  color: #ffffff;
+  padding: 0 14px;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: -0.5px;
+}
+
+/* =================================================== */
+/* NEWSLETTER COLUMN                                   */
+/* =================================================== */
+.newsletter-col .newsletter-subtitle {
+  color: #dcd8d8;
+  font-size: 13.5px;
+  margin: 0 0 14px 0;
+  line-height: 1.4;
+}
+
+.newsletter-form {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 3px;
+  max-width: 100%;
+}
+
+.newsletter-form input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 13.5px;
+}
+
+.newsletter-form input::placeholder {
+  color: #9e9595;
+}
+
+.newsletter-form button {
+  background-color: #1a73e8; /* Blue button as seen in the image */
+  color: #ffffff;
+  border: none;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.newsletter-form button:hover {
+  background-color: #1557b0;
+}
+
+.subscribe-success {
+  color: #4ade80;
+  font-size: 12px;
+  margin-top: 8px;
+  display: block;
+}
+
+/* =================================================== */
+/* MIDDLE CONVERSATION & ADDRESS BAR                   */
+/* =================================================== */
+.footer-middle-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 25px;
+  flex-wrap: wrap;
+  gap: 25px;
+}
+
+.inline-title {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.conversation-section,
+.address-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-links-group {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  flex-wrap: wrap;
+}
+
+.contact-item,
+.address-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #dcd8d8;
+  font-size: 13.5px;
+  text-decoration: none;
+  margin: 0;
+  transition: color 0.2s ease;
+}
+
+.contact-item:hover {
+  color: #ffffff;
+}
+
+.contact-item svg,
+.address-item svg {
+  color: #ffffff;
+}
+
+/* =================================================== */
+/* FOOTER BOTTOM BAR                                   */
+/* =================================================== */
+.footer-bottom-bar {
+  background-color: #2b2424; /* Slightly darker shade for copyright bar */
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px 30px;
+}
+
+.footer-bottom-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.copyright-text {
+  color: #dcd8d8;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.social-icons-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.social-circle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9e9595;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.social-circle-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.bottom-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.bottom-links a {
+  color: #dcd8d8;
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.bottom-links a:hover {
+  color: #ffffff;
+}
+
+/* =================================================== */
+/* FLOATING ACTION BUTTONS (WHATSAPP & TOP)            */
+/* =================================================== */
+.floating-widgets {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 999;
+}
+
+.whatsapp-float-btn {
+  width: 46px;
+  height: 46px;
+  background-color: #22c55e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+  transition: transform 0.25s ease;
+}
+
+.whatsapp-float-btn:hover {
+  transform: scale(1.1);
+}
+
+.scroll-top-btn {
+  width: 42px;
+  height: 42px;
+  background-color: #1a73e8;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(26, 115, 232, 0.4);
+  transition: transform 0.25s ease;
+}
+
+.scroll-top-btn:hover {
+  transform: scale(1.1);
+}
+
+/* =================================================== */
+/* RESPONSIVE MEDIA QUERIES                            */
+/* =================================================== */
+
+/* TABLET VIEW (< 1024px) */
+@media screen and (max-width: 1024px) {
+  .footer-top-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+  }
+
+  .footer-middle-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+}
+
+/* MOBILE VIEW (< 640px) */
+@media screen and (max-width: 640px) {
+  .footer-main-container {
+    padding: 35px 20px 20px 20px;
+  }
+
+  .footer-top-grid {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+
+  .contact-links-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .footer-bottom-container {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .floating-widgets {
+    bottom: 15px;
+    right: 15px;
+  }
+}

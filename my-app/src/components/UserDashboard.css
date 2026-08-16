@@ -1,0 +1,92 @@
+/* =========================================================
+   USER DASHBOARD STYLING
+   ========================================================= */
+.user-dashboard-wrapper {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.user-profile-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f3f4f6;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.user-info-left h2 {
+  font-size: 1.45rem;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.user-info-left p {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.user-orders-box {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f3f4f6;
+}
+
+.user-orders-box h3 {
+  font-size: 1.2rem;
+  color: #1f2937;
+  margin-bottom: 16px;
+}
+
+.empty-orders-view {
+  background: #fffbeb;
+  border: 1.5px dashed #fcd34d;
+  border-radius: 12px;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.empty-orders-view p {
+  color: #92400e;
+  font-size: 1rem;
+  margin-bottom: 14px;
+}
+
+.shop-now-btn {
+  padding: 10px 20px;
+  background: #d97706;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.shop-now-btn:hover {
+  background: #b45309;
+}
+
+.user-logout-btn {
+  padding: 9px 18px;
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.user-logout-btn:hover {
+  opacity: 0.9;
+}
