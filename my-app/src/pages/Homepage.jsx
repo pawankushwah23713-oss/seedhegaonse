@@ -4,7 +4,7 @@ import './Homepage.css';
 // Dynamic API & Server Base Configuration
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'http://localhost:5000/api');
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 

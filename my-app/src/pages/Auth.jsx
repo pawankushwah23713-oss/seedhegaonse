@@ -4,7 +4,7 @@ import './Auth.css';
 
 const API_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) 
   ? process.env.REACT_APP_API_URL 
-  : (import.meta.env?.VITE_API_URL || 'http://localhost:5000/api/auth');
+  : (import.meta.env?.VITE_API_URL || 'https://seedhegaonse-1.onrender.com/api/auth');
 
 const Auth = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
