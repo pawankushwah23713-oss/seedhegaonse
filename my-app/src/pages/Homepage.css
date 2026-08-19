@@ -1,6 +1,6 @@
 /* VARIABLES FALLBACK */
 :root {
-  --primary-green: rgb(38, 45, 52);
+  --primary-green: #94191d;
   --champagne-gold: #d8a24a;
   --text-dark: #1f2937;
   --border-light: #e5e7eb;
@@ -17,7 +17,7 @@
 /* CONTAINER */
 .container {
   max-width: 1200px;
-  margin: 40px auto;
+  margin: 24px auto;
   padding: 0 20px;
 }
 
@@ -101,7 +101,7 @@
 .hero-slider-section {
   position: relative;
   width: 100%;
-  height: clamp(260px, 55vw, 480px);
+  height: clamp(220px, 55vw, 480px);
   min-height: 220px;
   max-height: 480px;
   overflow: hidden;
@@ -543,7 +543,7 @@
 
 /* 🟢 PRODUCT IMAGES GALLERY SLIDER (below main products section) */
 .gallery-slider-section {
-  padding: 12px 0 24px;
+  padding: 6px 0 14px;
   background: #fdfaf3;
   border-top: 1px solid var(--border-light);
   border-bottom: 1px solid var(--border-light);
@@ -587,8 +587,7 @@
 .gallery-slide-item img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  background: #fdfaf3;
+  object-fit: cover;
   display: block;
 }
 
@@ -621,7 +620,7 @@
 
 @media screen and (max-width: 576px) {
   .gallery-slider-section {
-    padding: 8px 0 16px;
+    padding: 4px 0 10px;
   }
 
   .gallery-slide-item {
