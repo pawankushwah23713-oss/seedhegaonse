@@ -587,7 +587,8 @@
 .gallery-slide-item img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #fdfaf3;
   display: block;
 }
 
