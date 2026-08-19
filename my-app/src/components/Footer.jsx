@@ -31,25 +31,29 @@ const Footer = () => {
           <div className="footer-col">
             <h4 className="footer-title">POLICIES</h4>
             <ul className="footer-list">
-              <li><a href="#shipping-policy">Shipping Policy</a></li>
-              <li><a href="#return-refund">Return & Refund Policy</a></li>
-              <li><a href="#cancellation">Cancellation Policy</a></li>
-              <li><a href="#quality-policy">Quality Policy</a></li>
-              <li><a href="#loyalty-rewards">Coupon Loyalty Points & Rewards Policy</a></li>
-              <li><a href="#bulk-orders">Corporate Wedding & Bulk Order Policy</a></li>
+              <li><a href="/shipping-policy">Shipping Policy</a></li>
+              <li><a href="/return-refund">Return & Refund Policy</a></li>
+              <li><a href="/cancellation-policy">Cancellation Policy</a></li>
+              <li><a href="/quality-policy">Quality Policy</a></li>
+              <li><a href="/loyalty-rewards">Coupon Loyalty Points & Rewards Policy</a></li>
+              <li><a href="/bulk-orders">Corporate Wedding & Bulk Order Policy</a></li>
             </ul>
 
             {/* Food Delivery Partner Badges */}
             <div className="delivery-partners">
-              <div className="partner-badge swiggy-badge" title="Order on Swiggy">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5c0 .83-.67 1.5-1.5 1.5S10 17.33 10 16.5V11c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5.5zm0-8c0 .83-.67 1.5-1.5 1.5S10 9.33 10 8.5 10.67 7 11.5 7s1.5.67 1.5 1.5z"/>
-                </svg>
-                <span>swiggy</span>
-              </div>
-              <div className="partner-badge zomato-badge" title="Order on Zomato">
-                <span>zomato</span>
-              </div>
+              <a href="https://www.swiggy.com/city/delhi/seedhe-gaon-se-janakpuri-rest1400302?source=sharing" target="_blank" rel="noopener noreferrer">
+                <div className="partner-badge swiggy-badge" title="Order on Swiggy">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5c0 .83-.67 1.5-1.5 1.5S10 17.33 10 16.5V11c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5.5zm0-8c0 .83-.67 1.5-1.5 1.5S10 9.33 10 8.5 10.67 7 11.5 7s1.5.67 1.5 1.5z"/>
+                  </svg>
+                  <span>swiggy</span>
+                </div>
+              </a>
+              <a href="https://www.zomato.com/delhi/seedhe-gaon-se-janakpuri" target="_blank" rel="noopener noreferrer">
+                <div className="partner-badge zomato-badge" title="Order on Zomato">
+                  <span>zomato</span>
+                </div>
+              </a>
             </div>
           </div>
 
@@ -57,10 +61,10 @@ const Footer = () => {
           <div className="footer-col">
             <h4 className="footer-title">SPECIAL</h4>
             <ul className="footer-list">
-              <li><a href="#featured">Featured Products</a></li>
-              <li><a href="#latest">Latest Products</a></li>
-              <li><a href="#best-selling">Best Selling Product</a></li>
-              <li><a href="#top-rated">Top Rated Product</a></li>
+              <li><a href="/featured">Featured Products</a></li>
+              <li><a href="/latest">Latest Products</a></li>
+              <li><a href="/best-selling">Best Selling Product</a></li>
+              <li><a href="/top-rated">Top Rated Product</a></li>
             </ul>
           </div>
 
@@ -68,7 +72,7 @@ const Footer = () => {
           <div className="footer-col">
             <h4 className="footer-title">ACCOUNT & SHIPPING INFO</h4>
             <ul className="footer-list">
-              <li><a href="#profile">Profile Info</a></li>
+              <li><a href="/profile">Profile Info</a></li>
               <li><a href="#wishlist">Wish List</a></li>
               <li><a href="#track-order">Track Order</a></li>
               <li><a href="#address">Address</a></li>
@@ -138,17 +142,17 @@ const Footer = () => {
 
           {/* Social Media Circular Badges */}
           <div className="social-icons-group">
-            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="social-circle-btn" aria-label="Instagram">
+            <a href="https://www.instagram.com/seedhegaonse/" target="_blank" rel="noreferrer" className="social-circle-btn" aria-label="Instagram">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
             </a>
-            <a href="https://facebook.com" target="_blank" rel="noreferrer" className="social-circle-btn" aria-label="Facebook">
+            <a href="https://www.facebook.com/profile.php?id=61570758547955" target="_blank" rel="noreferrer" className="social-circle-btn" aria-label="Facebook">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
             </a>
           </div>
 
           <div className="bottom-links">
-            <a href="#terms">Terms & conditions</a>
-            <a href="#privacy">Privacy policy</a>
+            <a href="/terms">Terms & conditions</a>
+            <a href="/privacy">Privacy policy</a>
           </div>
 
         </div>

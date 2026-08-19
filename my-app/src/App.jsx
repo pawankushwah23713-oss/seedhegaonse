@@ -24,6 +24,20 @@ import AdminAddProduct from './pages/admin/AdminAddProduct';
 import MyOrders from './pages/MyOrders';
 import ContactUs from "./pages/ContactUs";
 import WhyChooseUs from './pages/WhyChooseUs';
+import Wishlist from './pages/Wishlist';
+import BestSellingProducts from './pages/BestSellingProducts';
+import CorporateBulkOrders from './pages/CorporateBulkOrders';
+import CouponLoyaltyPolicy from './pages/CouponLoyaltyPolicy';
+import FeaturedProducts from './pages/FeaturedProducts';
+import LatestProducts from './pages/LatestProducts';
+import ProductList from './pages/ProductList';
+import QualityPolicy from './pages/QualityPolicy';
+import ReturnRefundPolicy from './pages/ReturnRefundPolicy';
+import ShippingPolicy from './pages/ShippingPolicy';
+import CancellationPolicy from './pages/CancellationPolicy';
+import TopRatedProducts from "./pages/TopRatedProducts"
+import TermsAndConditions from './pages/TermsAndConditions';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 
 // Inner Wrapper: Hide Navbar/Footer on Admin screen
@@ -92,6 +106,75 @@ const AppContent = ({
           path="/AboutUs"
           element={<AboutUs />}
         />
+
+
+
+
+        <Route
+          path="/best-selling"
+          element={<BestSellingProducts />}
+        />
+         <Route
+          path="/top-rated"
+          element={<TopRatedProducts />}
+        />
+
+         <Route
+          path="/cancellation-policy"
+          element={<CancellationPolicy />}
+        />
+        <Route
+          path="/bulk-orders"
+          element={<CorporateBulkOrders />}
+        /><Route
+          path="/loyalty-rewards"
+          element={<CouponLoyaltyPolicy />}
+        />
+        <Route
+          path="/featured"
+          element={<FeaturedProducts />}
+        />
+        <Route
+          path="/latest"
+          element={<LatestProducts />}
+        />
+
+        <Route
+          path="/productlist"
+          element={<ProductList />}
+        />
+        <Route
+          path="/quality-policy"
+          element={<QualityPolicy/>}
+        />
+         <Route
+          path="/return-refund"
+          element={<ReturnRefundPolicy />}
+        />
+         <Route
+          path="/shipping-policy"
+          element={<ShippingPolicy />}
+        />
+         <Route
+          path="/shipping-policy"
+          element={<ShippingPolicy />}
+        />
+         <Route
+          path="/terms"
+          element={<TermsAndConditions />}
+        />
+         <Route
+          path="/privacy"
+          element={<PrivacyPolicy />}
+        />
+        
+
+
+
+       <Route 
+  path="/wishlist" 
+  element={<Wishlist addToCart={addToCart} addedToast={addedToast} />} 
+/>
 
         {/* User Protected Route */}
         <Route element={<UserRoute />}>

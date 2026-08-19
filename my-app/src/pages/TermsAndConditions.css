@@ -1,0 +1,104 @@
+/* Page Wrapper */
+.terms-page-wrapper {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  padding: 40px 16px;
+  box-sizing: border-box;
+}
+
+/* Container */
+.terms-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Main Heading */
+.terms-main-title {
+  text-align: center;
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 32px;
+}
+
+/* Card Box */
+.terms-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 36px 40px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Section Subtitle */
+.terms-section-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #334155;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+/* Paragraphs */
+.terms-intro,
+.terms-footer {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #475569;
+  margin: 0 0 20px 0;
+}
+
+.terms-footer {
+  margin-top: 28px;
+  margin-bottom: 0;
+}
+
+/* Bullet Points List */
+.terms-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.terms-list-item {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.terms-item-title {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.terms-item-desc {
+  color: #475569;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .terms-page-wrapper {
+    padding: 24px 12px;
+  }
+
+  .terms-card {
+    padding: 24px 18px;
+  }
+
+  .terms-main-title {
+    font-size: 1.75rem;
+    margin-bottom: 20px;
+  }
+
+  .terms-list-item,
+  .terms-intro,
+  .terms-footer {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+}

@@ -76,7 +76,7 @@
 }
 
 .logo-image {
-  height: 42px;
+  height: 52px;
   width: auto;
   object-fit: contain;
 }
@@ -631,4 +631,21 @@
   .header-actions {
     gap: 8px;
   }
+}
+
+
+.wishlist-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 6px;
+  color: inherit;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.wishlist-trigger:hover {
+  transform: scale(1.1);
+  color: #e53e3e;
 }

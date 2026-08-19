@@ -1,12 +1,109 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
 
-// Dynamic API & Server Base Configuration
+// 🟢 Dynamic API & Server Base Configuration
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
+
+// 🟢 DUMMY PRODUCTS (Ye hamesha pehle dikhenge)
+// Aap apni images ke links yahan replace kar sakte hain
+const DUMMY_PRODUCTS = [
+  {
+    _id: 'dummy-1',
+    name: 'Pure Desi Ghee Motichoor Ladoo',
+    price: 480,
+    category: 'ladoo',
+    originRegion: 'Jodhpur',
+    description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios.',
+    image: "https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-07-31-6a6c5190d063c.png",
+    inStock: true
+  },
+  {
+    _id: 'dummy-2',
+    name: 'Traditional Mathura Peda',
+    price: 520,
+    category: 'peda',
+    originRegion: 'Mathura',
+    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours.',
+    image: "https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e4b18431ae.png",
+    inStock: true
+  },
+  {
+    _id: 'dummy-3',
+    name: 'Royal Agra Kesar Angoori Petha',
+    price: 360,
+    category: 'petha',
+    originRegion: 'Agra',
+    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron.',
+    image: "https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e468293d75.png",
+    inStock: true
+  },
+  {
+    _id: 'dummy-4',
+    name: 'Diamond Silver Foil Kaju Katli',
+    price: 950,
+    category: 'barfi',
+    originRegion: 'Delhi NCR',
+    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark.',
+    image: 'https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e4a022f488.png',
+    inStock: true
+  },
+  {
+    _id: 'dummy-5',
+    name: 'Jaipuri Malai Rabdi Ghewar',
+    price: 650,
+    category: 'special',
+    originRegion: 'Jaipur',
+    description: 'Crispy honeycomb disc soaked in sugar syrup and topped with rich cardamom rabdi.',
+    image: 'https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e468293d75.png',
+    inStock: true
+  },
+  {
+    _id: 'dummy-6',
+    name: 'Alwar Famous Danedar Milk Cake',
+    price: 540,
+    category: 'barfi',
+    originRegion: 'Alwar',
+    description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
+    image: 'https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e404916f2c.png',
+    inStock: true
+  }
+  ,
+{
+    _id: 'dummy-7',
+    name: 'Hisar ki malai',
+    price: 540,
+    category: 'barfi',
+    originRegion: 'Alwar',
+    description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
+    image:"https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e4b18431ae.png",
+    inStock: true
+  }
+
+];
+
+// 🟢 Bulletproof Helper to get JWT Token
+const getAuthToken = () => {
+  try {
+    const directToken = localStorage.getItem('token') || 
+                        localStorage.getItem('userToken') || 
+                        localStorage.getItem('authToken');
+    if (directToken) return directToken;
+
+    const userObj = localStorage.getItem('user');
+    if (userObj) {
+      const parsed = JSON.parse(userObj);
+      return parsed.token || parsed.jwt || null;
+    }
+  } catch (err) {
+    console.error('Error reading auth token:', err);
+  }
+  return null;
+};
 
 // 🟢 Backend Image Formatter with Fallback
 const getImageUrl = (imagePath) => {
@@ -16,37 +113,83 @@ const getImageUrl = (imagePath) => {
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
-  // Windows backslash fix & forward slash normalization
   const cleanPath = imagePath.replace(/\\/g, '/');
   const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
   return `${SERVER_HOST}${normalizedPath}`;
 };
 
+// 🟢 Wishlist localStorage helpers
+const WISHLIST_KEY = 'seedhegaonse_wishlist';
+const loadWishlist = () => {
+  try {
+    const saved = localStorage.getItem(WISHLIST_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
 const Homepage = ({ addToCart, addedToast }) => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  // 🟢 Initially dummy products render honge taaki screen khali na lage
+  const [products, setProducts] = useState(DUMMY_PRODUCTS);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [openFaq, setOpenFaq] = useState(null);
+  const [wishlist, setWishlist] = useState(loadWishlist);
+  const [authAlert, setAuthAlert] = useState('');
 
-  // 1. FETCH REAL PRODUCTS FROM BACKEND (MongoDB)
+  // 1. FETCH LIVE PRODUCTS & MERGE (Dummy First, Live Second)
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
         setLoading(true);
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
+        
         if (res.ok && Array.isArray(data)) {
-          setProducts(data);
+          // 🟢 Dummy pehle + Backend products baad me
+          // Agar aap backend ke items ke saath duplicate avoid karna chahte hain:
+          const backendIds = new Set(data.map((item) => item._id));
+          const uniqueDummies = DUMMY_PRODUCTS.filter((d) => !backendIds.has(d._id));
+          
+          setProducts([...uniqueDummies, ...data]);
         }
       } catch (err) {
-        console.error('Failed to load products from server:', err);
+        console.warn('Backend offline ya empty hai, dummy products active rahenge:', err);
+        setProducts(DUMMY_PRODUCTS);
       } finally {
         setLoading(false);
       }
     };
 
+    const fetchBackendWishlist = async () => {
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/wishlist`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data)) {
+          const serverWishlistIds = data.map((item) => 
+            typeof item === 'object' && item !== null ? (item._id || item.id || item).toString() : item.toString()
+          );
+          setWishlist(serverWishlistIds);
+        }
+      } catch (err) {
+        console.error('Failed to sync wishlist from backend:', err);
+      }
+    };
+
     fetchLiveProducts();
+    fetchBackendWishlist();
   }, []);
 
   // 2. SCROLL REVEAL OBSERVER
@@ -67,21 +210,68 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => observer.disconnect();
   }, [products]);
 
-  // 3. HERO SLIDER DATA
+  // Persist wishlist
+  useEffect(() => {
+    localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  const isWishlisted = (productId) => {
+    if (!productId) return false;
+    return wishlist.some((id) => id?.toString() === productId?.toString());
+  };
+
+  // 3. TOGGLE WISHLIST (Optimistic + Backend)
+  const toggleWishlist = async (e, productId) => {
+    e.stopPropagation();
+    if (!productId) return;
+
+    const pIdStr = productId.toString();
+    const isCurrentlyLiked = isWishlisted(pIdStr);
+    const previousWishlist = [...wishlist];
+
+    // Local UI update
+    const updatedWishlist = isCurrentlyLiked
+      ? wishlist.filter((id) => id?.toString() !== pIdStr)
+      : [...wishlist, pIdStr];
+    setWishlist(updatedWishlist);
+
+    // Dummy product ya guest user ke liye backend call skip
+    const token = getAuthToken();
+    if (!token || pIdStr.startsWith('dummy-')) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/wishlist/toggle/${pIdStr}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setWishlist(previousWishlist);
+      }
+    } catch (err) {
+      setWishlist(previousWishlist);
+    }
+  };
+
+  // HERO SLIDER DATA
   const heroSlides = [
     {
       id: 1,
-      image: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=1200&auto=format&fit=crop',
-      subtitle: 'Pure Desi Ghee Goodness',
-      title: 'Straight From Village Artisans',
-      description: 'Handcrafted Traditional Sweets Delivered Fresh To Your Doorstep'
+      image: "https://seedhegaonse.in/storage/app/public/banner/2026-06-28-6a415293d55d6.png",
+      subtitle: '',
+      title: '',
+      description: ''
     },
     {
       id: 2,
-      image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=1200&auto=format&fit=crop',
-      subtitle: 'Authentic Regional Delicacies',
-      title: 'Hisar Peda & Alwar Milk Cake',
-      description: '100% Pure Milk & Pure Khoya Prepared Daily'
+      image: "https://seedhegaonse.in/storage/app/public/banner/2026-06-26-6a3e4fac3d1a0.png",
+      subtitle: '',
+      title: '',
+      description: ''
     }
   ];
 
@@ -92,9 +282,10 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
-  // 🟢 4. SMART FILTER LOGIC (Category + Name + Multiple Spellings)
+  // SMART FILTER LOGIC
   const filteredProducts = products.filter((p) => {
     if (activeTab === 'all') return true;
+    if (activeTab === 'wishlist') return isWishlisted(p._id);
 
     const category = (p.category || '').toLowerCase();
     const name = (p.name || '').toLowerCase();
@@ -156,8 +347,18 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
-  // 5. ADD TO CART BRIDGE FUNCTION
+  // ADD TO CART BRIDGE
   const handleProductAddToCart = (p) => {
+    const token = getAuthToken();
+
+    if (!token) {
+      setAuthAlert('Please sign in to add sweets to your cart!');
+      setTimeout(() => {
+        setAuthAlert('');
+      }, 4000);
+      return;
+    }
+
     addToCart({
       id: p._id,
       name: p.name,
@@ -193,8 +394,47 @@ const Homepage = ({ addToCart, addedToast }) => {
         </svg>
       </a>
 
+      {/* CUSTOM AUTH ALERT */}
+      {authAlert && (
+        <div 
+          className="cart-toast fade-slide-up" 
+          style={{
+            position: 'fixed',
+            bottom: '30px',
+            right: '30px',
+            background: '#991b1b',
+            color: '#ffffff',
+            padding: '14px 20px',
+            borderRadius: '10px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            fontWeight: 500
+          }}
+        >
+          <span>🔒 {authAlert}</span>
+          <button
+            onClick={() => navigate('/auth')}
+            style={{
+              background: '#f59e0b',
+              color: '#78350f',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '6px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: '0.85rem'
+            }}
+          >
+            Sign In
+          </button>
+        </div>
+      )}
+
       {/* TOAST NOTIFICATION */}
-      {addedToast && (
+      {addedToast && !authAlert && (
         <div className="cart-toast fade-slide-up">
           ✓ <strong>{addedToast}</strong> added to cart
         </div>
@@ -210,18 +450,10 @@ const Homepage = ({ addToCart, addedToast }) => {
               backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.82) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})` 
             }}
           >
-            <div className="hero-box">
-              <span className="hero-subtitle">{slide.subtitle}</span>
-              <h1>{slide.title}</h1>
-              <p>{slide.description}</p>
-              <button className="primary-btn" onClick={() => scrollToSection('products')}>
-                Explore Authentic Sweets
-              </button>
-            </div>
+            
           </div>
         ))}
 
-        {/* SLIDER DOTS */}
         <div className="slider-dots">
           {heroSlides.map((_, idx) => (
             <span
@@ -233,7 +465,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       </section>
 
-      {/* ── MAIN PRODUCTS SECTION (LIVE FROM BACKEND) ── */}
+      {/* MAIN PRODUCTS SECTION */}
       <section id="products" className="products-section container reveal">
         <div className="section-heading-wrap">
           <div>
@@ -241,7 +473,7 @@ const Homepage = ({ addToCart, addedToast }) => {
             <h2 className="main-heading">Village Special Sweets</h2>
           </div>
 
-          {/* 🟢 FILTER TABS */}
+          {/* FILTER TABS */}
           <div className="tab-filters">
             <button className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
               All Sweets ({products.length})
@@ -261,37 +493,53 @@ const Homepage = ({ addToCart, addedToast }) => {
             <button className={`tab-btn ${activeTab === 'special' ? 'active' : ''}`} onClick={() => setActiveTab('special')}>
               Specials
             </button>
+            <button className={`tab-btn ${activeTab === 'wishlist' ? 'active' : ''}`} onClick={() => setActiveTab('wishlist')}>
+              ❤ Wishlist ({wishlist.length})
+            </button>
           </div>
         </div>
 
         {/* LOADING STATE */}
-        {loading ? (
+        {loading && products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: '#b45309' }}>
             <h3>🍬 Loading fresh regional sweets...</h3>
           </div>
         ) : filteredProducts.length === 0 ? (
-          /* EMPTY STATE */
           <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fffbeb', borderRadius: '16px', border: '1px dashed #d97706', margin: '20px 0' }}>
-            <h3 style={{ color: '#92400e' }}>No sweets found in this category!</h3>
-            <p style={{ color: '#b45309', margin: '8px 0 16px' }}>Add authentic sweets from your Admin Panel to display here.</p>
+            <h3 style={{ color: '#92400e' }}>
+              {activeTab === 'wishlist' ? 'Your wishlist is empty!' : 'No sweets found in this category!'}
+            </h3>
+            <p style={{ color: '#b45309', margin: '8px 0 16px' }}>
+              {activeTab === 'wishlist'
+                ? 'Tap the heart icon on any sweet to save it here.'
+                : 'Add authentic sweets from your Admin Panel to display here.'}
+            </p>
             <button className="primary-btn" onClick={() => setActiveTab('all')}>
               View All Sweets
             </button>
           </div>
         ) : (
-          /* 🟢 MODERN PRODUCT GRID */
           <div className="modern-product-grid">
             {filteredProducts.map((p) => (
               <div key={p._id} className="modern-product-card">
                 <div className="product-image-box">
-                  {/* Village Origin Badge */}
                   {p.originRegion && (
                     <span className="product-tag origin-tag">
                       📍 {p.originRegion}
                     </span>
                   )}
 
-                  {/* Backend Image with CORS & Fallback */}
+                  <button
+                    className={`like-btn ${isWishlisted(p._id) ? 'liked' : ''}`}
+                    onClick={(e) => toggleWishlist(e, p._id)}
+                    aria-label={isWishlisted(p._id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                    title={isWishlisted(p._id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted(p._id) ? '#ef4444' : 'none'} stroke={isWishlisted(p._id) ? '#ef4444' : '#4b5563'} strokeWidth="2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                  </button>
+
                   <img
                     src={getImageUrl(p.image)}
                     alt={p.name}
@@ -344,6 +592,34 @@ const Homepage = ({ addToCart, addedToast }) => {
           </div>
         )}
       </section>
+
+      {/* PRODUCT IMAGES GALLERY SLIDER - same images as above, auto-scrolling */}
+      {products.length > 0 && (
+        <section className="gallery-slider-section reveal">
+          <div className="section-heading-wrap text-center container" style={{ marginBottom: '18px' }}>
+            <span className="sub-heading">Handpicked For You</span>
+            <h2 className="main-heading">A Glimpse Of Our Sweets</h2>
+          </div>
+
+          <div className="gallery-slider-viewport">
+            <div className="gallery-slider-track">
+              {[...products, ...products].map((p, idx) => (
+                <div className="gallery-slide-item" key={`gallery-${p._id}-${idx}`}>
+                  <img
+                    src={getImageUrl(p.image)}
+                    alt={p.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
+                    }}
+                  />
+                  <span className="gallery-slide-caption">{p.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FAQ SECTION */}
       <section className="faq-section container reveal">

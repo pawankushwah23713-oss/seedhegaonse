@@ -23,7 +23,7 @@ body {
 
 /* 1. Header Banner */
 .hero-banner {
-  background-color: #fff9f0;
+  background:linear-gradient(135deg,#fff8f1,#fdf2e4);
   border: 1px solid #fae8d2;
   border-radius: 20px;
   padding: 50px 30px;
@@ -40,7 +40,7 @@ body {
 }
 
 .hero-subtitle {
-  color: #555555;
+  color: #945d1f !important ;
   font-size: 1.05rem;
   max-width: 700px;
   margin: 0 auto;
@@ -162,7 +162,7 @@ body {
 
 /* Golden Quote Banner */
 .quote-banner {
-  background: rgb(124, 133, 106);
+  background: rgb(175, 88, 29) !important ;
   border-radius: 14px;
   padding: 35px 25px;
   width: 100%;
@@ -170,8 +170,8 @@ body {
   box-shadow: 0 8px 25px rgba(135, 73, 17, 0.25);
 }
 
-.quote-text {
-  color: #09291e;
+.kquote-text {
+  color: #e7ebe9 !important;
   font-size: 1.35rem;
   font-style: italic;
   font-weight: 400;
@@ -274,7 +274,7 @@ body {
   .promise-card {
     padding: 25px 20px;
   }
-  .quote-text {
+  .kquote-text {
     font-size: 1.1rem;
   }
   .floating-buttons {

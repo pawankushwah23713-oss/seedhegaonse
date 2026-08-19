@@ -121,7 +121,7 @@ const AboutUs = () => {
 
           {/* Golden Quote Card */}
           <div className="quote-banner scroll-anim zoom-in">
-            <blockquote className="quote-text">
+            <blockquote className="kquote-text">
               “No Shortcuts. No False Promises. <br />
               Just Authentic Village Sweets, <br />
               Delivered with Honesty & Care.”

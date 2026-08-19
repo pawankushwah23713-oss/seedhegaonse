@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Auth.css';
 
+// 🟢 Unified API URL (Local / Render dono ke sath auto-detect)
 const API_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) 
-  ? process.env.REACT_APP_API_URL 
-  : (import.meta.env?.VITE_API_URL || 'https://seedhegaonse-1.onrender.com/api/auth');
+  ? (process.env.REACT_APP_API_URL.endsWith('/auth') ? process.env.REACT_APP_API_URL : `${process.env.REACT_APP_API_URL}/auth`)
+  : (import.meta.env?.VITE_API_URL 
+      ? (import.meta.env.VITE_API_URL.endsWith('/auth') ? import.meta.env.VITE_API_URL : `${import.meta.env.VITE_API_URL}/auth`)
+      : 'https://seedhegaonse-1.onrender.com/api/auth'); // Agar production par hain to yahan Render URL daalein
 
 const Auth = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
@@ -78,11 +81,12 @@ const Auth = ({ onLoginSuccess }) => {
 
     try {
       if (isLogin) {
-        // LOGIN API CALL
+        // 🟢 LOGIN API CALL (Sending both 'email' and 'identifier' for 100% backend compatibility)
         const response = await fetch(`${API_URL}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            email: formData.email.trim(),
             identifier: formData.email.trim(),
             password: formData.password
           })
@@ -94,23 +98,28 @@ const Auth = ({ onLoginSuccess }) => {
           throw new Error(data.message || 'Login failed! Please check your credentials.');
         }
 
-        // Store Token & Full User Object (with role) in LocalStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        // 🟢 Store Token & User in LocalStorage safely for all components
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('currentUser', JSON.stringify(data.user));
+        }
 
         if (onLoginSuccess) {
-          onLoginSuccess(data.user);
+          onLoginSuccess(data.user || data);
         }
 
         // Role-based Navigation
-        if (data.user.role === 'admin') {
-          navigate('/admin'); // Admin Dashboard
+        if (data.user?.role === 'admin') {
+          navigate('/admin');
         } else {
-          navigate('/'); // Normal User Home Page
+          navigate('/');
         }
 
       } else {
-        // SIGNUP API CALL
+        // 🟢 SIGNUP API CALL
         const response = await fetch(`${API_URL}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
