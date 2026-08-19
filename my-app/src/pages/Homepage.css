@@ -1,6 +1,6 @@
 /* VARIABLES FALLBACK */
 :root {
-  --primary-green: #94191d;
+  --primary-green: rgb(38, 45, 52);
   --champagne-gold: #d8a24a;
   --text-dark: #1f2937;
   --border-light: #e5e7eb;
@@ -18,7 +18,7 @@
 .container {
   max-width: 1200px;
   margin: 40px auto;
-  padding: 200px 20px;
+  padding: 0 20px;
 }
 
 /* SCROLL REVEAL ANIMATION */
@@ -543,7 +543,7 @@
 
 /* 🟢 PRODUCT IMAGES GALLERY SLIDER (below main products section) */
 .gallery-slider-section {
-  padding: 40px 0 50px;
+  padding: 12px 0 24px;
   background: #fdfaf3;
   border-top: 1px solid var(--border-light);
   border-bottom: 1px solid var(--border-light);
@@ -620,7 +620,7 @@
 
 @media screen and (max-width: 576px) {
   .gallery-slider-section {
-    padding: 28px 0 36px;
+    padding: 8px 0 16px;
   }
 
   .gallery-slide-item {

@@ -5,7 +5,7 @@ import './Homepage.css';
 // 🟢 Dynamic API & Server Base Configuration
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'http://localhost:5000/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 
@@ -262,16 +262,16 @@ const Homepage = ({ addToCart, addedToast }) => {
     {
       id: 1,
       image: "https://seedhegaonse.in/storage/app/public/banner/2026-06-28-6a415293d55d6.png",
-      subtitle: '',
-      title: '',
-      description: ''
+      subtitle: 'Pure Desi Ghee Goodness',
+      title: 'Straight From Village Artisans',
+      description: 'Handcrafted Traditional Sweets Delivered Fresh To Your Doorstep'
     },
     {
       id: 2,
       image: "https://seedhegaonse.in/storage/app/public/banner/2026-06-26-6a3e4fac3d1a0.png",
-      subtitle: '',
-      title: '',
-      description: ''
+      subtitle: 'Authentic Regional Delicacies',
+      title: 'Hisar Peda & Alwar Milk Cake',
+      description: '100% Pure Milk & Pure Khoya Prepared Daily'
     }
   ];
 
@@ -450,7 +450,14 @@ const Homepage = ({ addToCart, addedToast }) => {
               backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.82) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})` 
             }}
           >
-            
+            <div className="hero-box">
+              <span className="hero-subtitle">{slide.subtitle}</span>
+              <h1>{slide.title}</h1>
+              <p>{slide.description}</p>
+              <button className="primary-btn" onClick={() => scrollToSection('products')}>
+                Explore Authentic Sweets
+              </button>
+            </div>
           </div>
         ))}
 
@@ -596,7 +603,7 @@ const Homepage = ({ addToCart, addedToast }) => {
       {/* PRODUCT IMAGES GALLERY SLIDER - same images as above, auto-scrolling */}
       {products.length > 0 && (
         <section className="gallery-slider-section reveal">
-          <div className="section-heading-wrap text-center container" style={{ marginBottom: '18px' }}>
+          <div className="section-heading-wrap text-center container" style={{ margin: '0 auto 18px' }}>
             <span className="sub-heading">Handpicked For You</span>
             <h2 className="main-heading">A Glimpse Of Our Sweets</h2>
           </div>
