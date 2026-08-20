@@ -1,4 +1,3 @@
-// models/Order.model.js
 const mongoose = require('mongoose');
 
 const orderItemSchema = new mongoose.Schema(
@@ -75,7 +74,7 @@ const orderSchema = new mongoose.Schema(
       default: []
     }
   },
-  { timestamps: true }
+  { timestamps: true } // 🟢 Auto manages createdAt and updatedAt
 );
 
 module.exports = mongoose.model('Order', orderSchema);

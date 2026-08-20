@@ -1,4 +1,3 @@
-// backend/server.js
 const express = require('express');
 const http = require('http'); // 🟢 Node.js HTTP module
 const { Server } = require('socket.io'); // 🟢 Socket.io
@@ -6,11 +5,12 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
+
 const wishlistRoutes = require('./routes/wishlist');
 const paymentRoutes = require('./routes/payment.routes');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
-const orderRoutes = require('./routes/orderRoutes');   // ✅ ye rakhna hai// 🟢 keep your ORIGINAL order routes (has socket emit)
+const orderRoutes = require('./routes/orderRoutes'); // 🟢 Order routes
 const contactRoutes = require('./routes/contactRoutes');
 
 const app = express();
@@ -62,12 +62,9 @@ app.use(
 app.use('/api/contact', contactRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);      // COD orders (your original, with socket emit)
-app.use('/api/payment', paymentRoutes);   // 🟢 NEW: Razorpay create-order + verify
-
-
-// Wishlist Route
-app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/orders', orderRoutes);      // Orders with Realtime Socket
+app.use('/api/payment', paymentRoutes);   // Razorpay create-order + verify
+app.use('/api/wishlist', wishlistRoutes); // Wishlist Route
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/seedhe_gaon_se';

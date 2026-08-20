@@ -1,4 +1,3 @@
-// routes/order.routes.js
 const express = require('express');
 const router = express.Router();
 const {
@@ -8,7 +7,7 @@ const {
   getAllOrders,
   updateOrderStatus,
   deleteOrder,
-  sendOrderMessage // 🟢 Added
+  sendOrderMessage
 } = require('../controllers/order.controller');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
@@ -19,12 +18,12 @@ router.post('/', createOrder);
 router.get('/my-orders', protect, getMyOrders);
 
 // 3. Admin All Orders
-router.get('/', protect, adminOnly, getAllOrders || getMyOrders);
+router.get('/', protect, adminOnly, getAllOrders);
 
 // 4. Update status (Admin)
 router.put('/:id/status', protect, adminOnly, updateOrderStatus);
 
-// 🟢 5. Send Chat Message (Customer & Admin dono use kar sakte hain)
+// 5. Send Chat Message (Customer & Admin)
 router.post('/:id/messages', protect, sendOrderMessage);
 
 // 6. Delete order (Admin)

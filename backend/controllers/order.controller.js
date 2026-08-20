@@ -1,7 +1,6 @@
-// controllers/order.controller.js
 const Order = require('../models/Order.model');
 
-// 1. Customer Orders
+// 1. Customer Orders (Sorted by Latest First)
 exports.getMyOrders = async (req, res) => {
   try {
     const userId = req.user?._id || req.user?.id;
@@ -25,7 +24,7 @@ exports.getMyOrders = async (req, res) => {
   }
 };
 
-// 2. Admin All Orders
+// 2. Admin All Orders (Sorted by Latest First)
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
@@ -59,9 +58,14 @@ exports.createOrder = async (req, res) => {
       messages: []
     });
 
+    // 🟢 Real-time Socket Event Emit with exact ISO Timestamp
     const io = req.app.get('io');
     if (io) {
-      io.emit('new_order', order);
+      const orderPayload = order.toObject ? order.toObject() : order;
+      if (!orderPayload.createdAt) {
+        orderPayload.createdAt = new Date().toISOString();
+      }
+      io.emit('new_order', orderPayload);
     }
 
     return res.status(201).json({
