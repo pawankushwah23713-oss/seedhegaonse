@@ -596,7 +596,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         >
           <span>⚠️ {authAlert}</span>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/auth')}
             style={{
               background: '#ffffff',
               color: '#dc2626',
