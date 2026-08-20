@@ -137,7 +137,11 @@ const WISHLIST_KEY = 'seedhegaonse_wishlist';
 const loadWishlist = () => {
   try {
     const saved = localStorage.getItem(WISHLIST_KEY);
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed)
+      ? parsed.map((item) => (typeof item === 'object' && item !== null ? (item._id || item.id) : item).toString())
+      : [];
   } catch {
     return [];
   }
@@ -175,7 +179,7 @@ const Homepage = ({ addToCart, addedToast }) => {
 
     const fetchBackendWishlist = async () => {
       const token = getAuthToken();
-      if (!token) return; // Not logged in -> LocalStorage wishlist already loaded
+      if (!token) return;
 
       try {
         const res = await fetch(`${API_BASE}/wishlist`, {
@@ -188,13 +192,12 @@ const Homepage = ({ addToCart, addedToast }) => {
         const data = await res.json();
 
         if (res.ok && Array.isArray(data)) {
-          // Extract string IDs from populated backend response
           const serverWishlistIds = data
             .map((item) => (typeof item === 'object' && item !== null ? (item._id || item.id) : item))
             .filter(Boolean)
             .map((id) => id.toString());
 
-          // Merge local & server wishlist IDs
+          // Merge local dummy/saved items & server wishlist IDs
           const merged = Array.from(new Set([...loadWishlist(), ...serverWishlistIds]));
           setWishlist(merged);
           localStorage.setItem(WISHLIST_KEY, JSON.stringify(merged));
@@ -231,32 +234,42 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => observer.disconnect();
   }, [products]);
 
-  // Check if item is wishlisted
+  // Check if item is wishlisted (Handles both Object & String IDs)
   const isWishlisted = (productId) => {
     if (!productId) return false;
-    return wishlist.some((id) => id?.toString() === productId?.toString());
+    const targetId = productId.toString();
+    return wishlist.some((id) => {
+      const cleanId = typeof id === 'object' && id !== null ? (id._id || id.id) : id;
+      return cleanId?.toString() === targetId;
+    });
   };
 
-  // 🟢 2. FIXED TOGGLE WISHLIST (Smooth & Never Disappears)
+  // 🟢 2. FIXED TOGGLE WISHLIST (Works perfectly for Dummy & Live Products)
   const toggleWishlist = async (e, productId) => {
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!productId) return;
 
     const pIdStr = productId.toString();
-    const isCurrentlyLiked = isWishlisted(pIdStr);
 
-    // 1. Instant UI update & Local Storage Save
-    let updatedWishlist;
-    if (isCurrentlyLiked) {
-      updatedWishlist = wishlist.filter((id) => id?.toString() !== pIdStr);
-    } else {
-      updatedWishlist = [...wishlist, pIdStr];
-    }
-    
-    setWishlist(updatedWishlist);
-    localStorage.setItem(WISHLIST_KEY, JSON.stringify(updatedWishlist));
+    // Functional update avoids state closure issues
+    setWishlist((prevWishlist) => {
+      const cleanList = prevWishlist.map((id) =>
+        (typeof id === 'object' && id !== null ? (id._id || id.id) : id)?.toString()
+      ).filter(Boolean);
 
-    // 2. If logged in & Real MongoDB ID -> Sync with Backend
+      const isCurrentlyLiked = cleanList.includes(pIdStr);
+      const updated = isCurrentlyLiked
+        ? cleanList.filter((id) => id !== pIdStr)
+        : [...cleanList, pIdStr];
+
+      localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
+      return updated;
+    });
+
+    // If logged in & Real MongoDB ID -> Sync with Backend (Dummy IDs are kept locally)
     const token = getAuthToken();
     const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(pIdStr);
 
@@ -443,6 +456,7 @@ const Homepage = ({ addToCart, addedToast }) => {
 
                     {/* ❤️ HEART / WISHLIST BUTTON */}
                     <button
+                      type="button"
                       className={`like-btn ${liked ? 'liked' : ''}`}
                       onClick={(e) => toggleWishlist(e, p._id)}
                       aria-label={liked ? 'Remove from wishlist' : 'Add to wishlist'}
@@ -456,7 +470,8 @@ const Homepage = ({ addToCart, addedToast }) => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                        zIndex: 3
                       }}
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke={liked ? '#ef4444' : '#4b5563'} strokeWidth="2.2">

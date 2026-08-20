@@ -2,12 +2,96 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Wishlist.css';
 
+// 🟢 Import Local Dummy Images
+import dummy1 from '../assets/dumy1.png';
+import dummy2 from '../assets/dumy2.png';
+import dummy3 from '../assets/dumy3.png';
+import dummy4 from '../assets/dumy4.png';
+import dummy5 from '../assets/dumy5.png';
+import dummy6 from '../assets/dumy6.png';
+import dummy7 from '../assets/dumy7.png';
+
 // 🟢 Dynamic Base API URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
+const WISHLIST_KEY = 'seedhegaonse_wishlist';
+
+// 🟢 DUMMY PRODUCTS LIST
+const DUMMY_PRODUCTS = [
+  {
+    _id: 'dummy-1',
+    name: 'Pure Desi Ghee Motichoor Ladoo',
+    price: 480,
+    category: 'ladoo',
+    originRegion: 'Jodhpur',
+    description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios.',
+    image: dummy1,
+    inStock: true
+  },
+  {
+    _id: 'dummy-2',
+    name: 'Traditional Mathura Peda',
+    price: 520,
+    category: 'peda',
+    originRegion: 'Mathura',
+    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours.',
+    image: dummy2,
+    inStock: true
+  },
+  {
+    _id: 'dummy-3',
+    name: 'Royal Agra Kesar Angoori Petha',
+    price: 360,
+    category: 'petha',
+    originRegion: 'Agra',
+    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron.',
+    image: dummy3,
+    inStock: true
+  },
+  {
+    _id: 'dummy-4',
+    name: 'Diamond Silver Foil Kaju Katli',
+    price: 950,
+    category: 'barfi',
+    originRegion: 'Delhi NCR',
+    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark.',
+    image: dummy4,
+    inStock: true
+  },
+  {
+    _id: 'dummy-5',
+    name: 'Jaipuri Malai Rabdi Ghewar',
+    price: 650,
+    category: 'special',
+    originRegion: 'Jaipur',
+    description: 'Crispy honeycomb disc soaked in sugar syrup and topped with rich cardamom rabdi.',
+    image: dummy5,
+    inStock: true
+  },
+  {
+    _id: 'dummy-6',
+    name: 'Alwar Famous Danedar Milk Cake',
+    price: 540,
+    category: 'barfi',
+    originRegion: 'Alwar',
+    description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
+    image: dummy6,
+    inStock: true
+  },
+  {
+    _id: 'dummy-7',
+    name: 'Hisar ki malai',
+    price: 540,
+    category: 'barfi',
+    originRegion: 'Alwar',
+    description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
+    image: dummy7,
+    inStock: true
+  }
+];
 
 // 🟢 Helper to get Token
 const getAuthToken = () => {
@@ -28,12 +112,19 @@ const getAuthToken = () => {
   return null;
 };
 
-// 🟢 Backend Image Formatter with Fallback
+// 🟢 Backend & Local Image Formatter with Fallback
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
     return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
   }
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+  if (
+    imagePath.startsWith('http://') ||
+    imagePath.startsWith('https://') ||
+    imagePath.startsWith('data:') ||
+    imagePath.startsWith('blob:') ||
+    imagePath.startsWith('/src/') ||
+    imagePath.startsWith('/assets/')
+  ) {
     return imagePath;
   }
   const cleanPath = imagePath.replace(/\\/g, '/');
@@ -46,40 +137,67 @@ const Wishlist = ({ addToCart, addedToast }) => {
   const [wishlistItems, setWishlistItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [localToast, setLocalToast] = useState(''); // 🟢 Self-handling Toast
+  const [localToast, setLocalToast] = useState('');
 
-  // 1. FETCH USER WISHLIST FROM BACKEND
+  // 1. FETCH WISHLIST (Combines Local Storage Dummy Items + Backend Items)
   const fetchWishlist = async () => {
-    const token = getAuthToken();
-    if (!token) {
-      setLoading(false);
-      setError('Please sign in to view your saved sweets.');
-      return;
-    }
-
     try {
       setLoading(true);
       setError('');
-      const res = await fetch(`${API_BASE}/wishlist`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+
+      // Load saved wishlist IDs from localStorage
+      let localIds = [];
+      try {
+        const saved = localStorage.getItem(WISHLIST_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          localIds = Array.isArray(parsed)
+            ? parsed.map((item) => (typeof item === 'object' && item !== null ? (item._id || item.id) : item).toString())
+            : [];
+        }
+      } catch (e) {
+        console.error('Error reading local wishlist:', e);
+      }
+
+      // Filter local dummy products that match wishlist IDs
+      const localDummyMatches = DUMMY_PRODUCTS.filter((d) => localIds.includes(d._id.toString()));
+
+      const token = getAuthToken();
+      let serverItems = [];
+
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE}/wishlist`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          const data = await res.json();
+          if (res.ok && Array.isArray(data)) {
+            serverItems = data.filter((item) => item !== null && typeof item === 'object');
+          }
+        } catch (err) {
+          console.warn('Backend wishlist fetch failed, using local items:', err);
+        }
+      }
+
+      // Merge backend items and dummy items (deduplicated by _id)
+      const combinedMap = new Map();
+      [...localDummyMatches, ...serverItems].forEach((item) => {
+        const id = (item._id || item.id)?.toString();
+        if (id && !combinedMap.has(id)) {
+          combinedMap.set(id, item);
         }
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to fetch wishlist');
-      }
-
-      // Filter out null or deleted products
-      const validItems = Array.isArray(data) ? data.filter(item => item !== null && typeof item === 'object') : [];
-      setWishlistItems(validItems);
+      const finalItems = Array.from(combinedMap.values());
+      setWishlistItems(finalItems);
     } catch (err) {
       console.error('Fetch Wishlist Error:', err);
-      setError(err.message || 'Unable to connect to server.');
+      setError('Unable to load saved sweets.');
     } finally {
       setLoading(false);
     }
@@ -89,37 +207,57 @@ const Wishlist = ({ addToCart, addedToast }) => {
     fetchWishlist();
   }, []);
 
-  // 2. REMOVE ITEM FROM WISHLIST
+  // 2. REMOVE ITEM FROM WISHLIST (Syncs Local Storage + Backend)
   const handleRemove = async (e, productId) => {
     e.stopPropagation();
-    const token = getAuthToken();
-    if (!token) return;
+    if (!productId) return;
 
+    const pIdStr = productId.toString();
     const prevItems = [...wishlistItems];
-    setWishlistItems((prev) => prev.filter((item) => (item._id || item.id) !== productId));
 
+    // Update UI State
+    setWishlistItems((prev) => prev.filter((item) => (item._id || item.id)?.toString() !== pIdStr));
+
+    // Update LocalStorage
     try {
-      const res = await fetch(`${API_BASE}/wishlist/toggle/${productId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!res.ok) {
-        setWishlistItems(prevItems);
+      const saved = localStorage.getItem(WISHLIST_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const updated = parsed.filter(
+          (id) => (typeof id === 'object' && id !== null ? (id._id || id.id) : id)?.toString() !== pIdStr
+        );
+        localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
       }
     } catch (err) {
-      console.error('Remove from wishlist error:', err);
-      setWishlistItems(prevItems);
+      console.error('LocalStorage update error:', err);
+    }
+
+    // Backend Sync if logged in and valid MongoDB ID
+    const token = getAuthToken();
+    const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(pIdStr);
+
+    if (token && isValidMongoId) {
+      try {
+        const res = await fetch(`${API_BASE}/wishlist/toggle/${pIdStr}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          setWishlistItems(prevItems);
+        }
+      } catch (err) {
+        console.error('Remove from wishlist error:', err);
+        setWishlistItems(prevItems);
+      }
     }
   };
 
-  // 🟢 3. BULLETPROOF ADD TO CART FUNCTION
+  // 🟢 3. ADD TO CART FUNCTION
   const handleProductAddToCart = (p) => {
-    console.log('Adding to cart:', p.name);
-
     const formattedItem = {
       id: p._id || p.id,
       _id: p._id || p.id,
@@ -131,11 +269,9 @@ const Wishlist = ({ addToCart, addedToast }) => {
       quantity: 1
     };
 
-    // Step A: Agar App.jsx se addToCart prop mila hai toh call karein
     if (typeof addToCart === 'function') {
       addToCart(formattedItem);
     } else {
-      // Step B: Fallback agar prop pass nahi hua toh direct localStorage update karein
       try {
         const savedCart = JSON.parse(localStorage.getItem('cart') || localStorage.getItem('cartItems') || '[]');
         const existingIndex = savedCart.findIndex(item => (item.id || item._id) === formattedItem.id);
@@ -149,7 +285,6 @@ const Wishlist = ({ addToCart, addedToast }) => {
         localStorage.setItem('cart', JSON.stringify(savedCart));
         localStorage.setItem('cartItems', JSON.stringify(savedCart));
 
-        // Trigger event so Navbar updates count
         window.dispatchEvent(new Event('storage'));
         window.dispatchEvent(new Event('cartUpdated'));
       } catch (err) {
@@ -157,7 +292,6 @@ const Wishlist = ({ addToCart, addedToast }) => {
       }
     }
 
-    // Step C: Instant Toast Notification show karein
     setLocalToast(p.name);
     setTimeout(() => {
       setLocalToast('');
@@ -193,24 +327,13 @@ const Wishlist = ({ addToCart, addedToast }) => {
         </p>
       </div>
 
-      {/* ERROR / LOGIN REQUIRED STATE */}
-      {error ? (
-        <div className="wishlist-empty-card">
-          <span className="empty-icon">🔒</span>
-          <h3>{error}</h3>
-          <p>Login to your account to view your saved sweets across devices.</p>
-          <button className="wishlist-btn-primary" onClick={() => navigate('/auth')}>
-            Sign In / Register
-          </button>
-        </div>
-      ) : loading ? (
-        /* LOADING STATE */
+      {/* ERROR / LOADING / EMPTY / GRID */}
+      {loading ? (
         <div className="wishlist-loading-state">
           <div className="wishlist-spinner"></div>
           <p>Loading your saved sweets...</p>
         </div>
       ) : wishlistItems.length === 0 ? (
-        /* EMPTY STATE */
         <div className="wishlist-empty-card">
           <span className="empty-icon">❤</span>
           <h3>Your Wishlist is Empty</h3>
@@ -220,10 +343,9 @@ const Wishlist = ({ addToCart, addedToast }) => {
           </button>
         </div>
       ) : (
-        /* 🟢 PRODUCTS GRID */
         <div className="wishlist-grid">
           {wishlistItems.map((p) => (
-            <div key={p._id} className="wishlist-card">
+            <div key={p._id || p.id} className="wishlist-card">
               <div className="wishlist-image-wrap">
                 {p.originRegion && (
                   <span className="wishlist-badge">📍 {p.originRegion}</span>
@@ -232,7 +354,7 @@ const Wishlist = ({ addToCart, addedToast }) => {
                 {/* Remove Cross Button */}
                 <button
                   className="wishlist-remove-btn"
-                  onClick={(e) => handleRemove(e, p._id)}
+                  onClick={(e) => handleRemove(e, p._id || p.id)}
                   title="Remove from wishlist"
                   aria-label="Remove"
                 >
