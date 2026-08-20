@@ -26,6 +26,17 @@ const customerSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// 🟢 Chat Message Schema
+const messageSchema = new mongoose.Schema(
+  {
+    sender: { type: String, enum: ['admin', 'customer'], required: true },
+    senderName: { type: String, default: '' },
+    text: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+  },
+  { _id: true }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
@@ -44,15 +55,11 @@ const orderSchema = new mongoose.Schema(
       default: 'pending'
     },
 
-    // Manual UPI reference
     upiTransactionId: { type: String },
-
-    // Razorpay fields
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },
     razorpaySignature: { type: String },
 
-    // 🟢 FIXED: Capitalized + Lowercase dono allow kiye hain taaki koi validation error na aaye
     orderStatus: {
       type: String,
       enum: [
@@ -60,6 +67,12 @@ const orderSchema = new mongoose.Schema(
         'placed', 'confirmed', 'dispatched', 'delivered', 'cancelled', 'processing', 'shipped'
       ],
       default: 'Placed'
+    },
+
+    // 🟢 Chat Messages history per order
+    messages: {
+      type: [messageSchema],
+      default: []
     }
   },
   { timestamps: true }

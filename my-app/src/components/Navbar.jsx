@@ -110,6 +110,14 @@ const Navbar = ({
 
   const isUserAuthenticated = Boolean(localStorage.getItem('token') && userData);
 
+  // 🟢 Admin check — adjust the field name below to match whatever your
+  // backend actually sends inside the user object (role / isAdmin / userType etc.)
+  const isAdminUser = Boolean(
+    userData?.role === 'admin' ||
+    userData?.isAdmin === true ||
+    userData?.userType === 'admin'
+  );
+
   // Real User Name extraction
   const displayName = userData?.name || userData?.fullName || userData?.username || (userData?.email ? userData.email.split('@')[0] : '') || userName || 'User';
   const userInitial = displayName ? displayName.charAt(0).toUpperCase() : 'U';
@@ -222,6 +230,15 @@ const Navbar = ({
 
                     {/* Quick Links */}
                     <ul className="dropdown-links-list">
+                      {/* 🟢 ADMIN DASHBOARD — sirf admin user ko dikhega */}
+                      {isAdminUser && (
+                        <li>
+                          <button onClick={() => { setAccountMenuOpen(false); navigate('/admin'); }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            Admin Dashboard
+                          </button>
+                        </li>
+                      )}
                       <li>
                         <button onClick={() => { setAccountMenuOpen(false); navigate('/my-orders'); }}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
@@ -261,18 +278,7 @@ const Navbar = ({
             )}
 
             {/* ⭐ WISHLIST TRIGGER (SIRF LOGIN HONE PAR HI SHOW HOGA) */}
-            {isUserAuthenticated && (
-              <div 
-                className="wishlist-trigger cart-bounce" 
-                title="View Wishlist" 
-                onClick={handleWishlistAction}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                </svg>
-                {wishlistCount > 0 && <span className="cart-count wishlist-badge">{wishlistCount}</span>}
-              </div>
-            )}
+           
 
             {/* CART TRIGGER */}
             <div className="cart-trigger cart-bounce" title="View Cart" onClick={onCartClick}>
@@ -315,6 +321,13 @@ const Navbar = ({
             <li>
               <Link to="/" onClick={closeMobileMenu}>Home</Link>
             </li>
+
+            {/* 🟢 Mobile Admin Dashboard Link (Sirf admin par) */}
+            {isUserAuthenticated && isAdminUser && (
+              <li>
+                <Link to="/admin" onClick={closeMobileMenu}>Admin Dashboard</Link>
+              </li>
+            )}
 
             {/* Mobile Wishlist Link (Sirf Login par) */}
             {isUserAuthenticated && (

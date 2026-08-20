@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
+import banner1 from '../assets/banner1.png';
+import banner2 from '../assets/banner2.png';
+import dummy1 from '../assets/dumy1.png';
+import dummy2 from '../assets/dumy2.png';
+import dummy3 from '../assets/dumy3.png';
+import dummy4 from '../assets/dumy4.png';
+import dummy5 from '../assets/dumy5.png';
+import dummy6 from '../assets/dumy6.png';
+import dummy7 from '../assets/dumy7.png';
+import dummy8 from '../assets/dumy8.png';
 
-// 🟢 Dynamic API & Server Base Configuration
+
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
@@ -19,7 +29,7 @@ const DUMMY_PRODUCTS = [
     category: 'ladoo',
     originRegion: 'Jodhpur',
     description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios.',
-    image: "https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-07-31-6a6c5190d063c.png",
+    image: dummy1,
     inStock: true
   },
   {
@@ -29,7 +39,7 @@ const DUMMY_PRODUCTS = [
     category: 'peda',
     originRegion: 'Mathura',
     description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours.',
-    image: "https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e4b18431ae.png",
+    image: dummy2,
     inStock: true
   },
   {
@@ -39,7 +49,7 @@ const DUMMY_PRODUCTS = [
     category: 'petha',
     originRegion: 'Agra',
     description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron.',
-    image: "https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e468293d75.png",
+    image:dummy3 ,
     inStock: true
   },
   {
@@ -49,7 +59,7 @@ const DUMMY_PRODUCTS = [
     category: 'barfi',
     originRegion: 'Delhi NCR',
     description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark.',
-    image: 'https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e4a022f488.png',
+    image: dummy4,
     inStock: true
   },
   {
@@ -59,7 +69,7 @@ const DUMMY_PRODUCTS = [
     category: 'special',
     originRegion: 'Jaipur',
     description: 'Crispy honeycomb disc soaked in sugar syrup and topped with rich cardamom rabdi.',
-    image: 'https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e468293d75.png',
+    image: dummy5,
     inStock: true
   },
   {
@@ -69,7 +79,7 @@ const DUMMY_PRODUCTS = [
     category: 'barfi',
     originRegion: 'Alwar',
     description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
-    image: 'https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e404916f2c.png',
+    image: dummy6,
     inStock: true
   }
   ,
@@ -80,7 +90,7 @@ const DUMMY_PRODUCTS = [
     category: 'barfi',
     originRegion: 'Alwar',
     description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
-    image:"https://seedhegaonse.in/storage/app/public/product/thumbnail/2026-06-26-6a3e4b18431ae.png",
+    image: dummy7,
     inStock: true
   }
 
@@ -110,9 +120,22 @@ const getImageUrl = (imagePath) => {
   if (!imagePath) {
     return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
   }
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+
+  // 🟢 Locally imported (bundled) images are already fully resolved by the
+  // bundler (Vite/CRA) — e.g. "/src/assets/dummy1.png" or
+  // "/assets/dummy1-abc123.png". These are NOT backend-relative paths,
+  // so we must never prepend SERVER_HOST to them, or the URL breaks.
+  if (
+    imagePath.startsWith('http://') ||
+    imagePath.startsWith('https://') ||
+    imagePath.startsWith('data:') ||
+    imagePath.startsWith('blob:') ||
+    imagePath.startsWith('/src/') ||     // vite dev-served local assets
+    imagePath.startsWith('/assets/')     // vite/CRA build-hashed local assets
+  ) {
     return imagePath;
   }
+
   const cleanPath = imagePath.replace(/\\/g, '/');
   const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
   return `${SERVER_HOST}${normalizedPath}`;
@@ -261,14 +284,14 @@ const Homepage = ({ addToCart, addedToast }) => {
   const heroSlides = [
     {
       id: 1,
-      image: "https://seedhegaonse.in/storage/app/public/banner/2026-06-28-6a415293d55d6.png",
+      image: banner1,
       subtitle: '',
       title: '',
       description: ''
     },
     {
       id: 2,
-      image: "https://seedhegaonse.in/storage/app/public/banner/2026-06-26-6a3e4fac3d1a0.png",
+      image: banner2,
       subtitle: '',
       title: '',
       description: ''

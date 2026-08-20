@@ -16,7 +16,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(42, 34, 15, 0.6);
   backdrop-filter: blur(2px);
   z-index: 998;
   opacity: 0;
@@ -32,7 +32,7 @@
 .admin-sidebar {
   width: 260px;
   min-width: 260px;
-  background: #0f172a;
+  background: #463011;
   color: #fff;
   display: flex;
   flex-direction: column;

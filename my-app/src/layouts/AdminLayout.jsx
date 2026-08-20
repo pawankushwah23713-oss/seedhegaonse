@@ -79,19 +79,13 @@ const AdminLayout = ({ user, onLogout }) => {
             ➕ <span>Add New Sweet</span>
           </NavLink>
 
-          <NavLink 
-            to="/admin/users" 
-            onClick={closeSidebar}
-            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
-          >
-            👥 <span>Registered Users</span>
-          </NavLink>
+          
         </nav>
 
         {/* Sidebar Footer Actions */}
         <div className="admin-sidebar-footer">
           <Link to="/" className="admin-link live-store-btn" target="_blank" onClick={closeSidebar}>
-            🌐 <span>View Live Store</span>
+            🌐 <span>Home</span>
           </Link>
 
           <button onClick={handleAdminLogout} className="admin-link logout-btn">

@@ -1,15 +1,13 @@
 // controllers/order.controller.js
-
 const Order = require('../models/Order.model');
 
-// 🟢 1. Customer ke apne orders lana (MyOrders.jsx ke liye)
+// 1. Customer Orders
 exports.getMyOrders = async (req, res) => {
   try {
     const userId = req.user?._id || req.user?.id;
     const userEmail = req.user?.email;
     const userPhone = req.user?.phone;
 
-    // Filter: User ID se match kare ya Customer ke email/phone se
     const query = {
       $or: [
         ...(userId ? [{ user: userId }] : []),
@@ -18,9 +16,7 @@ exports.getMyOrders = async (req, res) => {
       ]
     };
 
-    // Agar query khali hai (fallback)
     const filter = query.$or.length > 0 ? query : { user: userId };
-
     const orders = await Order.find(filter).sort({ createdAt: -1 });
     return res.status(200).json(orders);
   } catch (err) {
@@ -29,7 +25,7 @@ exports.getMyOrders = async (req, res) => {
   }
 };
 
-// 🟢 2. Admin ke liye saare customer orders lana (AdminOrders.jsx ke liye)
+// 2. Admin All Orders
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
@@ -52,14 +48,15 @@ exports.createOrder = async (req, res) => {
     const isUpi = paymentMethod === 'UPI';
 
     const order = await Order.create({
-      user: req.user?._id || req.user?.id || undefined, // Logged in user link ho jayega
+      user: req.user?._id || req.user?.id || undefined,
       customer,
       orderItems,
       totalAmount,
       paymentMethod: isUpi ? 'UPI' : (paymentMethod || 'COD'),
       paymentStatus: isUpi ? 'pending_verification' : 'pending',
       orderStatus: 'Placed',
-      upiTransactionId: upiTransactionId || undefined
+      upiTransactionId: upiTransactionId || undefined,
+      messages: []
     });
 
     const io = req.app.get('io');
@@ -112,7 +109,51 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// 6. Delete Order
+// 🟢 6. ORDER LIVE CHAT (Admin & Customer ke messages save aur broadcast karna)
+exports.sendOrderMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text, sender, senderName } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: 'Message text cannot be empty.' });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const newMessage = {
+      sender: sender || (req.user?.role === 'admin' ? 'admin' : 'customer'),
+      senderName: senderName || req.user?.name || (sender === 'admin' ? 'Admin / Support' : 'Customer'),
+      text: text.trim(),
+      createdAt: new Date()
+    };
+
+    order.messages.push(newMessage);
+    await order.save();
+
+    // 🟢 Real-time Socket Event Emit
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('order_chat_message', {
+        orderId: id,
+        message: order.messages[order.messages.length - 1]
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Message sent successfully',
+      chatMessage: order.messages[order.messages.length - 1]
+    });
+  } catch (err) {
+    console.error('sendOrderMessage error:', err);
+    return res.status(500).json({ message: 'Failed to send message: ' + err.message });
+  }
+};
+
+// 7. Delete Order
 exports.deleteOrder = async (req, res) => {
   try {
     const order = await Order.findByIdAndDelete(req.params.id);
