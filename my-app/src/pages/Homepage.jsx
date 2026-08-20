@@ -347,8 +347,15 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
-  // ADD TO CART
+  // ADD TO CART (AUTH CHECKED)
   const handleProductAddToCart = (p) => {
+    const token = getAuthToken();
+    if (!token) {
+      setAuthAlert('Please login first to add items to your cart!');
+      setTimeout(() => setAuthAlert(''), 4000);
+      return false;
+    }
+
     addToCart({
       id: p._id,
       name: p.name,
@@ -356,6 +363,7 @@ const Homepage = ({ addToCart, addedToast }) => {
       img: getImageUrl(p.image),
       originRegion: p.originRegion
     });
+    return true;
   };
 
   const faqList = [
@@ -574,6 +582,37 @@ const Homepage = ({ addToCart, addedToast }) => {
         </svg>
       </a>
 
+      {/* AUTH REQUIRED ALERT */}
+      {authAlert && (
+        <div 
+          className="cart-toast fade-slide-up"
+          style={{ 
+            background: '#dc2626', 
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}
+        >
+          <span>⚠️ {authAlert}</span>
+          <button
+            onClick={() => navigate('/login')}
+            style={{
+              background: '#ffffff',
+              color: '#dc2626',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            Login Now
+          </button>
+        </div>
+      )}
+
       {/* TOAST NOTIFICATION */}
       {addedToast && !authAlert && (
         <div className="cart-toast fade-slide-up">
@@ -642,8 +681,8 @@ const Homepage = ({ addToCart, addedToast }) => {
                 <button
                   className="modal-btn-cart"
                   onClick={() => {
-                    handleProductAddToCart(selectedProduct);
-                    setSelectedProduct(null);
+                    const added = handleProductAddToCart(selectedProduct);
+                    if (added) setSelectedProduct(null);
                   }}
                   disabled={selectedProduct.inStock === false}
                 >
