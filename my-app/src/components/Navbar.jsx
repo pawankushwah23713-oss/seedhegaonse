@@ -257,12 +257,7 @@ const Navbar = ({
                           Account Settings
                         </button>
                       </li>
-                      <li>
-                        <button onClick={() => { setAccountMenuOpen(false); navigate('/support'); }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                          Help & Support
-                        </button>
-                      </li>
+                     
                     </ul>
 
                     <div className="dropdown-divider"></div>
@@ -344,8 +339,8 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'about' && (
                 <ul className="mobile-submenu">
-                  <li><a href="#our-story" onClick={closeMobileMenu}>Our Story</a></li>
-                  <li><a href="#why-choose-us" onClick={closeMobileMenu}>Why Choose Us</a></li>
+                  <li><a href="/AboutUs" onClick={closeMobileMenu}>Our Story</a></li>
+                  <li><a href="/why-us" onClick={closeMobileMenu}>Why Choose Us</a></li>
                   <li><a href="#artisans" onClick={closeMobileMenu}>Village Artisans</a></li>
                 </ul>
               )}
@@ -368,7 +363,7 @@ const Navbar = ({
             </li>
 
             <li><a href="#offers" onClick={closeMobileMenu}>Offers</a></li>
-            <li><a href="#contact-us" onClick={closeMobileMenu}>Contact Us</a></li>
+            <li><a href="/contact-us" onClick={closeMobileMenu}>Contact Us</a></li>
 
             {/* Mobile Auth Button */}
             <li className="mobile-auth-btn">
