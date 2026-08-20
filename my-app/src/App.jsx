@@ -38,6 +38,7 @@ import CancellationPolicy from './pages/CancellationPolicy';
 import TopRatedProducts from "./pages/TopRatedProducts"
 import TermsAndConditions from './pages/TermsAndConditions';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import AdminInquiries from './pages/admincontact';
 
 
 // Inner Wrapper: Hide Navbar/Footer on Admin screen
@@ -191,6 +192,7 @@ const AppContent = ({
             <Route path="orders" element={<AdminOrders />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="add-product" element={<AdminAddProduct />} />
+             <Route path="admincontact" element={<AdminInquiries />} />
            
           </Route>
         </Route>

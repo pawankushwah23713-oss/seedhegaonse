@@ -80,6 +80,15 @@ const AdminLayout = ({ user, onLogout }) => {
           </NavLink>
 
           
+           <NavLink 
+            to="/admin/admincontact" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Customer Inquiries</span>
+          </NavLink>
+
+          
         </nav>
 
         {/* Sidebar Footer Actions */}
