@@ -1,20 +1,21 @@
 const mongoose = require('mongoose');
 
-const likeSchema = new mongoose.Schema({
-  // Kis user ki wishlist hai
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true
-  },
-  // Us user ke liked products
-  products: [
-    {
+const likeSchema = new mongoose.Schema(
+  {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product'
-    }
-  ]
-}, { timestamps: true });
+      ref: 'User',
+      required: true,
+      unique: true // Ek user ka ek hi wishlist document rahega
+    },
+    products: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+      }
+    ]
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('Like', likeSchema);
+module.exports = mongoose.models.Like || mongoose.model('Like', likeSchema);

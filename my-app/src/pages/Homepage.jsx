@@ -10,17 +10,15 @@ import dummy4 from '../assets/dumy4.png';
 import dummy5 from '../assets/dumy5.png';
 import dummy6 from '../assets/dumy6.png';
 import dummy7 from '../assets/dumy7.png';
-import dummy8 from '../assets/dumy8.png';
 
-
+// 🟢 Backend URL (Port 5000 Default)
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'http://localhost:3000/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 
-// 🟢 DUMMY PRODUCTS (Ye hamesha pehle dikhenge)
-// Aap apni images ke links yahan replace kar sakte hain
+// 🟢 DUMMY PRODUCTS (Agar backend empty ho tab ke liye)
 const DUMMY_PRODUCTS = [
   {
     _id: 'dummy-1',
@@ -49,7 +47,7 @@ const DUMMY_PRODUCTS = [
     category: 'petha',
     originRegion: 'Agra',
     description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron.',
-    image:dummy3 ,
+    image: dummy3,
     inStock: true
   },
   {
@@ -81,9 +79,8 @@ const DUMMY_PRODUCTS = [
     description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
     image: dummy6,
     inStock: true
-  }
-  ,
-{
+  },
+  {
     _id: 'dummy-7',
     name: 'Hisar ki malai',
     price: 540,
@@ -93,10 +90,9 @@ const DUMMY_PRODUCTS = [
     image: dummy7,
     inStock: true
   }
-
 ];
 
-// 🟢 Bulletproof Helper to get JWT Token
+// Helper to get JWT Token
 const getAuthToken = () => {
   try {
     const directToken = localStorage.getItem('token') || 
@@ -115,23 +111,19 @@ const getAuthToken = () => {
   return null;
 };
 
-// 🟢 Backend Image Formatter with Fallback
+// Image Path Formatter
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
     return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
   }
 
-  // 🟢 Locally imported (bundled) images are already fully resolved by the
-  // bundler (Vite/CRA) — e.g. "/src/assets/dummy1.png" or
-  // "/assets/dummy1-abc123.png". These are NOT backend-relative paths,
-  // so we must never prepend SERVER_HOST to them, or the URL breaks.
   if (
     imagePath.startsWith('http://') ||
     imagePath.startsWith('https://') ||
     imagePath.startsWith('data:') ||
     imagePath.startsWith('blob:') ||
-    imagePath.startsWith('/src/') ||     // vite dev-served local assets
-    imagePath.startsWith('/assets/')     // vite/CRA build-hashed local assets
+    imagePath.startsWith('/src/') ||
+    imagePath.startsWith('/assets/')
   ) {
     return imagePath;
   }
@@ -141,7 +133,6 @@ const getImageUrl = (imagePath) => {
   return `${SERVER_HOST}${normalizedPath}`;
 };
 
-// 🟢 Wishlist localStorage helpers
 const WISHLIST_KEY = 'seedhegaonse_wishlist';
 const loadWishlist = () => {
   try {
@@ -154,7 +145,6 @@ const loadWishlist = () => {
 
 const Homepage = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
-  // 🟢 Initially dummy products render honge taaki screen khali na lage
   const [products, setProducts] = useState(DUMMY_PRODUCTS);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
@@ -163,7 +153,7 @@ const Homepage = ({ addToCart, addedToast }) => {
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
 
-  // 1. FETCH LIVE PRODUCTS & MERGE (Dummy First, Live Second)
+  // 🟢 1. FETCH LIVE PRODUCTS & SYNC BACKEND WISHLIST
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
@@ -171,17 +161,13 @@ const Homepage = ({ addToCart, addedToast }) => {
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
         
-        if (res.ok && Array.isArray(data)) {
-          // 🟢 Dummy pehle + Backend products baad me
-          // Agar aap backend ke items ke saath duplicate avoid karna chahte hain:
+        if (res.ok && Array.isArray(data) && data.length > 0) {
           const backendIds = new Set(data.map((item) => item._id));
           const uniqueDummies = DUMMY_PRODUCTS.filter((d) => !backendIds.has(d._id));
-          
-          setProducts([...uniqueDummies, ...data]);
+          setProducts([...data, ...uniqueDummies]);
         }
       } catch (err) {
-        console.warn('Backend offline ya empty hai, dummy products active rahenge:', err);
-        setProducts(DUMMY_PRODUCTS);
+        console.warn('Backend products offline, using local dummy products:', err);
       } finally {
         setLoading(false);
       }
@@ -189,7 +175,7 @@ const Homepage = ({ addToCart, addedToast }) => {
 
     const fetchBackendWishlist = async () => {
       const token = getAuthToken();
-      if (!token) return;
+      if (!token) return; // Not logged in -> LocalStorage wishlist already loaded
 
       try {
         const res = await fetch(`${API_BASE}/wishlist`, {
@@ -200,14 +186,21 @@ const Homepage = ({ addToCart, addedToast }) => {
           }
         });
         const data = await res.json();
+
         if (res.ok && Array.isArray(data)) {
-          const serverWishlistIds = data.map((item) => 
-            typeof item === 'object' && item !== null ? (item._id || item.id || item).toString() : item.toString()
-          );
-          setWishlist(serverWishlistIds);
+          // Extract string IDs from populated backend response
+          const serverWishlistIds = data
+            .map((item) => (typeof item === 'object' && item !== null ? (item._id || item.id) : item))
+            .filter(Boolean)
+            .map((id) => id.toString());
+
+          // Merge local & server wishlist IDs
+          const merged = Array.from(new Set([...loadWishlist(), ...serverWishlistIds]));
+          setWishlist(merged);
+          localStorage.setItem(WISHLIST_KEY, JSON.stringify(merged));
         }
       } catch (err) {
-        console.error('Failed to sync wishlist from backend:', err);
+        console.error('Backend wishlist sync error:', err);
       }
     };
 
@@ -215,7 +208,12 @@ const Homepage = ({ addToCart, addedToast }) => {
     fetchBackendWishlist();
   }, []);
 
-  // 2. SCROLL REVEAL OBSERVER
+  // Save to LocalStorage whenever wishlist state updates
+  useEffect(() => {
+    localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  // Scroll Reveal Observer
   useEffect(() => {
     const revealElements = document.querySelectorAll('.reveal');
     const observer = new IntersectionObserver(
@@ -233,69 +231,54 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => observer.disconnect();
   }, [products]);
 
-  // Persist wishlist
-  useEffect(() => {
-    localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));
-  }, [wishlist]);
-
+  // Check if item is wishlisted
   const isWishlisted = (productId) => {
     if (!productId) return false;
     return wishlist.some((id) => id?.toString() === productId?.toString());
   };
 
-  // 3. TOGGLE WISHLIST (Optimistic + Backend)
+  // 🟢 2. FIXED TOGGLE WISHLIST (Smooth & Never Disappears)
   const toggleWishlist = async (e, productId) => {
     e.stopPropagation();
     if (!productId) return;
 
     const pIdStr = productId.toString();
     const isCurrentlyLiked = isWishlisted(pIdStr);
-    const previousWishlist = [...wishlist];
 
-    // Local UI update
-    const updatedWishlist = isCurrentlyLiked
-      ? wishlist.filter((id) => id?.toString() !== pIdStr)
-      : [...wishlist, pIdStr];
+    // 1. Instant UI update & Local Storage Save
+    let updatedWishlist;
+    if (isCurrentlyLiked) {
+      updatedWishlist = wishlist.filter((id) => id?.toString() !== pIdStr);
+    } else {
+      updatedWishlist = [...wishlist, pIdStr];
+    }
+    
     setWishlist(updatedWishlist);
+    localStorage.setItem(WISHLIST_KEY, JSON.stringify(updatedWishlist));
 
-    // Dummy product ya guest user ke liye backend call skip
+    // 2. If logged in & Real MongoDB ID -> Sync with Backend
     const token = getAuthToken();
-    if (!token || pIdStr.startsWith('dummy-')) return;
+    const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(pIdStr);
 
-    try {
-      const res = await fetch(`${API_BASE}/wishlist/toggle/${pIdStr}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setWishlist(previousWishlist);
+    if (token && isValidMongoId) {
+      try {
+        await fetch(`${API_BASE}/wishlist/toggle/${pIdStr}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (err) {
+        console.warn('Backend sync failed, saved locally:', err);
       }
-    } catch (err) {
-      setWishlist(previousWishlist);
     }
   };
 
-  // HERO SLIDER DATA
+  // HERO SLIDER
   const heroSlides = [
-    {
-      id: 1,
-      image: banner1,
-      subtitle: '',
-      title: '',
-      description: ''
-    },
-    {
-      id: 2,
-      image: banner2,
-      subtitle: '',
-      title: '',
-      description: ''
-    }
+    { id: 1, image: banner1 },
+    { id: 2, image: banner2 }
   ];
 
   useEffect(() => {
@@ -305,7 +288,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
-  // SMART FILTER LOGIC
+  // SMART FILTER
   const filteredProducts = products.filter((p) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'wishlist') return isWishlisted(p._id);
@@ -316,72 +299,22 @@ const Homepage = ({ addToCart, addedToast }) => {
 
     switch (activeTab) {
       case 'ladoo':
-        return (
-          combined.includes('ladoo') ||
-          combined.includes('laddu') ||
-          combined.includes('laddoo') ||
-          combined.includes('motichoor') ||
-          combined.includes('boondi') ||
-          combined.includes('besan')
-        );
-
+        return combined.includes('ladoo') || combined.includes('laddu') || combined.includes('motichoor') || combined.includes('boondi') || combined.includes('besan');
       case 'peda':
-        return (
-          combined.includes('peda') ||
-          combined.includes('pedha') ||
-          combined.includes('pedas') ||
-          combined.includes('dharwad') ||
-          combined.includes('mathura')
-        );
-
+        return combined.includes('peda') || combined.includes('pedha') || combined.includes('mathura');
       case 'petha':
-        return (
-          combined.includes('petha') ||
-          combined.includes('agra') ||
-          combined.includes('angoori')
-        );
-
+        return combined.includes('petha') || combined.includes('agra') || combined.includes('angoori');
       case 'barfi':
-        return (
-          combined.includes('barfi') ||
-          combined.includes('burfi') ||
-          combined.includes('katli') ||
-          combined.includes('kaju') ||
-          combined.includes('milk cake') ||
-          combined.includes('kalakand') ||
-          combined.includes('mysore pak')
-        );
-
+        return combined.includes('barfi') || combined.includes('burfi') || combined.includes('katli') || combined.includes('kaju') || combined.includes('milk cake');
       case 'special':
-        return (
-          combined.includes('special') ||
-          combined.includes('ghewar') ||
-          combined.includes('ghevar') ||
-          combined.includes('rasgulla') ||
-          combined.includes('gulab jamun') ||
-          combined.includes('halwa') ||
-          combined.includes('jalebi') ||
-          combined.includes('imarti') ||
-          combined.includes('gujiya')
-        );
-
+        return combined.includes('special') || combined.includes('ghewar') || combined.includes('ghevar') || combined.includes('rasgulla') || combined.includes('gulab jamun');
       default:
         return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
     }
   });
 
-  // ADD TO CART BRIDGE
+  // ADD TO CART
   const handleProductAddToCart = (p) => {
-    const token = getAuthToken();
-
-    if (!token) {
-      setAuthAlert('Please sign in to add sweets to your cart!');
-      setTimeout(() => {
-        setAuthAlert('');
-      }, 4000);
-      return;
-    }
-
     addToCart({
       id: p._id,
       name: p.name,
@@ -397,11 +330,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     { q: 'What is the shelf life of these traditional sweets?', a: 'Our sweets remain perfectly fresh for 7 to 10 days at room temperature, and up to 15 days if refrigerated.' }
   ];
 
-  const scrollToSection = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
-
   return (
     <div className="homepage-container">
       {/* FLOATING WHATSAPP BUTTON */}
@@ -416,45 +344,6 @@ const Homepage = ({ addToCart, addedToast }) => {
           <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984 0 1.762.459 3.48 1.333 5.001L2 22l5.122-1.343c1.468.802 3.123 1.225 4.887 1.226 5.507 0 9.989-4.478 9.99-9.985 0-5.507-4.482-9.998-9.987-9.998zm5.83 14.364c-.244.685-1.41 1.309-1.974 1.393-.505.075-1.144.106-1.844-.117-.424-.135-.97-.315-1.67-.616-2.937-1.268-4.854-4.258-5.001-4.453-.146-.195-1.195-1.591-1.195-3.033 0-1.441.758-2.151 1.026-2.443.268-.293.585-.366.78-.366.195 0 .39.002.561.01.18.008.421-.068.66.505.244.585.833 2.03.906 2.176.073.146.122.317.024.512-.098.195-.146.317-.293.488-.146.171-.307.382-.439.513-.146.146-.298.305-.128.597.171.293.758 1.252 1.626 2.025 1.118.995 2.062 1.304 2.355 1.45.293.146.463.122.634-.073.171-.195.732-.853.927-1.146.195-.293.39-.244.659-.146.268.098 1.708.805 2.001.951.293.146.488.22.561.341.073.122.073.71-.171 1.395z"/>
         </svg>
       </a>
-
-      {/* CUSTOM AUTH ALERT */}
-      {authAlert && (
-        <div 
-          className="cart-toast fade-slide-up" 
-          style={{
-            position: 'fixed',
-            bottom: '30px',
-            right: '30px',
-            background: '#991b1b',
-            color: '#ffffff',
-            padding: '14px 20px',
-            borderRadius: '10px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-            fontWeight: 500
-          }}
-        >
-          <span>🔒 {authAlert}</span>
-          <button
-            onClick={() => navigate('/auth')}
-            style={{
-              background: '#f59e0b',
-              color: '#78350f',
-              border: 'none',
-              padding: '6px 14px',
-              borderRadius: '6px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontSize: '0.85rem'
-            }}
-          >
-            Sign In
-          </button>
-        </div>
-      )}
 
       {/* TOAST NOTIFICATION */}
       {addedToast && !authAlert && (
@@ -472,9 +361,7 @@ const Homepage = ({ addToCart, addedToast }) => {
             style={{ 
               backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.82) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})` 
             }}
-          >
-            
-          </div>
+          />
         ))}
 
         <div className="slider-dots">
@@ -522,7 +409,7 @@ const Homepage = ({ addToCart, addedToast }) => {
           </div>
         </div>
 
-        {/* LOADING STATE */}
+        {/* PRODUCTS GRID */}
         {loading && products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: '#b45309' }}>
             <h3>🍬 Loading fresh regional sweets...</h3>
@@ -535,7 +422,7 @@ const Homepage = ({ addToCart, addedToast }) => {
             <p style={{ color: '#b45309', margin: '8px 0 16px' }}>
               {activeTab === 'wishlist'
                 ? 'Tap the heart icon on any sweet to save it here.'
-                : 'Add authentic sweets from your Admin Panel to display here.'}
+                : 'Check back soon for fresh stock!'}
             </p>
             <button className="primary-btn" onClick={() => setActiveTab('all')}>
               View All Sweets
@@ -543,80 +430,95 @@ const Homepage = ({ addToCart, addedToast }) => {
           </div>
         ) : (
           <div className="modern-product-grid">
-            {filteredProducts.map((p) => (
-              <div key={p._id} className="modern-product-card">
-                <div className="product-image-box">
-                  {p.originRegion && (
-                    <span className="product-tag origin-tag">
-                      📍 {p.originRegion}
-                    </span>
-                  )}
+            {filteredProducts.map((p) => {
+              const liked = isWishlisted(p._id);
+              return (
+                <div key={p._id} className="modern-product-card">
+                  <div className="product-image-box">
+                    {p.originRegion && (
+                      <span className="product-tag origin-tag">
+                        📍 {p.originRegion}
+                      </span>
+                    )}
 
-                  <button
-                    className={`like-btn ${isWishlisted(p._id) ? 'liked' : ''}`}
-                    onClick={(e) => toggleWishlist(e, p._id)}
-                    aria-label={isWishlisted(p._id) ? 'Remove from wishlist' : 'Add to wishlist'}
-                    title={isWishlisted(p._id) ? 'Remove from wishlist' : 'Add to wishlist'}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted(p._id) ? '#ef4444' : 'none'} stroke={isWishlisted(p._id) ? '#ef4444' : '#4b5563'} strokeWidth="2">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                    </svg>
-                  </button>
-
-                  <img
-                    src={getImageUrl(p.image)}
-                    alt={p.name}
-                    className="zoom-on-hover"
-                    crossOrigin="anonymous"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
-                    }}
-                  />
-                </div>
-
-                <div className="product-info-box">
-                  <div className="product-rating">
-                    <span className="stars">★★★★★</span>
-                    <span className="review-count">(100% Pure Desi Ghee)</span>
-                  </div>
-
-                  <h3 className="product-name" title={p.name}>
-                    {p.name}
-                  </h3>
-
-                  {p.description && (
-                    <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '4px 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {p.description}
-                    </p>
-                  )}
-
-                  <div className="product-footer">
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span className="price">₹{p.price}</span>
-                      <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Per Box / Kg</span>
-                    </div>
-
+                    {/* ❤️ HEART / WISHLIST BUTTON */}
                     <button
-                      className="cart-btn"
-                      onClick={() => handleProductAddToCart(p)}
-                      disabled={p.inStock === false}
+                      className={`like-btn ${liked ? 'liked' : ''}`}
+                      onClick={(e) => toggleWishlist(e, p._id)}
+                      aria-label={liked ? 'Remove from wishlist' : 'Add to wishlist'}
+                      title={liked ? 'Remove from wishlist' : 'Add to wishlist'}
                       style={{
-                        opacity: p.inStock === false ? 0.6 : 1,
-                        cursor: p.inStock === false ? 'not-allowed' : 'pointer'
+                        cursor: 'pointer',
+                        background: liked ? '#fee2e2' : 'rgba(255, 255, 255, 0.9)',
+                        border: 'none',
+                        borderRadius: '50%',
+                        padding: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
                       }}
                     >
-                      {p.inStock === false ? 'Out of Stock' : '+ Add'}
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke={liked ? '#ef4444' : '#4b5563'} strokeWidth="2.2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                      </svg>
                     </button>
+
+                    <img
+                      src={getImageUrl(p.image)}
+                      alt={p.name}
+                      className="zoom-on-hover"
+                      crossOrigin="anonymous"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
+                      }}
+                    />
+                  </div>
+
+                  <div className="product-info-box">
+                    <div className="product-rating">
+                      <span className="stars">★★★★★</span>
+                      <span className="review-count">(100% Pure Desi Ghee)</span>
+                    </div>
+
+                    <h3 className="product-name" title={p.name}>
+                      {p.name}
+                    </h3>
+
+                    {p.description && (
+                      <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '4px 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {p.description}
+                      </p>
+                    )}
+
+                    <div className="product-footer">
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span className="price">₹{p.price}</span>
+                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Per Box / Kg</span>
+                      </div>
+
+                      <button
+                        className="cart-btn"
+                        onClick={() => handleProductAddToCart(p)}
+                        disabled={p.inStock === false}
+                        style={{
+                          opacity: p.inStock === false ? 0.6 : 1,
+                          cursor: p.inStock === false ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {p.inStock === false ? 'Out of Stock' : '+ Add'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* PRODUCT IMAGES GALLERY SLIDER - same images as above, auto-scrolling */}
+      {/* GALLERY SECTION */}
       {products.length > 0 && (
         <section className="gallery-slider-section reveal">
           <div className="section-heading-wrap text-center container" style={{ marginBottom: '18px' }}>
