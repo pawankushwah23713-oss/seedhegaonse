@@ -26,7 +26,7 @@ const DUMMY_PRODUCTS = [
     price: 480,
     category: 'ladoo',
     originRegion: 'Jodhpur',
-    description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios.',
+    description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios. Prepared fresh daily using traditional village methods.',
     image: dummy1,
     inStock: true
   },
@@ -36,7 +36,7 @@ const DUMMY_PRODUCTS = [
     price: 520,
     category: 'peda',
     originRegion: 'Mathura',
-    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours.',
+    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours, sourced directly from the holy city of Mathura.',
     image: dummy2,
     inStock: true
   },
@@ -46,7 +46,7 @@ const DUMMY_PRODUCTS = [
     price: 360,
     category: 'petha',
     originRegion: 'Agra',
-    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron.',
+    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron and subtle rose water essence.',
     image: dummy3,
     inStock: true
   },
@@ -56,7 +56,7 @@ const DUMMY_PRODUCTS = [
     price: 950,
     category: 'barfi',
     originRegion: 'Delhi NCR',
-    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark.',
+    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark and optimal sweetness for every festival.',
     image: dummy4,
     inStock: true
   },
@@ -66,7 +66,7 @@ const DUMMY_PRODUCTS = [
     price: 650,
     category: 'special',
     originRegion: 'Jaipur',
-    description: 'Crispy honeycomb disc soaked in sugar syrup and topped with rich cardamom rabdi.',
+    description: 'Crispy honeycomb disc soaked in saffron sugar syrup and topped with rich, thick cardamom rabdi and roasted dry fruits.',
     image: dummy5,
     inStock: true
   },
@@ -76,17 +76,17 @@ const DUMMY_PRODUCTS = [
     price: 540,
     category: 'barfi',
     originRegion: 'Alwar',
-    description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
+    description: 'Rich, caramelized brown grainy milk fudge prepared from slow-simmered fresh whole buffalo milk with no additives.',
     image: dummy6,
     inStock: true
   },
   {
     _id: 'dummy-7',
-    name: 'Hisar ki malai',
+    name: 'Hisar ki Special Malai Peda',
     price: 540,
-    category: 'barfi',
-    originRegion: 'Alwar',
-    description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
+    category: 'peda',
+    originRegion: 'Hisar',
+    description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s renowned dairy heartland.',
     image: dummy7,
     inStock: true
   }
@@ -156,6 +156,30 @@ const Homepage = ({ addToCart, addedToast }) => {
   const [openFaq, setOpenFaq] = useState(null);
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
+  
+  // 🟢 Professional Modal State (Product Details Dialog)
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Disable background scrolling when modal is open
+  useEffect(() => {
+    if (selectedProduct) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedProduct]);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setSelectedProduct(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 🟢 1. FETCH LIVE PRODUCTS & SYNC BACKEND WISHLIST
   useEffect(() => {
@@ -197,7 +221,6 @@ const Homepage = ({ addToCart, addedToast }) => {
             .filter(Boolean)
             .map((id) => id.toString());
 
-          // Merge local dummy/saved items & server wishlist IDs
           const merged = Array.from(new Set([...loadWishlist(), ...serverWishlistIds]));
           setWishlist(merged);
           localStorage.setItem(WISHLIST_KEY, JSON.stringify(merged));
@@ -234,7 +257,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => observer.disconnect();
   }, [products]);
 
-  // Check if item is wishlisted (Handles both Object & String IDs)
+  // Check if item is wishlisted
   const isWishlisted = (productId) => {
     if (!productId) return false;
     const targetId = productId.toString();
@@ -244,7 +267,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     });
   };
 
-  // 🟢 2. FIXED TOGGLE WISHLIST (Works perfectly for Dummy & Live Products)
+  // Toggle Wishlist
   const toggleWishlist = async (e, productId) => {
     if (e) {
       e.preventDefault();
@@ -254,7 +277,6 @@ const Homepage = ({ addToCart, addedToast }) => {
 
     const pIdStr = productId.toString();
 
-    // Functional update avoids state closure issues
     setWishlist((prevWishlist) => {
       const cleanList = prevWishlist.map((id) =>
         (typeof id === 'object' && id !== null ? (id._id || id.id) : id)?.toString()
@@ -269,7 +291,6 @@ const Homepage = ({ addToCart, addedToast }) => {
       return updated;
     });
 
-    // If logged in & Real MongoDB ID -> Sync with Backend (Dummy IDs are kept locally)
     const token = getAuthToken();
     const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(pIdStr);
 
@@ -345,6 +366,201 @@ const Homepage = ({ addToCart, addedToast }) => {
 
   return (
     <div className="homepage-container">
+      {/* 🌟 EMBEDDED MODAL STYLING */}
+      <style>{`
+        .product-card-interactive {
+          cursor: pointer;
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .product-card-interactive:hover {
+          transform: translateY(-4px);
+        }
+        
+        /* Modal Backdrop */
+        .product-modal-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(11, 28, 23, 0.75);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 99999;
+          padding: 16px;
+          animation: modalFadeIn 0.25s ease-out;
+        }
+
+        /* Modal Container */
+        .product-modal-card {
+          background: #ffffff;
+          border-radius: 20px;
+          max-width: 820px;
+          width: 100%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+          display: grid;
+          grid-template-columns: 1fr 1.2fr;
+          position: relative;
+          animation: modalScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @media (max-width: 768px) {
+          .product-modal-card {
+            grid-template-columns: 1fr;
+            max-height: 85vh;
+          }
+        }
+
+        .modal-close-btn {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          background: #f1f5f9;
+          border: none;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          color: #334155;
+          cursor: pointer;
+          z-index: 10;
+          transition: all 0.2s ease;
+        }
+        .modal-close-btn:hover {
+          background: #e2e8f0;
+          color: #0f172a;
+          transform: rotate(90deg);
+        }
+
+        .modal-image-col {
+          background: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          border-right: 1px solid #f1f5f9;
+        }
+        .modal-image-col img {
+          max-width: 100%;
+          max-height: 320px;
+          object-fit: contain;
+          border-radius: 12px;
+        }
+
+        .modal-info-col {
+          padding: 32px 28px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .modal-origin-badge {
+          display: inline-block;
+          background: #fef3c7;
+          color: #92400e;
+          font-size: 0.78rem;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 6px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 8px;
+          align-self: flex-start;
+        }
+
+        .modal-title {
+          font-size: 1.45rem;
+          font-weight: 800;
+          color: #0f172a;
+          margin-bottom: 8px;
+          line-height: 1.25;
+        }
+
+        .modal-price-row {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        .modal-price {
+          font-size: 1.65rem;
+          font-weight: 800;
+          color: #059669;
+        }
+        .modal-unit {
+          font-size: 0.85rem;
+          color: #64748b;
+        }
+
+        .modal-desc {
+          font-size: 0.92rem;
+          line-height: 1.6;
+          color: #475569;
+          margin-bottom: 20px;
+        }
+
+        .modal-highlights {
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          border-radius: 10px;
+          padding: 12px 14px;
+          margin-bottom: 24px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          font-size: 0.82rem;
+          color: #166534;
+          font-weight: 600;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 12px;
+        }
+        .modal-btn-cart {
+          flex: 1;
+          background: #047857;
+          color: #ffffff;
+          border: none;
+          padding: 12px 20px;
+          border-radius: 10px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .modal-btn-cart:hover {
+          background: #065f46;
+        }
+        .modal-btn-wishlist {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          padding: 0 16px;
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        @keyframes modalFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes modalScaleUp {
+          from { transform: scale(0.92); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
+
       {/* FLOATING WHATSAPP BUTTON */}
       <a 
         href="https://wa.me/919315911105" 
@@ -362,6 +578,90 @@ const Homepage = ({ addToCart, addedToast }) => {
       {addedToast && !authAlert && (
         <div className="cart-toast fade-slide-up">
           ✓ <strong>{addedToast}</strong> added to cart
+        </div>
+      )}
+
+      {/* 🌟 PROFESSIONAL PRODUCT DETAILS MODAL (BLURRED BACKGROUND) */}
+      {selectedProduct && (
+        <div 
+          className="product-modal-backdrop"
+          onClick={() => setSelectedProduct(null)}
+        >
+          <div 
+            className="product-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              className="modal-close-btn" 
+              onClick={() => setSelectedProduct(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+
+            {/* Left Col: Image */}
+            <div className="modal-image-col">
+              <img
+                src={getImageUrl(selectedProduct.image)}
+                alt={selectedProduct.name}
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
+                }}
+              />
+            </div>
+
+            {/* Right Col: Details */}
+            <div className="modal-info-col">
+              <div>
+                {selectedProduct.originRegion && (
+                  <span className="modal-origin-badge">
+                    📍 {selectedProduct.originRegion} Special
+                  </span>
+                )}
+
+                <h3 className="modal-title">{selectedProduct.name}</h3>
+
+                <div className="modal-price-row">
+                  <span className="modal-price">₹{selectedProduct.price}</span>
+                  <span className="modal-unit">/ Per Box (Net Wt. 500g - 1Kg)</span>
+                </div>
+
+                <p className="modal-desc">
+                  {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
+                </p>
+
+                <div className="modal-highlights">
+                  <div>✓ 100% Pure Desi Ghee</div>
+                  <div>✓ 0 Preservatives Added</div>
+                  <div>✓ Shelf Life: 7-10 Days</div>
+                  <div>✓ Hygienically Packed</div>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  className="modal-btn-cart"
+                  onClick={() => {
+                    handleProductAddToCart(selectedProduct);
+                    setSelectedProduct(null);
+                  }}
+                  disabled={selectedProduct.inStock === false}
+                >
+                  {selectedProduct.inStock === false ? 'Out of Stock' : `Add to Cart • ₹${selectedProduct.price}`}
+                </button>
+
+                <button
+                  className="modal-btn-wishlist"
+                  onClick={(e) => toggleWishlist(e, selectedProduct._id)}
+                  title="Wishlist"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted(selectedProduct._id) ? '#ef4444' : 'none'} stroke={isWishlisted(selectedProduct._id) ? '#ef4444' : '#64748b'} strokeWidth="2.2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -445,8 +745,13 @@ const Homepage = ({ addToCart, addedToast }) => {
           <div className="modern-product-grid">
             {filteredProducts.map((p) => {
               const liked = isWishlisted(p._id);
+
               return (
-                <div key={p._id} className="modern-product-card">
+                <div 
+                  key={p._id} 
+                  className="modern-product-card product-card-interactive"
+                  onClick={() => setSelectedProduct(p)}
+                >
                   <div className="product-image-box">
                     {p.originRegion && (
                       <span className="product-tag origin-tag">
@@ -501,12 +806,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                       {p.name}
                     </h3>
 
-                    {p.description && (
-                      <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '4px 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {p.description}
-                      </p>
-                    )}
-
                     <div className="product-footer">
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span className="price">₹{p.price}</span>
@@ -515,7 +814,10 @@ const Homepage = ({ addToCart, addedToast }) => {
 
                       <button
                         className="cart-btn"
-                        onClick={() => handleProductAddToCart(p)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleProductAddToCart(p);
+                        }}
                         disabled={p.inStock === false}
                         style={{
                           opacity: p.inStock === false ? 0.6 : 1,
