@@ -1,9 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Footer.css';
 
 const Footer = () => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // 🟢 Check if user is logged in from LocalStorage
+  useEffect(() => {
+    const checkAuth = () => {
+      try {
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('userToken') || 
+                      localStorage.getItem('authToken');
+        const user = localStorage.getItem('user') || 
+                     localStorage.getItem('currentUser');
+        
+        setIsLoggedIn(Boolean(token || user));
+      } catch (err) {
+        setIsLoggedIn(false);
+      }
+    };
+
+    checkAuth();
+    // Listen for storage changes across tabs/login events
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
 
   const handleSubscribe = (e) => {
     e.preventDefault();
@@ -73,9 +96,12 @@ const Footer = () => {
             <h4 className="footer-title">ACCOUNT & SHIPPING INFO</h4>
             <ul className="footer-list">
               <li><a href="/profile">Profile Info</a></li>
-              <li><a href="#wishlist">Wish List</a></li>
-              <li><a href="#track-order">Track Order</a></li>
-              <li><a href="#address">Address</a></li>
+              
+              {/* 🟢 MY ORDERS BUTTON (Visible only when user is Logged In) */}
+              
+              <li><a href="/wishlist">Wish List</a></li>
+              <li><a href="/my-orders">Track Order</a></li>
+              <li><a href="/contact-us">Address</a></li>
             </ul>
           </div>
 
@@ -157,8 +183,6 @@ const Footer = () => {
 
         </div>
       </div>
-
-     
 
     </footer>
   );

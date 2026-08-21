@@ -157,7 +157,7 @@ const Homepage = ({ addToCart, addedToast }) => {
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
   
-  // 🟢 Professional Modal State (Product Details Dialog)
+  // 🟢 Modal State
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Disable background scrolling when modal is open
@@ -181,7 +181,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 🟢 1. FETCH LIVE PRODUCTS & SYNC BACKEND WISHLIST
+  // FETCH LIVE PRODUCTS & SYNC BACKEND WISHLIST
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
@@ -234,7 +234,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     fetchBackendWishlist();
   }, []);
 
-  // Save to LocalStorage whenever wishlist state updates
+  // Save to LocalStorage
   useEffect(() => {
     localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));
   }, [wishlist]);
@@ -374,7 +374,7 @@ const Homepage = ({ addToCart, addedToast }) => {
 
   return (
     <div className="homepage-container">
-      {/* 🌟 EMBEDDED MODAL STYLING */}
+      {/* 🌟 ENHANCED MODAL STYLING WITH ZOOM-ON-HOVER & RESPONSIVE FIXES */}
       <style>{`
         .product-card-interactive {
           cursor: pointer;
@@ -391,7 +391,7 @@ const Homepage = ({ addToCart, addedToast }) => {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(11, 28, 23, 0.75);
+          background: rgba(11, 28, 23, 0.78);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           display: flex;
@@ -415,13 +415,6 @@ const Homepage = ({ addToCart, addedToast }) => {
           grid-template-columns: 1fr 1.2fr;
           position: relative;
           animation: modalScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @media (max-width: 768px) {
-          .product-modal-card {
-            grid-template-columns: 1fr;
-            max-height: 85vh;
-          }
         }
 
         .modal-close-btn {
@@ -448,6 +441,7 @@ const Homepage = ({ addToCart, addedToast }) => {
           transform: rotate(90deg);
         }
 
+        /* 🔍 MODAL IMAGE WITH SMOOTH ZOOM ON HOVER */
         .modal-image-col {
           background: #f8fafc;
           display: flex;
@@ -455,12 +449,21 @@ const Homepage = ({ addToCart, addedToast }) => {
           justify-content: center;
           padding: 24px;
           border-right: 1px solid #f1f5f9;
+          overflow: hidden;
+          position: relative;
+          cursor: zoom-in;
         }
         .modal-image-col img {
           max-width: 100%;
           max-height: 320px;
+          width: auto;
           object-fit: contain;
           border-radius: 12px;
+          transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+          will-change: transform;
+        }
+        .modal-image-col:hover img {
+          transform: scale(1.25);
         }
 
         .modal-info-col {
@@ -495,6 +498,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         .modal-price-row {
           display: flex;
           align-items: baseline;
+          flex-wrap: wrap;
           gap: 8px;
           margin-bottom: 16px;
         }
@@ -559,6 +563,37 @@ const Homepage = ({ addToCart, addedToast }) => {
           justify-content: center;
         }
 
+        /* 📱 RESPONSIVE MODAL BREAKPOINTS */
+        @media (max-width: 768px) {
+          .product-modal-card {
+            grid-template-columns: 1fr;
+            max-height: 88vh;
+            border-radius: 16px;
+          }
+          .modal-image-col {
+            padding: 20px;
+            border-right: none;
+            border-bottom: 1px solid #f1f5f9;
+            min-height: 200px;
+          }
+          .modal-image-col img {
+            max-height: 220px;
+          }
+          .modal-info-col {
+            padding: 20px 18px;
+          }
+          .modal-title {
+            font-size: 1.25rem;
+          }
+          .modal-price {
+            font-size: 1.45rem;
+          }
+          .modal-highlights {
+            grid-template-columns: 1fr;
+            margin-bottom: 18px;
+          }
+        }
+
         @keyframes modalFadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -620,7 +655,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       )}
 
-      {/* 🌟 PROFESSIONAL PRODUCT DETAILS MODAL (BLURRED BACKGROUND) */}
+      {/* 🌟 PRODUCT DETAILS MODAL */}
       {selectedProduct && (
         <div 
           className="product-modal-backdrop"
@@ -805,18 +840,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                       onClick={(e) => toggleWishlist(e, p._id)}
                       aria-label={liked ? 'Remove from wishlist' : 'Add to wishlist'}
                       title={liked ? 'Remove from wishlist' : 'Add to wishlist'}
-                      style={{
-                        cursor: 'pointer',
-                        background: liked ? '#fee2e2' : 'rgba(255, 255, 255, 0.9)',
-                        border: 'none',
-                        borderRadius: '50%',
-                        padding: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                        zIndex: 3
-                      }}
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke={liked ? '#ef4444' : '#4b5563'} strokeWidth="2.2">
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -846,9 +869,9 @@ const Homepage = ({ addToCart, addedToast }) => {
                     </h3>
 
                     <div className="product-footer">
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div className="product-price-block">
                         <span className="price">₹{p.price}</span>
-                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Per Box / Kg</span>
+                        <span className="unit-label">Per Box / Kg</span>
                       </div>
 
                       <button
@@ -858,10 +881,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                           handleProductAddToCart(p);
                         }}
                         disabled={p.inStock === false}
-                        style={{
-                          opacity: p.inStock === false ? 0.6 : 1,
-                          cursor: p.inStock === false ? 'not-allowed' : 'pointer'
-                        }}
                       >
                         {p.inStock === false ? 'Out of Stock' : '+ Add'}
                       </button>
