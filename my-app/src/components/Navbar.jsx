@@ -162,26 +162,12 @@ const Navbar = ({
                 <ul className="dropdown-menu fade-slide-down">
                   <li><a href="/AboutUs">Our Story</a></li>
                   <li><a href="/why-us">Why Choose Us</a></li>
-                  <li><a href="#artisans">Village Artisans</a></li>
+                  
                 </ul>
               </li>
 
-              <li className="nav-item has-dropdown">
-                <a href="#sweets" className="nav-link">
-                  Sweets 
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </a>
-                <ul className="dropdown-menu fade-slide-down">
-                  <li><a href="#pedas">Hisar Malai Peda</a></li>
-                  <li><a href="#milkcake">Alwar Milk Cake</a></li>
-                  <li><a href="#balushahi">Baghpat Balushahi</a></li>
-                  <li><a href="#laddoo">Desi Ghee Laddoo</a></li>
-                </ul>
-              </li>
 
-              <li className="nav-item"><a href="#offers" className="nav-link">Offers</a></li>
+              
               <li className="nav-item"><a href="contact-us" className="nav-link">Contact Us</a></li>
             </ul>
           </nav>
@@ -341,28 +327,14 @@ const Navbar = ({
                 <ul className="mobile-submenu">
                   <li><a href="/AboutUs" onClick={closeMobileMenu}>Our Story</a></li>
                   <li><a href="/why-us" onClick={closeMobileMenu}>Why Choose Us</a></li>
-                  <li><a href="#artisans" onClick={closeMobileMenu}>Village Artisans</a></li>
+                  
                 </ul>
               )}
             </li>
 
-            {/* Accordion: Sweets */}
-            <li className="mobile-dropdown-item">
-              <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('sweets')}>
-                <span>Sweets</span>
-                <span className={`accordion-icon ${mobileDropdown === 'sweets' ? 'open' : ''}`}>▼</span>
-              </div>
-              {mobileDropdown === 'sweets' && (
-                <ul className="mobile-submenu">
-                  <li><a href="#pedas" onClick={closeMobileMenu}>Hisar Malai Peda</a></li>
-                  <li><a href="#milkcake" onClick={closeMobileMenu}>Alwar Milk Cake</a></li>
-                  <li><a href="#balushahi" onClick={closeMobileMenu}>Baghpat Balushahi</a></li>
-                  <li><a href="#laddoo" onClick={closeMobileMenu}>Desi Ghee Laddoo</a></li>
-                </ul>
-              )}
-            </li>
+          
 
-            <li><a href="#offers" onClick={closeMobileMenu}>Offers</a></li>
+      
             <li><a href="/contact-us" onClick={closeMobileMenu}>Contact Us</a></li>
 
             {/* Mobile Auth Button */}

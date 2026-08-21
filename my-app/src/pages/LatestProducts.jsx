@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import './LatestProducts.css';
+import image1 from '../assets/dumy7.png';
+import image2 from '../assets/dumy2.png';
+import image3 from '../assets/dumy3.png';
+import image4 from '../assets/dumy4.png';
+import image5 from '../assets/dumy5.png';
+import image6 from '../assets/dumy8.png';
 
 const latestProductsData = [
   {
     id: 1,
     name: 'test',
-    image: 'https://images.unsplash.com/photo-1546548970-71785318a17b?q=80&w=600&auto=format&fit=crop',
+    image: image1,
     rating: 0,
     reviewsCount: 0,
     price: 11.00,
@@ -13,7 +19,7 @@ const latestProductsData = [
   {
     id: 2,
     name: 'ROHTAK KA PALANGTOD KAL...',
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop',
+    image: image2,
     rating: 0,
     reviewsCount: 0,
     price: 430.00,
@@ -21,7 +27,7 @@ const latestProductsData = [
   {
     id: 3,
     name: 'JIND KI DOODH BARFI',
-    image: 'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?q=80&w=600&auto=format&fit=crop',
+    image: image3,
     rating: 5,
     reviewsCount: 1,
     price: 360.00,
@@ -29,7 +35,7 @@ const latestProductsData = [
   {
     id: 4,
     name: 'HISAR KA MALAI PEDA',
-    image: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=600&auto=format&fit=crop',
+    image: image4,
     rating: 5,
     reviewsCount: 2,
     price: 320.00,
@@ -37,7 +43,7 @@ const latestProductsData = [
   {
     id: 5,
     name: 'BAGHPAT (TATIRI) KI DES...',
-    image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=600&auto=format&fit=crop',
+    image: image5,
     rating: 0,
     reviewsCount: 0,
     price: 400.00,
@@ -45,7 +51,7 @@ const latestProductsData = [
   {
     id: 6,
     name: 'ALWAR KA MILK CAKE',
-    image: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?q=80&w=600&auto=format&fit=crop',
+    image: image6,
     rating: 0,
     reviewsCount: 0,
     price: 340.00,

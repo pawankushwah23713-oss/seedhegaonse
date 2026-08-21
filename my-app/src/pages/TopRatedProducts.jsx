@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import './TopRatedProducts.css';
+import image1 from '../assets/dumy1.png';
+import image2 from '../assets/dumy2.png';
 
 const products = [
   {
     id: 1,
     title: 'HISAR KA MALAI PEDA',
-    image: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=600&q=80',
+    image: image1,
     rating: 5,
     reviews: 2,
     price: '320.00',
@@ -14,7 +16,7 @@ const products = [
   {
     id: 2,
     title: 'JIND KI DOODH BARFI',
-    image: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?auto=format&fit=crop&w=600&q=80',
+    image: image2,
     rating: 5,
     reviews: 1,
     price: '360.00',

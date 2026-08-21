@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import './BestSellingProducts.css';
+import image from "../assets/dumy1.png";
+import image1 from '../assets/dumy2.png';
+import image2 from '../assets/dumy3.png';
+import image3 from '../assets/dumy4.png';
+import image4 from '../assets/dumy5.png';
+
 
 const bestSellingProductsData = [
   {
     id: 1,
     name: 'HISAR KA MALAI PEDA',
-    image: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=600&auto=format&fit=crop',
+    image: image,
     rating: 5,
     reviewsCount: 2,
     price: 320.00,
@@ -13,7 +19,7 @@ const bestSellingProductsData = [
   {
     id: 2,
     name: 'BAGHPAT (TATIRI) KI DES...',
-    image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=600&auto=format&fit=crop',
+    image: image1,
     rating: 0,
     reviewsCount: 0,
     price: 400.00,
@@ -21,7 +27,7 @@ const bestSellingProductsData = [
   {
     id: 3,
     name: 'ALWAR KA MILK CAKE',
-    image: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?q=80&w=600&auto=format&fit=crop',
+    image: image2,
     rating: 0,
     reviewsCount: 0,
     price: 340.00,
@@ -29,7 +35,7 @@ const bestSellingProductsData = [
   {
     id: 4,
     name: 'ROHTAK KA PALANGTOD KAL...',
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop',
+    image: image3,
     rating: 0,
     reviewsCount: 0,
     price: 430.00,
@@ -37,7 +43,7 @@ const bestSellingProductsData = [
   {
     id: 5,
     name: 'JIND KI DOODH BARFI',
-    image: 'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?q=80&w=600&auto=format&fit=crop',
+    image: image4,
     rating: 5,
     reviewsCount: 1,
     price: 360.00,
