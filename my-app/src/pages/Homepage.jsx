@@ -160,6 +160,29 @@ const Homepage = ({ addToCart, addedToast }) => {
   // 🟢 Modal State
   const [selectedProduct, setSelectedProduct] = useState(null);
 
+  // 🔍 Ultra Zoom State (Mouse Tracker)
+  const [zoomStyle, setZoomStyle] = useState({
+    transformOrigin: 'center center',
+    transform: 'scale(1)'
+  });
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomStyle({
+      transformOrigin: `${x}% ${y}%`,
+      transform: 'scale(2.6)' // 🌟 ULTRA ZOOM LEVEL (2.6x)
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomStyle({
+      transformOrigin: 'center center',
+      transform: 'scale(1)'
+    });
+  };
+
   // Disable background scrolling when modal is open
   useEffect(() => {
     if (selectedProduct) {
@@ -374,7 +397,7 @@ const Homepage = ({ addToCart, addedToast }) => {
 
   return (
     <div className="homepage-container">
-      {/* 🌟 ENHANCED MODAL STYLING WITH ZOOM-ON-HOVER & RESPONSIVE FIXES */}
+      {/* 🌟 ULTRA ZOOM MODAL STYLING */}
       <style>{`
         .product-card-interactive {
           cursor: pointer;
@@ -392,8 +415,8 @@ const Homepage = ({ addToCart, addedToast }) => {
           right: 0;
           bottom: 0;
           background: rgba(11, 28, 23, 0.78);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -406,13 +429,13 @@ const Homepage = ({ addToCart, addedToast }) => {
         .product-modal-card {
           background: #ffffff;
           border-radius: 20px;
-          max-width: 820px;
+          max-width: 860px;
           width: 100%;
           max-height: 90vh;
           overflow-y: auto;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
           display: grid;
-          grid-template-columns: 1fr 1.2fr;
+          grid-template-columns: 1fr 1.15fr;
           position: relative;
           animation: modalScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -423,8 +446,8 @@ const Homepage = ({ addToCart, addedToast }) => {
           right: 14px;
           background: #f1f5f9;
           border: none;
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -432,7 +455,7 @@ const Homepage = ({ addToCart, addedToast }) => {
           font-size: 18px;
           color: #334155;
           cursor: pointer;
-          z-index: 10;
+          z-index: 20;
           transition: all 0.2s ease;
         }
         .modal-close-btn:hover {
@@ -441,7 +464,7 @@ const Homepage = ({ addToCart, addedToast }) => {
           transform: rotate(90deg);
         }
 
-        /* 🔍 MODAL IMAGE WITH SMOOTH ZOOM ON HOVER */
+        /* 🔍 ULTRA ZOOM IMAGE CONTAINER */
         .modal-image-col {
           background: #f8fafc;
           display: flex;
@@ -451,19 +474,36 @@ const Homepage = ({ addToCart, addedToast }) => {
           border-right: 1px solid #f1f5f9;
           overflow: hidden;
           position: relative;
-          cursor: zoom-in;
+          cursor: crosshair;
+          user-select: none;
         }
+
+        .modal-zoom-hint {
+          position: absolute;
+          bottom: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(15, 23, 42, 0.65);
+          color: #ffffff;
+          font-size: 0.72rem;
+          font-weight: 600;
+          padding: 4px 10px;
+          border-radius: 20px;
+          pointer-events: none;
+          opacity: 0.8;
+          z-index: 10;
+          white-space: nowrap;
+        }
+
         .modal-image-col img {
           max-width: 100%;
-          max-height: 320px;
+          max-height: 330px;
           width: auto;
           object-fit: contain;
           border-radius: 12px;
-          transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-          will-change: transform;
-        }
-        .modal-image-col:hover img {
-          transform: scale(1.25);
+          transition: transform 0.12s ease-out;
+          will-change: transform, transform-origin;
+          pointer-events: none;
         }
 
         .modal-info-col {
@@ -574,10 +614,10 @@ const Homepage = ({ addToCart, addedToast }) => {
             padding: 20px;
             border-right: none;
             border-bottom: 1px solid #f1f5f9;
-            min-height: 200px;
+            min-height: 220px;
           }
           .modal-image-col img {
-            max-height: 220px;
+            max-height: 240px;
           }
           .modal-info-col {
             padding: 20px 18px;
@@ -655,7 +695,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       )}
 
-      {/* 🌟 PRODUCT DETAILS MODAL */}
+      {/* 🌟 PRODUCT DETAILS MODAL (WITH ULTRA ZOOM HOVER) */}
       {selectedProduct && (
         <div 
           className="product-modal-backdrop"
@@ -673,15 +713,21 @@ const Homepage = ({ addToCart, addedToast }) => {
               ✕
             </button>
 
-            {/* Left Col: Image */}
-            <div className="modal-image-col">
+            {/* Left Col: Image with Super Zoom & Cursor Tracking */}
+            <div 
+              className="modal-image-col"
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            >
               <img
                 src={getImageUrl(selectedProduct.image)}
                 alt={selectedProduct.name}
+                style={zoomStyle}
                 onError={(e) => {
                   e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
                 }}
               />
+              <span className="modal-zoom-hint">🔍 Move cursor to zoom deep</span>
             </div>
 
             {/* Right Col: Details */}
