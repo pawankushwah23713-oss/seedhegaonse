@@ -46,7 +46,7 @@ const AdminProducts = () => {
 
   // 2. DELETE SWEET HANDLER
   const handleDelete = async (id, name) => {
-    const confirmDelete = window.confirm(`Kya aap sach me "${name}" ko delete karna chahte hain?`);
+    const confirmDelete = window.confirm(`do you want to  "${name}" delete this product`);
     if (!confirmDelete) return;
 
     try {
