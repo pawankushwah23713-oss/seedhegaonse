@@ -1,4 +1,3 @@
-// routes/productRoutes.js
 const express = require('express');
 const router = express.Router();
 const path = require('path');
@@ -9,16 +8,17 @@ const Product = require('../models/Product');
 const upload = require('../middleware/uploadMiddleware');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
-// Multer upload wrapper taaki error JSON me catch ho
-const uploadFields = upload.fields([
+// Multer upload fields
+const productUploads = upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'offerImage', maxCount: 1 }
 ]);
 
-const handleProductUploads = (req, res, next) => {
-  uploadFields(req, res, (err) => {
+// Upload error catcher middleware
+const handleUpload = (req, res, next) => {
+  productUploads(req, res, (err) => {
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: `Upload Error: ${err.message}` });
+      return res.status(400).json({ message: `Multer Error: ${err.message}` });
     } else if (err) {
       return res.status(400).json({ message: err.message });
     }
@@ -37,12 +37,12 @@ router.get('/', async (req, res) => {
 });
 
 // 2. ADD NEW PRODUCT (Admin Only)
-router.post('/', protect, adminOnly, handleProductUploads, async (req, res) => {
+router.post('/', protect, adminOnly, handleUpload, async (req, res) => {
   try {
     const { name, originRegion, price, originalPrice, discount, offerText, category, description } = req.body;
 
     if (!name || !originRegion || !price || !category) {
-      return res.status(400).json({ message: 'Please provide all required fields (name, originRegion, price, category).' });
+      return res.status(400).json({ message: 'Required fields missing: name, originRegion, price, category' });
     }
 
     if (!req.files || !req.files['image'] || req.files['image'].length === 0) {
@@ -55,15 +55,15 @@ router.post('/', protect, adminOnly, handleProductUploads, async (req, res) => {
       : '';
 
     const newProduct = await Product.create({
-      name: (name || '').trim(),
-      originRegion: (originRegion || '').trim(),
+      name: String(name).trim(),
+      originRegion: String(originRegion).trim(),
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : 0,
       discount: discount ? Number(discount) : 0,
-      offerText: (offerText || '').trim(),
+      offerText: offerText ? String(offerText).trim() : '',
       offerImage: offerImagePath,
       category,
-      description: (description || '').trim(),
+      description: description ? String(description).trim() : '',
       image: imagePath
     });
 
@@ -72,13 +72,13 @@ router.post('/', protect, adminOnly, handleProductUploads, async (req, res) => {
       product: newProduct
     });
   } catch (error) {
-    console.error('Create Product Error:', error);
-    res.status(500).json({ message: error.message || 'Server error creating product' });
+    console.error('Error saving product:', error);
+    res.status(500).json({ message: error.message || 'Server failed to save product' });
   }
 });
 
 // 3. EDIT / UPDATE PRODUCT
-router.put('/:id', protect, adminOnly, handleProductUploads, async (req, res) => {
+router.put('/:id', protect, adminOnly, handleUpload, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, originRegion, price, originalPrice, discount, offerText, category, description, inStock } = req.body;
@@ -88,10 +88,10 @@ router.put('/:id', protect, adminOnly, handleProductUploads, async (req, res) =>
       return res.status(404).json({ message: 'Sweet product not found!' });
     }
 
-    // New Main Image
+    // Main Image
     if (req.files && req.files['image']) {
       if (product.image) {
-        const oldImagePath = path.join(__dirname, '..', product.image);
+        const oldImagePath = path.join(process.cwd(), product.image);
         if (fs.existsSync(oldImagePath)) {
           try { fs.unlinkSync(oldImagePath); } catch (e) { console.error(e); }
         }
@@ -99,10 +99,10 @@ router.put('/:id', protect, adminOnly, handleProductUploads, async (req, res) =>
       product.image = `/uploads/products/${req.files['image'][0].filename}`;
     }
 
-    // New Offer Image
+    // Offer Image
     if (req.files && req.files['offerImage']) {
       if (product.offerImage) {
-        const oldOfferPath = path.join(__dirname, '..', product.offerImage);
+        const oldOfferPath = path.join(process.cwd(), product.offerImage);
         if (fs.existsSync(oldOfferPath)) {
           try { fs.unlinkSync(oldOfferPath); } catch (e) { console.error(e); }
         }
@@ -110,14 +110,14 @@ router.put('/:id', protect, adminOnly, handleProductUploads, async (req, res) =>
       product.offerImage = `/uploads/products/${req.files['offerImage'][0].filename}`;
     }
 
-    if (name) product.name = name.trim();
-    if (originRegion) product.originRegion = originRegion.trim();
+    if (name) product.name = String(name).trim();
+    if (originRegion) product.originRegion = String(originRegion).trim();
     if (price) product.price = Number(price);
     if (originalPrice !== undefined) product.originalPrice = Number(originalPrice) || 0;
     if (discount !== undefined) product.discount = Number(discount) || 0;
-    if (offerText !== undefined) product.offerText = offerText.trim();
+    if (offerText !== undefined) product.offerText = String(offerText).trim();
     if (category) product.category = category;
-    if (description !== undefined) product.description = description.trim();
+    if (description !== undefined) product.description = String(description).trim();
     if (inStock !== undefined) product.inStock = inStock === 'true' || inStock === true;
 
     const updatedProduct = await product.save();
@@ -142,14 +142,14 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
     }
 
     if (product.image) {
-      const imagePath = path.join(__dirname, '..', product.image);
+      const imagePath = path.join(process.cwd(), product.image);
       if (fs.existsSync(imagePath)) {
         try { fs.unlinkSync(imagePath); } catch (e) { console.error(e); }
       }
     }
 
     if (product.offerImage) {
-      const offerPath = path.join(__dirname, '..', product.offerImage);
+      const offerPath = path.join(process.cwd(), product.offerImage);
       if (fs.existsSync(offerPath)) {
         try { fs.unlinkSync(offerPath); } catch (e) { console.error(e); }
       }

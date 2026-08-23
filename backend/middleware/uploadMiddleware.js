@@ -1,16 +1,17 @@
-// middleware/uploadMiddleware.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Storage directory auto create
-const uploadDir = path.join(__dirname, '..', 'uploads', 'products');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Storage directory absolute path
+const uploadDir = path.join(process.cwd(), 'uploads', 'products');
 
+// Multer Storage Configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    // Har upload request par verify karo ki folder exist karta hai
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
@@ -20,6 +21,7 @@ const storage = multer.diskStorage({
   }
 });
 
+// File Filter (Images only)
 const fileFilter = (req, file, cb) => {
   const allowedExts = /\.(jpg|jpeg|png|webp|svg)$/i;
   const isExtAllowed = allowedExts.test(path.extname(file.originalname));
