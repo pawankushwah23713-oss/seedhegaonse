@@ -1,53 +1,61 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User'); // Path check kar lein (models/User.js)
+const User = require('../models/User');
 
+// 🟢 1. Protect Middleware (Database check ke sath)
 const protect = async (req, res, next) => {
-  try {
-    let token;
+  let token;
 
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
-    ) {
-      token = req.headers.authorization.split(' ')[1];
-    }
-
-    if (!token || token === 'null' || token === 'undefined') {
-      return res.status(401).json({ message: 'Authorization token missing or invalid. Please login.' });
-    }
-
-    const secret = process.env.JWT_SECRET || 'fallback_jwt_secret_key_123';
-    
-    let decoded;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
     try {
-      decoded = jwt.verify(token, secret);
-    } catch (jwtErr) {
-      return res.status(401).json({ message: 'Token has expired or is invalid. Please login again.' });
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
+      
+      // DB se user fetch karke req.user me attach karein
+      req.user = await User.findById(decoded.id || decoded._id).select('-password');
+      
+      if (!req.user) {
+        return res.status(401).json({ message: 'User not found!' });
+      }
+
+      next();
+    } catch (error) {
+      return res.status(401).json({ message: 'Not authorized, token invalid or expired' });
     }
-
-    req.user = await User.findById(decoded.id || decoded._id).select('-password');
-
-    if (!req.user) {
-      return res.status(401).json({ message: 'User account not found.' });
-    }
-
-    next();
-  } catch (error) {
-    console.error('Auth Protect Error:', error);
-    return res.status(401).json({ message: 'Authentication failed: ' + error.message });
+  } else {
+    return res.status(401).json({ message: 'Not authorized, no token provided' });
   }
 };
 
-const adminOnly = (req, res, next) => {
+// 🟢 2. Simple Verify Token Middleware
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  const token = authHeader && authHeader.startsWith('Bearer ') 
+    ? authHeader.split(' ')[1] 
+    : req.header('x-auth-token');
+
+  if (!token) {
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
+  }
+
   try {
-    if (req.user && (req.user.role === 'admin' || req.user.isAdmin === true)) {
-      return next();
-    }
-    return res.status(403).json({ message: 'Access denied: Admin permissions required.' });
-  } catch (error) {
-    console.error('Admin Check Error:', error);
-    return res.status(403).json({ message: 'Admin validation error: ' + error.message });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
+    req.user = decoded; // Contains id / _id
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid or expired token.' });
   }
 };
 
-module.exports = { protect, adminOnly };
+// 🟢 3. Admin Only Middleware
+const adminOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({ message: 'Access denied: Admin access required!' });
+  }
+};
+
+module.exports = { protect, adminOnly, verifyToken };
