@@ -11,19 +11,22 @@ import dummy5 from '../assets/dumy5.png';
 import dummy6 from '../assets/dumy6.png';
 import dummy7 from '../assets/dumy7.png';
 
-// 🟢 Backend URL (Port 5000 Default)
+// 🟢 Backend API Base URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 
-// 🟢 DUMMY PRODUCTS (Agar backend empty ho tab ke liye)
+// 🟢 Fallback Dummy Products
 const DUMMY_PRODUCTS = [
   {
     _id: 'dummy-1',
     name: 'Pure Desi Ghee Motichoor Ladoo',
     price: 480,
+    originalPrice: 550,
+    discount: 12,
+    offerText: 'Festive Special',
     category: 'ladoo',
     originRegion: 'Jodhpur',
     description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios. Prepared fresh daily using traditional village methods.',
@@ -34,6 +37,9 @@ const DUMMY_PRODUCTS = [
     _id: 'dummy-2',
     name: 'Traditional Mathura Peda',
     price: 520,
+    originalPrice: 600,
+    discount: 13,
+    offerText: 'Special Deal',
     category: 'peda',
     originRegion: 'Mathura',
     description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours, sourced directly from the holy city of Mathura.',
@@ -44,6 +50,9 @@ const DUMMY_PRODUCTS = [
     _id: 'dummy-3',
     name: 'Royal Agra Kesar Angoori Petha',
     price: 360,
+    originalPrice: 400,
+    discount: 10,
+    offerText: 'Fresh Stock',
     category: 'petha',
     originRegion: 'Agra',
     description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron and subtle rose water essence.',
@@ -54,6 +63,9 @@ const DUMMY_PRODUCTS = [
     _id: 'dummy-4',
     name: 'Diamond Silver Foil Kaju Katli',
     price: 950,
+    originalPrice: 1100,
+    discount: 15,
+    offerText: 'Best Seller',
     category: 'barfi',
     originRegion: 'Delhi NCR',
     description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark and optimal sweetness for every festival.',
@@ -64,6 +76,9 @@ const DUMMY_PRODUCTS = [
     _id: 'dummy-5',
     name: 'Jaipuri Malai Rabdi Ghewar',
     price: 650,
+    originalPrice: 750,
+    discount: 13,
+    offerText: 'Limited Batch',
     category: 'special',
     originRegion: 'Jaipur',
     description: 'Crispy honeycomb disc soaked in saffron sugar syrup and topped with rich, thick cardamom rabdi and roasted dry fruits.',
@@ -74,6 +89,9 @@ const DUMMY_PRODUCTS = [
     _id: 'dummy-6',
     name: 'Alwar Famous Danedar Milk Cake',
     price: 540,
+    originalPrice: 600,
+    discount: 10,
+    offerText: '',
     category: 'barfi',
     originRegion: 'Alwar',
     description: 'Rich, caramelized brown grainy milk fudge prepared from slow-simmered fresh whole buffalo milk with no additives.',
@@ -84,6 +102,9 @@ const DUMMY_PRODUCTS = [
     _id: 'dummy-7',
     name: 'Hisar ki Special Malai Peda',
     price: 540,
+    originalPrice: 600,
+    discount: 10,
+    offerText: '',
     category: 'peda',
     originRegion: 'Hisar',
     description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s renowned dairy heartland.',
@@ -133,6 +154,31 @@ const getImageUrl = (imagePath) => {
   return `${SERVER_HOST}${normalizedPath}`;
 };
 
+// 🟢 Helper to calculate Price, MRP and Discount %
+const calculatePricing = (product, qty = 1) => {
+  const price = Number(product.price) || 0;
+  const originalPrice = Number(product.originalPrice) || 0;
+  const manualDiscount = Number(product.discount) || 0;
+
+  let discountPercent = 0;
+  let mrp = originalPrice;
+
+  if (manualDiscount > 0) {
+    discountPercent = manualDiscount;
+    if (!mrp || mrp <= price) {
+      mrp = Math.round(price / (1 - discountPercent / 100));
+    }
+  } else if (originalPrice > price) {
+    discountPercent = Math.round(((originalPrice - price) / originalPrice) * 100);
+  }
+
+  return {
+    price: price * qty,
+    mrp: mrp > price ? mrp * qty : null,
+    discountPercent: discountPercent > 0 ? discountPercent : null
+  };
+};
+
 const WISHLIST_KEY = 'seedhegaonse_wishlist';
 const loadWishlist = () => {
   try {
@@ -149,18 +195,19 @@ const loadWishlist = () => {
 
 const Homepage = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
-  const [products, setProducts] = useState(DUMMY_PRODUCTS);
-  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [openFaq, setOpenFaq] = useState(null);
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
   
-  // 🟢 Modal State
+  // Modal & Quantity State
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modalQty, setModalQty] = useState(1);
 
-  // 🔍 Ultra Zoom State (Mouse Tracker)
+  // Ultra Zoom State
   const [zoomStyle, setZoomStyle] = useState({
     transformOrigin: 'center center',
     transform: 'scale(1)'
@@ -172,7 +219,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     const y = ((e.clientY - top) / height) * 100;
     setZoomStyle({
       transformOrigin: `${x}% ${y}%`,
-      transform: 'scale(2.6)' // 🌟 ULTRA ZOOM LEVEL (2.6x)
+      transform: 'scale(2.4)'
     });
   };
 
@@ -183,19 +230,18 @@ const Homepage = ({ addToCart, addedToast }) => {
     });
   };
 
-  // Disable background scrolling when modal is open
+  const handleOpenModal = (product) => {
+    setSelectedProduct(product);
+    setModalQty(1);
+  };
+
   useEffect(() => {
-    if (selectedProduct) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    document.body.style.overflow = selectedProduct ? 'hidden' : 'unset';
     return () => {
       document.body.style.overflow = 'unset';
     };
   }, [selectedProduct]);
 
-  // Close modal on Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') setSelectedProduct(null);
@@ -204,7 +250,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // FETCH LIVE PRODUCTS & SYNC BACKEND WISHLIST
+  // 🟢 1. FETCH LIVE PRODUCTS FROM BACKEND
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
@@ -213,12 +259,13 @@ const Homepage = ({ addToCart, addedToast }) => {
         const data = await res.json();
         
         if (res.ok && Array.isArray(data) && data.length > 0) {
-          const backendIds = new Set(data.map((item) => item._id));
-          const uniqueDummies = DUMMY_PRODUCTS.filter((d) => !backendIds.has(d._id));
-          setProducts([...data, ...uniqueDummies]);
+          setProducts(data);
+        } else {
+          setProducts(DUMMY_PRODUCTS);
         }
       } catch (err) {
-        console.warn('Backend products offline, using local dummy products:', err);
+        console.warn('Backend offline, using fallback products:', err);
+        setProducts(DUMMY_PRODUCTS);
       } finally {
         setLoading(false);
       }
@@ -257,7 +304,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     fetchBackendWishlist();
   }, []);
 
-  // Save to LocalStorage
   useEffect(() => {
     localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));
   }, [wishlist]);
@@ -280,7 +326,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => observer.disconnect();
   }, [products]);
 
-  // Check if item is wishlisted
   const isWishlisted = (productId) => {
     if (!productId) return false;
     const targetId = productId.toString();
@@ -290,7 +335,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     });
   };
 
-  // Toggle Wishlist
   const toggleWishlist = async (e, productId) => {
     if (e) {
       e.preventDefault();
@@ -332,7 +376,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   };
 
-  // HERO SLIDER
   const heroSlides = [
     { id: 1, image: banner1 },
     { id: 2, image: banner2 }
@@ -370,8 +413,8 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
-  // ADD TO CART (AUTH CHECKED)
-  const handleProductAddToCart = (p) => {
+  // ADD TO CART
+  const handleProductAddToCart = (p, qty = 1) => {
     const token = getAuthToken();
     if (!token) {
       setAuthAlert('Please login first to add items to your cart!');
@@ -383,6 +426,9 @@ const Homepage = ({ addToCart, addedToast }) => {
       id: p._id,
       name: p.name,
       price: `₹${p.price}`,
+      unitPrice: p.price,
+      quantity: qty,
+      totalPrice: p.price * qty,
       img: getImageUrl(p.image),
       originRegion: p.originRegion
     });
@@ -397,7 +443,7 @@ const Homepage = ({ addToCart, addedToast }) => {
 
   return (
     <div className="homepage-container">
-      {/* 🌟 ULTRA ZOOM MODAL STYLING */}
+      {/* INLINE CSS FOR OFFER BADGES & ZOOM MODAL */}
       <style>{`
         .product-card-interactive {
           cursor: pointer;
@@ -406,17 +452,64 @@ const Homepage = ({ addToCart, addedToast }) => {
         .product-card-interactive:hover {
           transform: translateY(-4px);
         }
-        
-        /* Modal Backdrop */
+
+        /* 🏷️ OFFER BADGES ON CARD */
+        .card-offer-badge {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          background: #ef4444;
+          color: #ffffff;
+          font-size: 10px;
+          font-weight: 800;
+          padding: 3px 8px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          z-index: 2;
+          box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+        }
+
+        .card-custom-offer-tag {
+          position: absolute;
+          bottom: 8px;
+          left: 8px;
+          background: rgba(15, 23, 42, 0.85);
+          color: #fef08a;
+          font-size: 9px;
+          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 4px;
+          z-index: 2;
+        }
+
+        .card-offer-image-sticker {
+          position: absolute;
+          bottom: 8px;
+          right: 8px;
+          width: 38px;
+          height: 38px;
+          object-fit: cover;
+          border-radius: 6px;
+          border: 1px solid #f59e0b;
+          z-index: 2;
+          background: #ffffff;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        .product-mrp-price {
+          font-size: 0.78rem;
+          color: #94a3b8;
+          text-decoration: line-through;
+          margin-left: 6px;
+          font-weight: 600;
+        }
+
+        /* Modal Styles */
         .product-modal-backdrop {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          top: 0; left: 0; right: 0; bottom: 0;
           background: rgba(11, 28, 23, 0.78);
           backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -425,29 +518,26 @@ const Homepage = ({ addToCart, addedToast }) => {
           animation: modalFadeIn 0.25s ease-out;
         }
 
-        /* Modal Container */
         .product-modal-card {
           background: #ffffff;
           border-radius: 20px;
-          max-width: 860px;
+          max-width: 900px;
           width: 100%;
-          max-height: 90vh;
+          max-height: 92vh;
           overflow-y: auto;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
           display: grid;
-          grid-template-columns: 1fr 1.15fr;
+          grid-template-columns: 1fr 1.2fr;
           position: relative;
           animation: modalScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .modal-close-btn {
           position: absolute;
-          top: 14px;
-          right: 14px;
+          top: 14px; right: 14px;
           background: #f1f5f9;
           border: none;
-          width: 38px;
-          height: 38px;
+          width: 38px; height: 38px;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -456,7 +546,6 @@ const Homepage = ({ addToCart, addedToast }) => {
           color: #334155;
           cursor: pointer;
           z-index: 20;
-          transition: all 0.2s ease;
         }
         .modal-close-btn:hover {
           background: #e2e8f0;
@@ -464,7 +553,6 @@ const Homepage = ({ addToCart, addedToast }) => {
           transform: rotate(90deg);
         }
 
-        /* 🔍 ULTRA ZOOM IMAGE CONTAINER */
         .modal-image-col {
           background: #f8fafc;
           display: flex;
@@ -475,39 +563,18 @@ const Homepage = ({ addToCart, addedToast }) => {
           overflow: hidden;
           position: relative;
           cursor: crosshair;
-          user-select: none;
-        }
-
-        .modal-zoom-hint {
-          position: absolute;
-          bottom: 12px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(15, 23, 42, 0.65);
-          color: #ffffff;
-          font-size: 0.72rem;
-          font-weight: 600;
-          padding: 4px 10px;
-          border-radius: 20px;
-          pointer-events: none;
-          opacity: 0.8;
-          z-index: 10;
-          white-space: nowrap;
         }
 
         .modal-image-col img {
           max-width: 100%;
           max-height: 330px;
-          width: auto;
           object-fit: contain;
           border-radius: 12px;
-          transition: transform 0.12s ease-out;
-          will-change: transform, transform-origin;
-          pointer-events: none;
+          will-change: transform;
         }
 
         .modal-info-col {
-          padding: 32px 28px;
+          padding: 28px 24px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
@@ -522,60 +589,81 @@ const Homepage = ({ addToCart, addedToast }) => {
           padding: 4px 10px;
           border-radius: 6px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
           margin-bottom: 8px;
-          align-self: flex-start;
         }
 
         .modal-title {
-          font-size: 1.45rem;
+          font-size: 1.4rem;
           font-weight: 800;
           color: #0f172a;
           margin-bottom: 8px;
-          line-height: 1.25;
         }
 
         .modal-price-row {
           display: flex;
-          align-items: baseline;
+          align-items: center;
           flex-wrap: wrap;
-          gap: 8px;
-          margin-bottom: 16px;
+          gap: 10px;
+          margin-bottom: 12px;
         }
         .modal-price {
           font-size: 1.65rem;
           font-weight: 800;
           color: #059669;
         }
-        .modal-unit {
-          font-size: 0.85rem;
-          color: #64748b;
+        .modal-mrp-price {
+          font-size: 1.15rem;
+          color: #94a3b8;
+          text-decoration: line-through;
+          font-weight: 600;
+        }
+        .modal-discount-tag {
+          background: #fee2e2;
+          color: #ef4444;
+          font-size: 0.75rem;
+          font-weight: 800;
+          padding: 3px 8px;
+          border-radius: 6px;
         }
 
-        .modal-desc {
-          font-size: 0.92rem;
-          line-height: 1.6;
-          color: #475569;
+        .modal-qty-control-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 10px 14px;
           margin-bottom: 20px;
         }
-
-        .modal-highlights {
-          background: #f0fdf4;
-          border: 1px solid #bbf7d0;
-          border-radius: 10px;
-          padding: 12px 14px;
-          margin-bottom: 24px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          font-size: 0.82rem;
-          color: #166534;
-          font-weight: 600;
+        .qty-box {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 4px 8px;
+        }
+        .qty-btn {
+          background: #f1f5f9;
+          border: none;
+          width: 30px; height: 30px;
+          border-radius: 6px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+        .qty-num {
+          font-size: 1.05rem;
+          font-weight: 800;
+          min-width: 22px;
+          text-align: center;
         }
 
         .modal-actions {
           display: flex;
           gap: 12px;
+          margin-bottom: 20px;
         }
         .modal-btn-cart {
           flex: 1;
@@ -584,13 +672,8 @@ const Homepage = ({ addToCart, addedToast }) => {
           border: none;
           padding: 12px 20px;
           border-radius: 10px;
-          font-size: 0.95rem;
           font-weight: 700;
           cursor: pointer;
-          transition: background 0.2s;
-        }
-        .modal-btn-cart:hover {
-          background: #065f46;
         }
         .modal-btn-wishlist {
           background: #f8fafc;
@@ -598,49 +681,16 @@ const Homepage = ({ addToCart, addedToast }) => {
           padding: 0 16px;
           border-radius: 10px;
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
         }
 
-        /* 📱 RESPONSIVE MODAL BREAKPOINTS */
         @media (max-width: 768px) {
           .product-modal-card {
             grid-template-columns: 1fr;
-            max-height: 88vh;
-            border-radius: 16px;
           }
           .modal-image-col {
-            padding: 20px;
             border-right: none;
             border-bottom: 1px solid #f1f5f9;
-            min-height: 220px;
           }
-          .modal-image-col img {
-            max-height: 240px;
-          }
-          .modal-info-col {
-            padding: 20px 18px;
-          }
-          .modal-title {
-            font-size: 1.25rem;
-          }
-          .modal-price {
-            font-size: 1.45rem;
-          }
-          .modal-highlights {
-            grid-template-columns: 1fr;
-            margin-bottom: 18px;
-          }
-        }
-
-        @keyframes modalFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes modalScaleUp {
-          from { transform: scale(0.92); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
         }
       `}</style>
 
@@ -695,95 +745,127 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       )}
 
-      {/* 🌟 PRODUCT DETAILS MODAL (WITH ULTRA ZOOM HOVER) */}
-      {selectedProduct && (
-        <div 
-          className="product-modal-backdrop"
-          onClick={() => setSelectedProduct(null)}
-        >
+      {/* 🌟 PRODUCT DETAILS MODAL */}
+      {selectedProduct && (() => {
+        const pricing = calculatePricing(selectedProduct, modalQty);
+        return (
           <div 
-            className="product-modal-card"
-            onClick={(e) => e.stopPropagation()}
+            className="product-modal-backdrop"
+            onClick={() => setSelectedProduct(null)}
           >
-            <button 
-              className="modal-close-btn" 
-              onClick={() => setSelectedProduct(null)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-
-            {/* Left Col: Image with Super Zoom & Cursor Tracking */}
             <div 
-              className="modal-image-col"
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
+              className="product-modal-card"
+              onClick={(e) => e.stopPropagation()}
             >
-              <img
-                src={getImageUrl(selectedProduct.image)}
-                alt={selectedProduct.name}
-                style={zoomStyle}
-                onError={(e) => {
-                  e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
-                }}
-              />
-              <span className="modal-zoom-hint">🔍 Move cursor to zoom deep</span>
-            </div>
+              <button 
+                className="modal-close-btn" 
+                onClick={() => setSelectedProduct(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
 
-            {/* Right Col: Details */}
-            <div className="modal-info-col">
-              <div>
-                {selectedProduct.originRegion && (
-                  <span className="modal-origin-badge">
-                    📍 {selectedProduct.originRegion} Special
-                  </span>
-                )}
-
-                <h3 className="modal-title">{selectedProduct.name}</h3>
-
-                <div className="modal-price-row">
-                  <span className="modal-price">₹{selectedProduct.price}</span>
-                  <span className="modal-unit">/ Per Box (Net Wt. 500g - 1Kg)</span>
-                </div>
-
-                <p className="modal-desc">
-                  {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
-                </p>
-
-                <div className="modal-highlights">
-                  <div>✓ 100% Pure Desi Ghee</div>
-                  <div>✓ 0 Preservatives Added</div>
-                  <div>✓ Shelf Life: 7-10 Days</div>
-                  <div>✓ Hygienically Packed</div>
-                </div>
+              {/* Left Col: Image */}
+              <div 
+                className="modal-image-col"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+              >
+                <img
+                  src={getImageUrl(selectedProduct.image)}
+                  alt={selectedProduct.name}
+                  style={zoomStyle}
+                  onError={(e) => {
+                    e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
+                  }}
+                />
               </div>
 
-              <div className="modal-actions">
-                <button
-                  className="modal-btn-cart"
-                  onClick={() => {
-                    const added = handleProductAddToCart(selectedProduct);
-                    if (added) setSelectedProduct(null);
-                  }}
-                  disabled={selectedProduct.inStock === false}
-                >
-                  {selectedProduct.inStock === false ? 'Out of Stock' : `Add to Cart • ₹${selectedProduct.price}`}
-                </button>
+              {/* Right Col: Details */}
+              <div className="modal-info-col">
+                <div>
+                  {selectedProduct.originRegion && (
+                    <span className="modal-origin-badge">
+                      📍 {selectedProduct.originRegion} Special
+                    </span>
+                  )}
 
-                <button
-                  className="modal-btn-wishlist"
-                  onClick={(e) => toggleWishlist(e, selectedProduct._id)}
-                  title="Wishlist"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted(selectedProduct._id) ? '#ef4444' : 'none'} stroke={isWishlisted(selectedProduct._id) ? '#ef4444' : '#64748b'} strokeWidth="2.2">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                  </svg>
-                </button>
+                  <h3 className="modal-title">{selectedProduct.name}</h3>
+
+                  {/* 🏷️ Dynamic Price & Calculated Discount */}
+                  <div className="modal-price-row">
+                    <span className="modal-price">₹{pricing.price}</span>
+                    {pricing.mrp && (
+                      <span className="modal-mrp-price">₹{pricing.mrp}</span>
+                    )}
+                    {pricing.discountPercent && (
+                      <span className="modal-discount-tag">{pricing.discountPercent}% OFF</span>
+                    )}
+                    {selectedProduct.offerText && (
+                      <span className="modal-discount-tag" style={{ background: '#fef3c7', color: '#b45309' }}>
+                        🏷️ {selectedProduct.offerText}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="modal-desc" style={{ color: '#475569', fontSize: '0.9rem', marginBottom: '16px' }}>
+                    {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
+                  </p>
+
+                  {/* Qty Selector */}
+                  <div className="modal-qty-control-row">
+                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>Select Quantity / Box:</span>
+                    <div className="qty-box">
+                      <button
+                        type="button"
+                        className="qty-btn"
+                        onClick={() => setModalQty((prev) => Math.max(1, prev - 1))}
+                        disabled={modalQty <= 1}
+                      >
+                        −
+                      </button>
+                      <span className="qty-num">{modalQty}</span>
+                      <button
+                        type="button"
+                        className="qty-btn"
+                        onClick={() => setModalQty((prev) => prev + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="modal-actions">
+                  <button
+                    className="modal-btn-cart"
+                    onClick={() => {
+                      const added = handleProductAddToCart(selectedProduct, modalQty);
+                      if (added) setSelectedProduct(null);
+                    }}
+                    disabled={selectedProduct.inStock === false}
+                  >
+                    {selectedProduct.inStock === false 
+                      ? 'Out of Stock' 
+                      : `Add ${modalQty} to Cart • ₹${pricing.price}`}
+                  </button>
+
+                  <button
+                    className="modal-btn-wishlist"
+                    onClick={(e) => toggleWishlist(e, selectedProduct._id)}
+                    title="Wishlist"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted(selectedProduct._id) ? '#ef4444' : 'none'} stroke={isWishlisted(selectedProduct._id) ? '#ef4444' : '#64748b'} strokeWidth="2.2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* HERO SLIDER SECTION */}
       <section className="hero-slider-section">
@@ -852,12 +934,7 @@ const Homepage = ({ addToCart, addedToast }) => {
             <h3 style={{ color: '#92400e' }}>
               {activeTab === 'wishlist' ? 'Your wishlist is empty!' : 'No sweets found in this category!'}
             </h3>
-            <p style={{ color: '#b45309', margin: '8px 0 16px' }}>
-              {activeTab === 'wishlist'
-                ? 'Tap the heart icon on any sweet to save it here.'
-                : 'Check back soon for fresh stock!'}
-            </p>
-            <button className="primary-btn" onClick={() => setActiveTab('all')}>
+            <button className="primary-btn" onClick={() => setActiveTab('all')} style={{ marginTop: '10px' }}>
               View All Sweets
             </button>
           </div>
@@ -865,18 +942,41 @@ const Homepage = ({ addToCart, addedToast }) => {
           <div className="modern-product-grid">
             {filteredProducts.map((p) => {
               const liked = isWishlisted(p._id);
+              const pricing = calculatePricing(p, 1);
 
               return (
                 <div 
                   key={p._id} 
                   className="modern-product-card product-card-interactive"
-                  onClick={() => setSelectedProduct(p)}
+                  onClick={() => handleOpenModal(p)}
                 >
                   <div className="product-image-box">
-                    {p.originRegion && (
+                    {/* 🟢 Discount Badge */}
+                    {pricing.discountPercent ? (
+                      <span className="card-offer-badge">
+                        {pricing.discountPercent}% OFF
+                      </span>
+                    ) : p.originRegion ? (
                       <span className="product-tag origin-tag">
                         📍 {p.originRegion}
                       </span>
+                    ) : null}
+
+                    {/* 🟢 Custom Offer Tag Text */}
+                    {p.offerText && (
+                      <span className="card-custom-offer-tag">
+                        🏷️ {p.offerText}
+                      </span>
+                    )}
+
+                    {/* 🟢 Offer Image Badge Sticker */}
+                    {p.offerImage && (
+                      <img
+                        src={getImageUrl(p.offerImage)}
+                        alt="Offer Badge"
+                        className="card-offer-image-sticker"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
                     )}
 
                     {/* ❤️ HEART / WISHLIST BUTTON */}
@@ -884,8 +984,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                       type="button"
                       className={`like-btn ${liked ? 'liked' : ''}`}
                       onClick={(e) => toggleWishlist(e, p._id)}
-                      aria-label={liked ? 'Remove from wishlist' : 'Add to wishlist'}
-                      title={liked ? 'Remove from wishlist' : 'Add to wishlist'}
+                      aria-label="Wishlist"
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke={liked ? '#ef4444' : '#4b5563'} strokeWidth="2.2">
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -896,7 +995,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                       src={getImageUrl(p.image)}
                       alt={p.name}
                       className="zoom-on-hover"
-                      crossOrigin="anonymous"
                       loading="lazy"
                       onError={(e) => {
                         e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
@@ -907,7 +1005,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                   <div className="product-info-box">
                     <div className="product-rating">
                       <span className="stars">★★★★★</span>
-                      <span className="review-count">(100% Pure Desi Ghee)</span>
                     </div>
 
                     <h3 className="product-name" title={p.name}>
@@ -916,7 +1013,12 @@ const Homepage = ({ addToCart, addedToast }) => {
 
                     <div className="product-footer">
                       <div className="product-price-block">
-                        <span className="price">₹{p.price}</span>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span className="price">₹{p.price}</span>
+                          {pricing.mrp && (
+                            <span className="product-mrp-price">₹{pricing.mrp}</span>
+                          )}
+                        </div>
                         <span className="unit-label">Per Box / Kg</span>
                       </div>
 
@@ -924,7 +1026,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                         className="cart-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleProductAddToCart(p);
+                          handleProductAddToCart(p, 1);
                         }}
                         disabled={p.inStock === false}
                       >

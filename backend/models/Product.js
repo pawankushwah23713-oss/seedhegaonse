@@ -1,4 +1,3 @@
-// backend/models/Product.js
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema(
@@ -18,6 +17,24 @@ const productSchema = new mongoose.Schema(
       required: [true, 'Price is required'],
       min: [1, 'Price must be greater than 0']
     },
+    // 🟢 Offer & Chhoot Fields
+    originalPrice: {
+      type: Number,
+      default: 0
+    },
+    discount: {
+      type: Number, // Chhoot (% me)
+      default: 0
+    },
+    offerText: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    offerImage: {
+      type: String, // Offer banner / sticker image path
+      default: ''
+    },
     category: {
       type: String,
       required: [true, 'Category is required'],
@@ -29,7 +46,7 @@ const productSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      required: [true, 'Product image is required']
+      required: [true, 'Product main image is required']
     },
     inStock: {
       type: Boolean,

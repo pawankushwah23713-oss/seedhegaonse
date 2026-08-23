@@ -315,22 +315,30 @@
   flex-grow: 1;
 }
 
+/* 🌟 PERFECTLY ALIGNED RATING & STARS */
 .product-rating {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 8px;
+  line-height: 1;
 }
 
 .stars {
   color: #f59e0b;
-  font-size: 12px;
-  letter-spacing: 1px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .review-count {
   font-size: 11px;
-  color: #6b7280;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .product-name {
@@ -654,8 +662,14 @@
     padding: 10px 8px;
   }
 
+  .product-rating {
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
   .stars {
-    font-size: 10px;
+    font-size: 11px;
+    letter-spacing: 1px;
   }
 
   .review-count {
