@@ -1,19 +1,32 @@
+// routes/productRoutes.js
 const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 
 const Product = require('../models/Product');
 const upload = require('../middleware/uploadMiddleware');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
-// 🟢 Main Image + Offer Image dono accept karne ke liye middleware setup
-const productUploads = upload.fields([
+// Multer upload wrapper taaki error JSON me catch ho
+const uploadFields = upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'offerImage', maxCount: 1 }
 ]);
 
-// 1. GET ALL PRODUCTS (Public & Admin)
+const handleProductUploads = (req, res, next) => {
+  uploadFields(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ message: `Upload Error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+    next();
+  });
+};
+
+// 1. GET ALL PRODUCTS
 router.get('/', async (req, res) => {
   try {
     const products = await Product.find().sort({ createdAt: -1 });
@@ -23,30 +36,34 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 2. ADD NEW PRODUCT WITH OFFERS (Admin Only)
-router.post('/', protect, adminOnly, productUploads, async (req, res) => {
+// 2. ADD NEW PRODUCT (Admin Only)
+router.post('/', protect, adminOnly, handleProductUploads, async (req, res) => {
   try {
     const { name, originRegion, price, originalPrice, discount, offerText, category, description } = req.body;
 
-    if (!req.files || !req.files['image']) {
+    if (!name || !originRegion || !price || !category) {
+      return res.status(400).json({ message: 'Please provide all required fields (name, originRegion, price, category).' });
+    }
+
+    if (!req.files || !req.files['image'] || req.files['image'].length === 0) {
       return res.status(400).json({ message: 'Please upload the main sweet product image.' });
     }
 
     const imagePath = `/uploads/products/${req.files['image'][0].filename}`;
-    const offerImagePath = req.files['offerImage']
+    const offerImagePath = req.files['offerImage'] && req.files['offerImage'].length > 0
       ? `/uploads/products/${req.files['offerImage'][0].filename}`
       : '';
 
     const newProduct = await Product.create({
-      name: name.trim(),
-      originRegion: originRegion.trim(),
+      name: (name || '').trim(),
+      originRegion: (originRegion || '').trim(),
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : 0,
       discount: discount ? Number(discount) : 0,
-      offerText: offerText ? offerText.trim() : '',
+      offerText: (offerText || '').trim(),
       offerImage: offerImagePath,
       category,
-      description: description ? description.trim() : '',
+      description: (description || '').trim(),
       image: imagePath
     });
 
@@ -55,12 +72,13 @@ router.post('/', protect, adminOnly, productUploads, async (req, res) => {
       product: newProduct
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Create Product Error:', error);
+    res.status(500).json({ message: error.message || 'Server error creating product' });
   }
 });
 
-// 3. EDIT / UPDATE PRODUCT & OFFERS (Admin Only)
-router.put('/:id', protect, adminOnly, productUploads, async (req, res) => {
+// 3. EDIT / UPDATE PRODUCT
+router.put('/:id', protect, adminOnly, handleProductUploads, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, originRegion, price, originalPrice, discount, offerText, category, description, inStock } = req.body;
@@ -70,29 +88,28 @@ router.put('/:id', protect, adminOnly, productUploads, async (req, res) => {
       return res.status(404).json({ message: 'Sweet product not found!' });
     }
 
-    // 🟢 1. Agar nayi Main Image upload hui ho
+    // New Main Image
     if (req.files && req.files['image']) {
       if (product.image) {
         const oldImagePath = path.join(__dirname, '..', product.image);
         if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
+          try { fs.unlinkSync(oldImagePath); } catch (e) { console.error(e); }
         }
       }
       product.image = `/uploads/products/${req.files['image'][0].filename}`;
     }
 
-    // 🟢 2. Agar nayi Offer Image upload hui ho
+    // New Offer Image
     if (req.files && req.files['offerImage']) {
       if (product.offerImage) {
         const oldOfferPath = path.join(__dirname, '..', product.offerImage);
         if (fs.existsSync(oldOfferPath)) {
-          fs.unlinkSync(oldOfferPath);
+          try { fs.unlinkSync(oldOfferPath); } catch (e) { console.error(e); }
         }
       }
       product.offerImage = `/uploads/products/${req.files['offerImage'][0].filename}`;
     }
 
-    // Update remaining fields
     if (name) product.name = name.trim();
     if (originRegion) product.originRegion = originRegion.trim();
     if (price) product.price = Number(price);
@@ -114,7 +131,7 @@ router.put('/:id', protect, adminOnly, productUploads, async (req, res) => {
   }
 });
 
-// 4. DELETE PRODUCT (Admin Only)
+// 4. DELETE PRODUCT
 router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
@@ -124,19 +141,17 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
       return res.status(404).json({ message: 'Product not found!' });
     }
 
-    // Main Image delete karo
     if (product.image) {
       const imagePath = path.join(__dirname, '..', product.image);
       if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+        try { fs.unlinkSync(imagePath); } catch (e) { console.error(e); }
       }
     }
 
-    // Offer Image delete karo
     if (product.offerImage) {
       const offerPath = path.join(__dirname, '..', product.offerImage);
       if (fs.existsSync(offerPath)) {
-        fs.unlinkSync(offerPath);
+        try { fs.unlinkSync(offerPath); } catch (e) { console.error(e); }
       }
     }
 

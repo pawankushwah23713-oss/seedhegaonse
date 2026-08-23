@@ -1,35 +1,34 @@
+// middleware/uploadMiddleware.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Storage directory auto create agar folder exist nahi karta
+// Storage directory auto create
 const uploadDir = path.join(__dirname, '..', 'uploads', 'products');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Multer Storage Configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   }
 });
 
-// File Filter (Sirf Images allow karne ke liye)
 const fileFilter = (req, file, cb) => {
-  const allowedFileTypes = /jpeg|jpg|png|webp|svg/;
-  const extname = allowedFileTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedFileTypes.test(file.mimetype);
+  const allowedExts = /\.(jpg|jpeg|png|webp|svg)$/i;
+  const isExtAllowed = allowedExts.test(path.extname(file.originalname));
+  const isMimeAllowed = file.mimetype.startsWith('image/');
 
-  if (extname && mimetype) {
-    return cb(null, true);
+  if (isExtAllowed && isMimeAllowed) {
+    cb(null, true);
   } else {
-    cb(new Error('Only image files (JPG, PNG, WEBP, SVG) are allowed!'));
+    cb(new Error('Only image files (JPG, JPEG, PNG, WEBP, SVG) are allowed!'), false);
   }
 };
 
