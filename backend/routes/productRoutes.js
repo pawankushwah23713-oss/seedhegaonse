@@ -18,7 +18,7 @@ const productUploads = upload.fields([
 const handleUpload = (req, res, next) => {
   productUploads(req, res, (err) => {
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: `Multer Error: ${err.message}` });
+      return res.status(400).json({ message: `Multer Upload Error: ${err.message}` });
     } else if (err) {
       return res.status(400).json({ message: err.message });
     }
@@ -88,8 +88,8 @@ router.put('/:id', protect, adminOnly, handleUpload, async (req, res) => {
       return res.status(404).json({ message: 'Sweet product not found!' });
     }
 
-    // Main Image
-    if (req.files && req.files['image']) {
+    // Main Image Update
+    if (req.files && req.files['image'] && req.files['image'].length > 0) {
       if (product.image) {
         const oldImagePath = path.join(process.cwd(), product.image);
         if (fs.existsSync(oldImagePath)) {
@@ -99,8 +99,8 @@ router.put('/:id', protect, adminOnly, handleUpload, async (req, res) => {
       product.image = `/uploads/products/${req.files['image'][0].filename}`;
     }
 
-    // Offer Image
-    if (req.files && req.files['offerImage']) {
+    // Offer Image Update
+    if (req.files && req.files['offerImage'] && req.files['offerImage'].length > 0) {
       if (product.offerImage) {
         const oldOfferPath = path.join(process.cwd(), product.offerImage);
         if (fs.existsSync(oldOfferPath)) {

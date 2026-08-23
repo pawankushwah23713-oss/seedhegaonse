@@ -8,7 +8,6 @@ const uploadDir = path.join(process.cwd(), 'uploads', 'products');
 // Multer Storage Configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Har upload request par verify karo ki folder exist karta hai
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -36,7 +35,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, 
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB Limit
   fileFilter: fileFilter
 });
 
