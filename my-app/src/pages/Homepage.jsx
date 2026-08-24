@@ -18,123 +18,138 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 
-// 🟢 Helper to get Default Variants if not provided by backend
+// 🟢 Helper to check if a product is a Dummy item
+const isDummyProduct = (product) => {
+  if (!product) return false;
+  return Boolean(product.isDummy || product._id?.toString().startsWith('dummy'));
+};
+
+// 🟢 Helper to get Default Variants (Lowest Weight Default & No Fake Discount on Dummy)
 export const getProductVariants = (product) => {
   if (Array.isArray(product.variants) && product.variants.length > 0) {
     return product.variants;
   }
+  const isDummy = isDummyProduct(product);
   const basePrice = Number(product.price) || 0;
-  const baseMrp = Number(product.originalPrice) || Math.round(basePrice * 1.15);
-  
+  const hasDiscount = !isDummy && (Number(product.originalPrice) > basePrice || Number(product.discount) > 0);
+  const baseMrp = Number(product.originalPrice) || basePrice;
+  const discountVal = isDummy ? 0 : (Number(product.discount) || 0);
+
   return [
     {
       _id: 'v-250',
       label: '250g',
       weight: '250g',
       price: Math.round(basePrice * 0.55),
-      originalPrice: Math.round(baseMrp * 0.55),
-      discount: product.discount || 0
+      originalPrice: hasDiscount ? Math.round(baseMrp * 0.55) : null,
+      discount: discountVal
     },
     {
       _id: 'v-500',
       label: '500g',
       weight: '500g',
       price: basePrice,
-      originalPrice: baseMrp,
-      discount: product.discount || 0
+      originalPrice: hasDiscount ? baseMrp : null,
+      discount: discountVal
     },
     {
       _id: 'v-1000',
       label: '1kg',
       weight: '1kg',
       price: Math.round(basePrice * 1.9),
-      originalPrice: Math.round(baseMrp * 1.9),
-      discount: product.discount || 0
+      originalPrice: hasDiscount ? Math.round(baseMrp * 1.9) : null,
+      discount: discountVal
     }
   ];
 };
 
-// 🟢 Fallback Dummy Products
+// 🟢 Dummy Products (isDummy: true & 0 Discount/Offers)
 const DUMMY_PRODUCTS = [
   {
     _id: 'dummy-1',
+    isDummy: true,
     name: 'Pure Desi Ghee Motichoor Ladoo',
     category: 'ladoo',
     originRegion: 'Jodhpur',
     description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios. Prepared fresh daily using traditional village methods.',
     price: 480,
-    originalPrice: 550,
-    discount: 12,
-    offerText: 'Diwali Dhamaka',
+    originalPrice: 480,
+    discount: 0,
+    offerText: '',
     offerImage: '',
     image: dummy1,
     inStock: true
   },
   {
     _id: 'dummy-2',
+    isDummy: true,
     name: 'Traditional Mathura Peda',
     category: 'peda',
     originRegion: 'Mathura',
     description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours, sourced directly from the holy city of Mathura.',
     price: 520,
-    originalPrice: 600,
-    discount: 13,
-    offerText: 'Special Deal',
+    originalPrice: 520,
+    discount: 0,
+    offerText: '',
     offerImage: '',
     image: dummy2,
     inStock: true
   },
   {
     _id: 'dummy-3',
+    isDummy: true,
     name: 'Royal Agra Kesar Angoori Petha',
     category: 'petha',
     originRegion: 'Agra',
     description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron and subtle rose water essence.',
     price: 360,
-    originalPrice: 400,
-    discount: 10,
-    offerText: 'Fresh Stock',
+    originalPrice: 360,
+    discount: 0,
+    offerText: '',
     offerImage: '',
     image: dummy3,
     inStock: true
   },
   {
     _id: 'dummy-4',
+    isDummy: true,
     name: 'Diamond Silver Foil Kaju Katli',
     category: 'barfi',
     originRegion: 'Delhi NCR',
     description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark and optimal sweetness for every festival.',
     price: 950,
-    originalPrice: 1100,
-    discount: 15,
-    offerText: 'Best Seller',
+    originalPrice: 950,
+    discount: 0,
+    offerText: '',
     offerImage: '',
     image: dummy4,
     inStock: true
   },
   {
     _id: 'dummy-5',
+    isDummy: true,
     name: 'Jaipuri Malai Rabdi Ghewar',
     category: 'special',
     originRegion: 'Jaipur',
     description: 'Crispy honeycomb disc soaked in saffron sugar syrup and topped with rich, thick cardamom rabdi and roasted dry fruits.',
     price: 650,
-    originalPrice: 750,
-    discount: 13,
-    offerText: 'Limited Batch',
+    originalPrice: 650,
+    discount: 0,
+    offerText: '',
     offerImage: '',
     image: dummy5,
     inStock: true
   },
   {
     _id: 'dummy-6',
+    isDummy: true,
     name: 'Alwar Famous Danedar Milk Cake',
     category: 'barfi',
     originRegion: 'Alwar',
     description: 'Rich, caramelized brown grainy milk fudge prepared from slow-simmered fresh whole buffalo milk with no additives.',
     price: 540,
-    originalPrice: 600,
-    discount: 10,
+    originalPrice: 540,
+    discount: 0,
     offerText: '',
     offerImage: '',
     image: dummy6,
@@ -142,13 +157,14 @@ const DUMMY_PRODUCTS = [
   },
   {
     _id: 'dummy-7',
+    isDummy: true,
     name: 'Hisar ki Special Malai Peda',
     category: 'peda',
     originRegion: 'Hisar',
     description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s renowned dairy heartland.',
     price: 540,
-    originalPrice: 600,
-    discount: 10,
+    originalPrice: 540,
+    discount: 0,
     offerText: '',
     offerImage: '',
     image: dummy7,
@@ -198,8 +214,18 @@ const getImageUrl = (imagePath) => {
 };
 
 // Pricing & Offer Calculation
-const calculatePricing = (targetObj, qty = 1) => {
+const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
   const price = Number(targetObj?.price) || 0;
+
+  if (isDummy) {
+    return {
+      price: price * qty,
+      mrp: null,
+      discountPercent: null,
+      savings: 0
+    };
+  }
+
   let mrp = Number(targetObj?.originalPrice) || 0;
   const manualDiscount = Number(targetObj?.discount) || 0;
 
@@ -214,11 +240,11 @@ const calculatePricing = (targetObj, qty = 1) => {
     discountPercent = Math.round(((mrp - price) / mrp) * 100);
   }
 
-  const savings = mrp > price ? (mrp - price) * qty : 0;
+  const savings = (mrp > price && discountPercent > 0) ? (mrp - price) * qty : 0;
 
   return {
     price: price * qty,
-    mrp: mrp > price ? mrp * qty : null,
+    mrp: (mrp > price && discountPercent > 0) ? mrp * qty : null,
     discountPercent: discountPercent > 0 ? discountPercent : null,
     savings
   };
@@ -257,15 +283,15 @@ const CardImageSlider = ({ images, alt }) => {
   return (
     <>
       <div
-        className="card-slider-track"
+        className="sg-card-slider-track"
         style={{ transform: `translateX(-${index * 100}%)` }}
       >
         {slides.map((src, i) => (
-          <div className="card-slider-slide" key={i}>
+          <div className="sg-card-slider-slide" key={i}>
             <img
               src={src}
               alt={i === 0 ? alt : `${alt} offer`}
-              className="card-product-img"
+              className="sg-card-product-img"
               loading="lazy"
               onError={(e) => { e.target.src = FALLBACK_IMG; }}
             />
@@ -274,9 +300,9 @@ const CardImageSlider = ({ images, alt }) => {
       </div>
 
       {slides.length > 1 && (
-        <div className="card-slider-dots">
+        <div className="sg-card-slider-dots">
           {slides.map((_, i) => (
-            <span key={i} className={`card-slider-dot ${i === index ? 'active' : ''}`} />
+            <span key={i} className={`sg-card-slider-dot ${i === index ? 'sg-active' : ''}`} />
           ))}
         </div>
       )}
@@ -301,11 +327,11 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle }) => {
   return (
     <>
       <div
-        className="modal-slider-track"
+        className="sg-modal-slider-track"
         style={{ transform: `translateX(-${index * 100}%)` }}
       >
         {slides.map((src, i) => (
-          <div className="modal-slider-slide" key={i}>
+          <div className="sg-modal-slider-slide" key={i}>
             <img
               src={src}
               alt={i === 0 ? alt : `${alt} offer`}
@@ -313,16 +339,16 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle }) => {
               onError={(e) => { e.target.src = FALLBACK_IMG; }}
             />
             {labels[i] && (
-              <span className="modal-slide-free-badge">{labels[i]}</span>
+              <span className="sg-modal-slide-free-badge">{labels[i]}</span>
             )}
           </div>
         ))}
       </div>
 
       {slides.length > 1 && (
-        <div className="modal-slider-dots">
+        <div className="sg-modal-slider-dots">
           {slides.map((_, i) => (
-            <span key={i} className={`modal-slider-dot ${i === index ? 'active' : ''}`} />
+            <span key={i} className={`sg-modal-slider-dot ${i === index ? 'sg-active' : ''}`} />
           ))}
         </div>
       )}
@@ -330,31 +356,32 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle }) => {
   );
 };
 
-// 🟢 INDIVIDUAL PRODUCT CARD COMPONENT (Shows All Variants Directly + Dynamic Price Below)
+// 🟢 Individual Product Card Component
 const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAddToCart }) => {
+  const isDummy = isDummyProduct(product);
   const variants = getProductVariants(product);
-  const defaultVar = variants.find((v) => (v.weight || v.label || '').includes('500g')) || variants[0];
+  const defaultVar = variants[0];
   const [selectedVariant, setSelectedVariant] = useState(defaultVar);
 
-  const pricing = calculatePricing(selectedVariant, 1);
+  const pricing = calculatePricing(selectedVariant, 1, isDummy);
   const liked = isWishlisted(product._id);
 
   return (
-    <div className="product-card" onClick={() => onOpenModal(product, selectedVariant)}>
+    <div className="sg-product-card" onClick={() => onOpenModal(product, selectedVariant)}>
       {/* TOP BADGE BAR */}
-      <div className="card-top-bar">
-        {pricing.discountPercent ? (
-          <span className="badge-discount">{pricing.discountPercent}% OFF</span>
+      <div className="sg-card-top-bar">
+        {!isDummy && pricing.discountPercent ? (
+          <span className="sg-badge-discount">{pricing.discountPercent}% OFF</span>
         ) : product.originRegion ? (
-          <span className="badge-origin-mini">📍 {product.originRegion}</span>
+          <span className="sg-badge-origin-mini">📍 {product.originRegion}</span>
         ) : (
-          <span className="badge-category-mini">{product.category}</span>
+          <span className="sg-badge-category-mini">{product.category}</span>
         )}
 
         {/* LIKE BUTTON */}
         <button
           type="button"
-          className={`card-heart-btn ${liked ? 'is-liked' : ''}`}
+          className={`sg-card-heart-btn ${liked ? 'sg-is-liked' : ''}`}
           onClick={(e) => toggleWishlist(e, product._id)}
           aria-label="Wishlist"
         >
@@ -364,11 +391,11 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
         </button>
       </div>
 
-      {/* PRODUCT IMAGE + OFFER SLIDER */}
-      <div className="card-media-box">
+      {/* PRODUCT IMAGE + SLIDER */}
+      <div className="sg-card-media-box">
         <CardImageSlider
           images={
-            product.offerImage
+            !isDummy && product.offerImage
               ? [getImageUrl(product.image), getImageUrl(product.offerImage)]
               : [getImageUrl(product.image)]
           }
@@ -377,32 +404,32 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
       </div>
 
       {/* OFFER / ORIGIN STRIP */}
-      {product.offerText ? (
-        <div className="card-offer-strip">
+      {!isDummy && product.offerText ? (
+        <div className="sg-card-offer-strip">
           <span>🏷️ {product.offerText}</span>
         </div>
       ) : (
-        <div className="card-origin-strip">
+        <div className="sg-card-origin-strip">
           <span>📍 Handcrafted in {product.originRegion || 'Authentic Village'}</span>
         </div>
       )}
 
       {/* DETAILS BODY */}
-      <div className="card-body">
-        <h3 className="card-title" title={product.name}>
+      <div className="sg-card-body">
+        <h3 className="sg-card-title" title={product.name}>
           {product.name}
         </h3>
 
-        {/* 🟢 ALL VARIANTS DISPLAY (NO DROPDOWN - CLICKABLE CHIPS) */}
-        <div className="card-variants-container" onClick={(e) => e.stopPropagation()}>
-          <div className="variant-chips-list">
+        {/* VARIANTS DISPLAY */}
+        <div className="sg-card-variants-container" onClick={(e) => e.stopPropagation()}>
+          <div className="sg-variant-chips-list">
             {variants.map((v, idx) => {
               const isActive = (selectedVariant._id && v._id) ? selectedVariant._id === v._id : selectedVariant.label === v.label;
               return (
                 <button
                   key={v._id || idx}
                   type="button"
-                  className={`variant-pill-btn ${isActive ? 'active' : ''}`}
+                  className={`sg-variant-pill-btn ${isActive ? 'sg-active' : ''}`}
                   onClick={() => setSelectedVariant(v)}
                 >
                   {v.label || v.weight || 'Standard'}
@@ -412,20 +439,20 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
           </div>
         </div>
 
-        {/* PRICING & ACTION FOOTER (Directly Below Variants) */}
-        <div className="card-footer">
-          <div className="card-price-group">
-            <div className="price-row">
-              <span className="current-price">₹{pricing.price}</span>
-              {pricing.mrp && <span className="mrp-price">₹{pricing.mrp}</span>}
+        {/* PRICING & ACTION FOOTER */}
+        <div className="sg-card-footer">
+          <div className="sg-card-price-group">
+            <div className="sg-price-row">
+              <span className="sg-current-price">₹{pricing.price}</span>
+              {!isDummy && pricing.mrp && <span className="sg-mrp-price">₹{pricing.mrp}</span>}
             </div>
-            {pricing.savings > 0 && (
-              <span className="savings-tag">Save ₹{pricing.savings}</span>
+            {!isDummy && pricing.savings > 0 && (
+              <span className="sg-savings-tag">Save ₹{pricing.savings}</span>
             )}
           </div>
 
           <button
-            className="btn-add-cart"
+            className="sg-btn-add-cart"
             onClick={(e) => {
               e.stopPropagation();
               onAddToCart(product, 1, selectedVariant);
@@ -500,7 +527,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 🟢 Fetch Products & Merge with Dummy Products
+  // Fetch Live Products & Merge with Dummy Products
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
@@ -509,7 +536,6 @@ const Homepage = ({ addToCart, addedToast }) => {
         const data = await res.json();
 
         if (res.ok && Array.isArray(data) && data.length > 0) {
-          // Backend products + Dummy products dono combine honge
           const apiProductIds = new Set(data.map((p) => p._id?.toString()));
           const nonDuplicateDummies = DUMMY_PRODUCTS.filter((d) => !apiProductIds.has(d._id?.toString()));
           setProducts([...data, ...nonDuplicateDummies]);
@@ -563,12 +589,12 @@ const Homepage = ({ addToCart, addedToast }) => {
 
   // Scroll Reveal Observer
   useEffect(() => {
-    const revealElements = document.querySelectorAll('.reveal');
+    const revealElements = document.querySelectorAll('.sg-reveal');
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add('active');
+            entry.target.classList.add('sg-active');
           }
         });
       },
@@ -641,7 +667,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
-  // SMART FILTER
+  // Filter Logic
   const filteredProducts = products.filter((p) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'wishlist') return isWishlisted(p._id);
@@ -668,7 +694,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
-  // ADD TO CART WITH SELECTED VARIANT
+  // Add To Cart
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
     const token = getAuthToken();
     if (!token) {
@@ -678,13 +704,13 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
 
     const activeVariant = variant || (p.variants && p.variants[0]) || {
-      weight: '500g',
-      label: '500g',
-      price: p.price
+      weight: '250g',
+      label: '250g',
+      price: Math.round(p.price * 0.55)
     };
 
     const variantPrice = Number(activeVariant.price || p.price);
-    const variantLabel = activeVariant.label || activeVariant.weight || '500g';
+    const variantLabel = activeVariant.label || activeVariant.weight || '250g';
 
     addToCart({
       id: `${p._id}_${variantLabel}`,
@@ -708,132 +734,148 @@ const Homepage = ({ addToCart, addedToast }) => {
   ];
 
   return (
-    <div className="homepage-container">
+    <div className="sg-homepage-container">
       {/* FLOATING WHATSAPP BUTTON */}
       <a
         href="https://wa.me/919315911105"
-        className="whatsapp-button pulse-anim"
+        className="sg-whatsapp-button sg-pulse-anim"
         target="_blank"
         rel="noreferrer"
         title="Chat on WhatsApp"
       >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="#ffffff">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="#ffffff">
           <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984 0 1.762.459 3.48 1.333 5.001L2 22l5.122-1.343c1.468.802 3.123 1.225 4.887 1.226 5.507 0 9.989-4.478 9.99-9.985 0-5.507-4.482-9.998-9.987-9.998zm5.83 14.364c-.244.685-1.41 1.309-1.974 1.393-.505.075-1.144.106-1.844-.117-.424-.135-.97-.315-1.67-.616-2.937-1.268-4.854-4.258-5.001-4.453-.146-.195-1.195-1.591-1.195-3.033 0-1.441.758-2.151 1.026-2.443.268-.293.585-.366.78-.366.195 0 .39.002.561.01.18.008.421-.068.66.505.244.585.833 2.03.906 2.176.073.146.122.317.024.512-.098.195-.146.317-.293.488-.146.171-.307.382-.439.513-.146.146-.298.305-.128.597.171.293.758 1.252 1.626 2.025 1.118.995 2.062 1.304 2.355 1.45.293.146.463.122.634-.073.171-.195.732-.853.927-1.146.195-.293.39-.244.659-.146.268.098 1.708.805 2.001.951.293.146.488.22.561.341.073.122.073.71-.171 1.395z"/>
         </svg>
       </a>
 
       {/* AUTH REQUIRED ALERT */}
       {authAlert && (
-        <div className="cart-toast fade-slide-up" style={{ background: '#dc2626' }}>
+        <div className="sg-cart-toast sg-fade-slide-up" style={{ background: '#dc2626' }}>
           <span>⚠️ {authAlert}</span>
-          <button onClick={() => navigate('/auth')} className="toast-login-btn">Login Now</button>
+          <button onClick={() => navigate('/auth')} className="sg-toast-login-btn">Login Now</button>
         </div>
       )}
 
       {/* TOAST NOTIFICATION */}
       {addedToast && !authAlert && (
-        <div className="cart-toast fade-slide-up">
+        <div className="sg-cart-toast sg-fade-slide-up">
           ✓ <strong>{addedToast}</strong> added to cart
         </div>
       )}
 
       {/* PRODUCT DETAILS MODAL (QUICK VIEW) */}
       {selectedProduct && (() => {
+        const isDummy = isDummyProduct(selectedProduct);
         const modalVariants = getProductVariants(selectedProduct);
         const currentActiveVariant = selectedModalVariant || modalVariants[0];
-        const pricing = calculatePricing(currentActiveVariant, modalQty);
+        const pricing = calculatePricing(currentActiveVariant, modalQty, isDummy);
 
         return (
-          <div className="product-modal-backdrop" onClick={() => setSelectedProduct(null)}>
-            <div className="product-modal-card" onClick={(e) => e.stopPropagation()}>
-              <button className="modal-close-btn" onClick={() => setSelectedProduct(null)} aria-label="Close">✕</button>
+          <div className="sg-product-modal-backdrop" onClick={() => setSelectedProduct(null)}>
+            <div className="sg-product-modal-card" onClick={(e) => e.stopPropagation()}>
+              <button className="sg-modal-close-btn" onClick={() => setSelectedProduct(null)} aria-label="Close">✕</button>
 
               {/* Left Column: Image with Zoom */}
-              <div className="modal-image-col" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+              <div className="sg-modal-image-col" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
                 <ModalImageSlider
                   images={
-                    selectedProduct.offerImage
+                    !isDummy && selectedProduct.offerImage
                       ? [getImageUrl(selectedProduct.image), getImageUrl(selectedProduct.offerImage)]
                       : [getImageUrl(selectedProduct.image)]
                   }
-                  labels={selectedProduct.offerImage ? [null, selectedProduct.offerText || 'FREE'] : [null]}
+                  labels={!isDummy && selectedProduct.offerImage ? [null, selectedProduct.offerText || 'FREE'] : [null]}
                   alt={selectedProduct.name}
                   zoomStyle={zoomStyle}
                 />
               </div>
 
               {/* Right Column: Information & Actions */}
-              <div className="modal-info-col">
+              <div className="sg-modal-info-col">
                 <div>
-                  <div className="modal-tags-row">
+                  <div className="sg-modal-tags-row">
                     {selectedProduct.originRegion && (
-                      <span className="badge-origin">📍 {selectedProduct.originRegion} Special</span>
+                      <span className="sg-badge-origin">📍 {selectedProduct.originRegion} Special</span>
                     )}
                     {selectedProduct.category && (
-                      <span className="badge-category">{selectedProduct.category.toUpperCase()}</span>
+                      <span className="sg-badge-category">{selectedProduct.category.toUpperCase()}</span>
                     )}
                   </div>
 
-                  <h3 className="modal-title">{selectedProduct.name}</h3>
+                  <h3 className="sg-modal-title">{selectedProduct.name}</h3>
 
-                  {/* 🟢 ALL VARIANTS DISPLAY IN MODAL (NO DROPDOWN - DIRECT CHIPS) */}
-                  <div className="modal-variant-section">
-                    <span className="variant-section-title">Select Pack Size / Weight:</span>
-                    <div className="modal-variant-chips">
+                  {/* ALL VARIANTS DISPLAY IN MODAL */}
+                  <div className="sg-modal-variant-section">
+                    <span className="sg-variant-section-title">Select Pack Size / Weight:</span>
+                    <div className="sg-modal-variant-chips">
                       {modalVariants.map((v, idx) => {
                         const isActive = currentActiveVariant?.label === v.label || currentActiveVariant?.weight === v.weight;
                         return (
                           <button
                             key={v._id || idx}
                             type="button"
-                            className={`modal-chip-btn ${isActive ? 'active' : ''}`}
+                            className={`sg-modal-chip-btn ${isActive ? 'sg-active' : ''}`}
                             onClick={() => setSelectedModalVariant(v)}
                           >
-                            <span className="chip-label">{v.label || v.weight}</span>
-                            <span className="chip-price">₹{v.price}</span>
+                            <span className="sg-chip-label">{v.label || v.weight}</span>
+                            <span className="sg-chip-price">₹{v.price}</span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Pricing Box (Directly Below Variants) */}
-                  <div className="modal-price-box">
-                    <div className="modal-price-numbers">
-                      <span className="modal-current-price">₹{pricing.price}</span>
-                      {pricing.mrp && <span className="modal-mrp-price">₹{pricing.mrp}</span>}
+                  {/* Pricing Box */}
+                  <div className="sg-modal-price-box">
+                    <div className="sg-modal-price-numbers">
+                      <span className="sg-modal-current-price">₹{pricing.price}</span>
+                      {!isDummy && pricing.mrp && <span className="sg-modal-mrp-price">₹{pricing.mrp}</span>}
                     </div>
-                    {pricing.discountPercent && (
-                      <span className="modal-discount-pill">{pricing.discountPercent}% OFF</span>
+                    {!isDummy && pricing.discountPercent && (
+                      <span className="sg-modal-discount-pill">{pricing.discountPercent}% OFF</span>
                     )}
                   </div>
 
                   {/* Offer Banner if available */}
-                  {selectedProduct.offerText && (
-                    <div className="modal-offer-banner">
+                  {!isDummy && selectedProduct.offerText && (
+                    <div className="sg-modal-offer-banner">
                       <span>🏷️ <strong>Offer:</strong> {selectedProduct.offerText}</span>
                     </div>
                   )}
 
-                  <p className="modal-desc">
+                  {/* Trust Highlights Checklist Box */}
+                  <div className="sg-modal-trust-checklist">
+                    <div className="sg-trust-check-item">✓ 100% Pure Desi Ghee</div>
+                    <div className="sg-trust-check-item">✓ 0 Preservatives Added</div>
+                    <div className="sg-trust-check-item">✓ Shelf Life: 7-10 Days</div>
+                    <div className="sg-trust-check-item">✓ Hygienically Packed</div>
+                  </div>
+
+                  <p className="sg-modal-desc">
                     {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
                   </p>
 
-                  {/* Quantity Stepper */}
-                  <div className="modal-qty-row">
-                    <span className="qty-label">Quantity:</span>
-                    <div className="stepper-box">
-                      <button type="button" className="stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1}>−</button>
-                      <span className="stepper-val">{modalQty}</span>
-                      <button type="button" className="stepper-btn" onClick={() => setModalQty((prev) => prev + 1)}>+</button>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Modal Buttons */}
-                <div className="modal-actions-row">
+                {/* Modal Buttons: Heart + Stepper + Add to Cart in one row */}
+                <div className="sg-modal-actions-row">
                   <button
-                    className="btn-modal-add"
+                    className="sg-btn-modal-wishlist"
+                    onClick={(e) => toggleWishlist(e, selectedProduct._id)}
+                    title="Wishlist"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted(selectedProduct._id) ? '#ef4444' : 'none'} stroke={isWishlisted(selectedProduct._id) ? '#ef4444' : '#64748b'} strokeWidth="2.2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                  </button>
+
+                  <div className="sg-stepper-box">
+                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1}>−</button>
+                    <span className="sg-stepper-val">{modalQty}</span>
+                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => prev + 1)}>+</button>
+                  </div>
+
+                  <button
+                    className="sg-btn-modal-add"
                     onClick={() => {
                       const added = handleProductAddToCart(selectedProduct, modalQty, currentActiveVariant);
                       if (added) setSelectedProduct(null);
@@ -841,16 +883,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                     disabled={selectedProduct.inStock === false}
                   >
                     {selectedProduct.inStock === false ? 'Out of Stock' : `Add ${modalQty} to Cart • ₹${pricing.price}`}
-                  </button>
-
-                  <button
-                    className="btn-modal-wishlist"
-                    onClick={(e) => toggleWishlist(e, selectedProduct._id)}
-                    title="Wishlist"
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted(selectedProduct._id) ? '#ef4444' : 'none'} stroke={isWishlisted(selectedProduct._id) ? '#ef4444' : '#64748b'} strokeWidth="2.2">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                    </svg>
                   </button>
                 </div>
               </div>
@@ -860,60 +892,113 @@ const Homepage = ({ addToCart, addedToast }) => {
       })()}
 
       {/* HERO SLIDER SECTION */}
-      <section className="hero-slider-section">
+      <section className="sg-hero-slider-section">
         {heroSlides.map((slide, index) => (
           <div
             key={slide.id}
-            className={`hero-slide ${index === currentSlide ? 'active-slide' : ''}`}
+            className={`sg-hero-slide ${index === currentSlide ? 'sg-active-slide' : ''}`}
             style={{
               backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.82) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})`
             }}
           />
         ))}
 
-        <div className="slider-dots">
+        <div className="sg-slider-dots">
           {heroSlides.map((_, idx) => (
             <span
               key={idx}
-              className={`dot ${idx === currentSlide ? 'active' : ''}`}
+              className={`sg-dot ${idx === currentSlide ? 'sg-active' : ''}`}
               onClick={() => setCurrentSlide(idx)}
             />
           ))}
         </div>
       </section>
 
+      {/* HERO KE BAAD: 4 USP FEATURE CARDS + TRUST HIGHLIGHTS */}
+      <section className="sg-usp-banner-section sg-container sg-reveal">
+        <div className="sg-usp-grid">
+          <div className="sg-usp-card">
+            <div className="sg-usp-icon-wrap">🚚</div>
+            <div className="sg-usp-text">
+              <h4>Same Day Delivery</h4>
+              <p>In Delhi NCR</p>
+            </div>
+          </div>
+
+          <div className="sg-usp-card">
+            <div className="sg-usp-icon-wrap">🌿</div>
+            <div className="sg-usp-text">
+              <h4>No Preservatives</h4>
+              <p>0% Artificial Flavours</p>
+            </div>
+          </div>
+
+          <div className="sg-usp-card">
+            <div className="sg-usp-icon-wrap">🍯</div>
+            <div className="sg-usp-text">
+              <h4>Fresh Made Daily</h4>
+              <p>100% Pure Desi Ghee</p>
+            </div>
+          </div>
+
+          <div className="sg-usp-card">
+            <div className="sg-usp-icon-wrap">🏛️</div>
+            <div className="sg-usp-text">
+              <h4>100% Authentic</h4>
+              <p>Village Artisans Recipe</p>
+            </div>
+          </div>
+        </div>
+
+        {/* PURE DESI GHEE TRUST CHECKLIST STRIP */}
+        <div className="sg-trust-badges-strip">
+          <div className="sg-trust-badge-pill">
+            <span className="sg-check-mark">✓</span> 100% Pure Desi Ghee
+          </div>
+          <div className="sg-trust-badge-pill">
+            <span className="sg-check-mark">✓</span> 0 Preservatives Added
+          </div>
+          <div className="sg-trust-badge-pill">
+            <span className="sg-check-mark">✓</span> Shelf Life: 7-10 Days
+          </div>
+          <div className="sg-trust-badge-pill">
+            <span className="sg-check-mark">✓</span> Hygienically Packed
+          </div>
+        </div>
+      </section>
+
       {/* MAIN PRODUCTS SECTION */}
-      <section id="products" className="products-section container reveal">
-        <div className="section-heading-wrap">
+      <section id="products" className="sg-products-section sg-container sg-reveal">
+        <div className="sg-section-heading-wrap">
           <div>
-            <span className="sub-heading">Fresh & Authentic</span>
-            <h2 className="main-heading">Village Special Sweets</h2>
+            <span className="sg-sub-heading">Fresh & Authentic</span>
+            <h2 className="sg-main-heading">Village Special Sweets</h2>
           </div>
 
           {/* FILTER TABS */}
-          <div className="tab-filters">
-            <button className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
+          <div className="sg-tab-filters">
+            <button className={`sg-tab-btn ${activeTab === 'all' ? 'sg-active' : ''}`} onClick={() => setActiveTab('all')}>
               🍬 All Sweets ({products.length})
             </button>
-            <button className={`tab-btn ${activeTab === 'ladoo' ? 'active' : ''}`} onClick={() => setActiveTab('ladoo')}>
+            <button className={`sg-tab-btn ${activeTab === 'ladoo' ? 'sg-active' : ''}`} onClick={() => setActiveTab('ladoo')}>
               🟡 Laddu
             </button>
-            <button className={`tab-btn ${activeTab === 'peda' ? 'active' : ''}`} onClick={() => setActiveTab('peda')}>
+            <button className={`sg-tab-btn ${activeTab === 'peda' ? 'sg-active' : ''}`} onClick={() => setActiveTab('peda')}>
               🟤 Peda
             </button>
-            <button className={`tab-btn ${activeTab === 'petha' ? 'active' : ''}`} onClick={() => setActiveTab('petha')}>
+            <button className={`sg-tab-btn ${activeTab === 'petha' ? 'sg-active' : ''}`} onClick={() => setActiveTab('petha')}>
               ⚪ Petha
             </button>
-            <button className={`tab-btn ${activeTab === 'halwa' ? 'active' : ''}`} onClick={() => setActiveTab('halwa')}>
+            <button className={`sg-tab-btn ${activeTab === 'halwa' ? 'sg-active' : ''}`} onClick={() => setActiveTab('halwa')}>
               🥣 Halwa
             </button>
-            <button className={`tab-btn ${activeTab === 'barfi' ? 'active' : ''}`} onClick={() => setActiveTab('barfi')}>
+            <button className={`sg-tab-btn ${activeTab === 'barfi' ? 'sg-active' : ''}`} onClick={() => setActiveTab('barfi')}>
               🔶 Barfi & Katli
             </button>
-            <button className={`tab-btn ${activeTab === 'special' ? 'active' : ''}`} onClick={() => setActiveTab('special')}>
+            <button className={`sg-tab-btn ${activeTab === 'special' ? 'sg-active' : ''}`} onClick={() => setActiveTab('special')}>
               ⭐ Specials
             </button>
-            <button className={`tab-btn ${activeTab === 'wishlist' ? 'active' : ''}`} onClick={() => setActiveTab('wishlist')}>
+            <button className={`sg-tab-btn ${activeTab === 'wishlist' ? 'sg-active' : ''}`} onClick={() => setActiveTab('wishlist')}>
               ❤️ Wishlist ({wishlist.length})
             </button>
           </div>
@@ -921,19 +1006,19 @@ const Homepage = ({ addToCart, addedToast }) => {
 
         {/* PRODUCTS GRID */}
         {loading && products.length === 0 ? (
-          <div className="empty-loading-state">
-            <div className="spinner"></div>
+          <div className="sg-empty-loading-state">
+            <div className="sg-spinner"></div>
             <h3>🍬 Loading authentic village sweets...</h3>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="empty-category-card">
+          <div className="sg-empty-category-card">
             <h3>{activeTab === 'wishlist' ? 'Your Wishlist is Empty!' : 'No sweets found in this category!'}</h3>
-            <button className="primary-btn" onClick={() => setActiveTab('all')} style={{ marginTop: '12px' }}>
+            <button className="sg-primary-btn" onClick={() => setActiveTab('all')} style={{ marginTop: '12px' }}>
               Explore All Sweets
             </button>
           </div>
         ) : (
-          <div className="modern-product-grid">
+          <div className="sg-modern-product-grid">
             {filteredProducts.map((p) => (
               <ProductCard
                 key={p._id}
@@ -950,16 +1035,16 @@ const Homepage = ({ addToCart, addedToast }) => {
 
       {/* GALLERY SECTION */}
       {products.length > 0 && (
-        <section className="gallery-slider-section reveal">
-          <div className="section-heading-wrap text-center container" style={{ marginBottom: '18px' }}>
-            <span className="sub-heading">Handpicked For You</span>
-            <h2 className="main-heading">A Glimpse Of Our Sweets</h2>
+        <section className="sg-gallery-slider-section sg-reveal">
+          <div className="sg-section-heading-wrap sg-text-center sg-container" style={{ marginBottom: '18px' }}>
+            <span className="sg-sub-heading">Handpicked For You</span>
+            <h2 className="sg-main-heading">A Glimpse Of Our Sweets</h2>
           </div>
 
-          <div className="gallery-slider-viewport">
-            <div className="gallery-slider-track">
+          <div className="sg-gallery-slider-viewport">
+            <div className="sg-gallery-slider-track">
               {[...products, ...products].map((p, idx) => (
-                <div className="gallery-slide-item" key={`gallery-${p._id}-${idx}`}>
+                <div className="sg-gallery-slide-item" key={`gallery-${p._id}-${idx}`}>
                   <img
                     src={getImageUrl(p.image)}
                     alt={p.name}
@@ -968,7 +1053,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                       e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
                     }}
                   />
-                  <span className="gallery-slide-caption">{p.name}</span>
+                  <span className="sg-gallery-slide-caption">{p.name}</span>
                 </div>
               ))}
             </div>
@@ -977,27 +1062,27 @@ const Homepage = ({ addToCart, addedToast }) => {
       )}
 
       {/* FAQ SECTION */}
-      <section className="faq-section container reveal">
-        <div className="section-heading-wrap text-center">
-          <span className="sub-heading">Got Questions?</span>
-          <h2 className="main-heading">Frequently Asked Questions</h2>
+      <section className="sg-faq-section sg-container sg-reveal">
+        <div className="sg-section-heading-wrap sg-text-center">
+          <span className="sg-sub-heading">Got Questions?</span>
+          <h2 className="sg-main-heading">Frequently Asked Questions</h2>
         </div>
 
-        <div className="faq-accordion">
+        <div className="sg-faq-accordion">
           {faqList.map((faq, idx) => {
             const isOpen = openFaq === idx;
             return (
-              <div key={idx} className={`faq-item ${isOpen ? 'open' : ''}`}>
+              <div key={idx} className={`sg-faq-item ${isOpen ? 'sg-open' : ''}`}>
                 <button
-                  className="faq-question"
+                  className="sg-faq-question"
                   onClick={() => setOpenFaq(isOpen ? null : idx)}
                   aria-expanded={isOpen}
                 >
                   <h4>{faq.q}</h4>
-                  <span className="faq-toggle-icon">{isOpen ? '−' : '+'}</span>
+                  <span className="sg-faq-toggle-icon">{isOpen ? '−' : '+'}</span>
                 </button>
                 {isOpen && (
-                  <div className="faq-answer-content">
+                  <div className="sg-faq-answer-content">
                     <p>{faq.a}</p>
                   </div>
                 )}

@@ -8,7 +8,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
 import { UserRoute, AdminRoute } from './components/ProtectedRoutes';
-import CheckoutShipping from './pages/CheckoutShipping';
+
 // Normal Pages
 import Homepage from './pages/Homepage';
 import Auth from './pages/Auth';
@@ -168,7 +168,7 @@ const AppContent = ({
           path="/privacy"
           element={<PrivacyPolicy />}
         />
-       <Route path="/checkout-shipping" element={<CheckoutShipping />} />
+ 
         
 
 
