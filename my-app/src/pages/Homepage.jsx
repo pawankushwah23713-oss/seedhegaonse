@@ -18,96 +18,139 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 
+// 🟢 Helper to get Default Variants if not provided by backend
+export const getProductVariants = (product) => {
+  if (Array.isArray(product.variants) && product.variants.length > 0) {
+    return product.variants;
+  }
+  const basePrice = Number(product.price) || 0;
+  const baseMrp = Number(product.originalPrice) || Math.round(basePrice * 1.15);
+  
+  return [
+    {
+      _id: 'v-250',
+      label: '250g',
+      weight: '250g',
+      price: Math.round(basePrice * 0.55),
+      originalPrice: Math.round(baseMrp * 0.55),
+      discount: product.discount || 0
+    },
+    {
+      _id: 'v-500',
+      label: '500g',
+      weight: '500g',
+      price: basePrice,
+      originalPrice: baseMrp,
+      discount: product.discount || 0
+    },
+    {
+      _id: 'v-1000',
+      label: '1kg',
+      weight: '1kg',
+      price: Math.round(basePrice * 1.9),
+      originalPrice: Math.round(baseMrp * 1.9),
+      discount: product.discount || 0
+    }
+  ];
+};
+
 // 🟢 Fallback Dummy Products
 const DUMMY_PRODUCTS = [
   {
     _id: 'dummy-1',
     name: 'Pure Desi Ghee Motichoor Ladoo',
-    price: 480,
-    originalPrice: 550,
-    discount: 12,
-    offerText: 'Festive Special',
     category: 'ladoo',
     originRegion: 'Jodhpur',
     description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios. Prepared fresh daily using traditional village methods.',
+    price: 480,
+    originalPrice: 550,
+    discount: 12,
+    offerText: 'Diwali Dhamaka',
+    offerImage: '',
     image: dummy1,
     inStock: true
   },
   {
     _id: 'dummy-2',
     name: 'Traditional Mathura Peda',
+    category: 'peda',
+    originRegion: 'Mathura',
+    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours, sourced directly from the holy city of Mathura.',
     price: 520,
     originalPrice: 600,
     discount: 13,
     offerText: 'Special Deal',
-    category: 'peda',
-    originRegion: 'Mathura',
-    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours, sourced directly from the holy city of Mathura.',
+    offerImage: '',
     image: dummy2,
     inStock: true
   },
   {
     _id: 'dummy-3',
     name: 'Royal Agra Kesar Angoori Petha',
+    category: 'petha',
+    originRegion: 'Agra',
+    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron and subtle rose water essence.',
     price: 360,
     originalPrice: 400,
     discount: 10,
     offerText: 'Fresh Stock',
-    category: 'petha',
-    originRegion: 'Agra',
-    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron and subtle rose water essence.',
+    offerImage: '',
     image: dummy3,
     inStock: true
   },
   {
     _id: 'dummy-4',
     name: 'Diamond Silver Foil Kaju Katli',
+    category: 'barfi',
+    originRegion: 'Delhi NCR',
+    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark and optimal sweetness for every festival.',
     price: 950,
     originalPrice: 1100,
     discount: 15,
     offerText: 'Best Seller',
-    category: 'barfi',
-    originRegion: 'Delhi NCR',
-    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark and optimal sweetness for every festival.',
+    offerImage: '',
     image: dummy4,
     inStock: true
   },
   {
     _id: 'dummy-5',
     name: 'Jaipuri Malai Rabdi Ghewar',
+    category: 'special',
+    originRegion: 'Jaipur',
+    description: 'Crispy honeycomb disc soaked in saffron sugar syrup and topped with rich, thick cardamom rabdi and roasted dry fruits.',
     price: 650,
     originalPrice: 750,
     discount: 13,
     offerText: 'Limited Batch',
-    category: 'special',
-    originRegion: 'Jaipur',
-    description: 'Crispy honeycomb disc soaked in saffron sugar syrup and topped with rich, thick cardamom rabdi and roasted dry fruits.',
+    offerImage: '',
     image: dummy5,
     inStock: true
   },
   {
     _id: 'dummy-6',
     name: 'Alwar Famous Danedar Milk Cake',
+    category: 'barfi',
+    originRegion: 'Alwar',
+    description: 'Rich, caramelized brown grainy milk fudge prepared from slow-simmered fresh whole buffalo milk with no additives.',
     price: 540,
     originalPrice: 600,
     discount: 10,
     offerText: '',
-    category: 'barfi',
-    originRegion: 'Alwar',
-    description: 'Rich, caramelized brown grainy milk fudge prepared from slow-simmered fresh whole buffalo milk with no additives.',
+    offerImage: '',
     image: dummy6,
     inStock: true
   },
   {
     _id: 'dummy-7',
     name: 'Hisar ki Special Malai Peda',
+    category: 'peda',
+    originRegion: 'Hisar',
+    description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s renowned dairy heartland.',
     price: 540,
     originalPrice: 600,
     discount: 10,
     offerText: '',
-    category: 'peda',
-    originRegion: 'Hisar',
-    description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s renowned dairy heartland.',
+    offerImage: '',
     image: dummy7,
     inStock: true
   }
@@ -116,8 +159,8 @@ const DUMMY_PRODUCTS = [
 // Helper to get JWT Token
 const getAuthToken = () => {
   try {
-    const directToken = localStorage.getItem('token') || 
-                        localStorage.getItem('userToken') || 
+    const directToken = localStorage.getItem('token') ||
+                        localStorage.getItem('userToken') ||
                         localStorage.getItem('authToken');
     if (directToken) return directToken;
 
@@ -132,7 +175,7 @@ const getAuthToken = () => {
   return null;
 };
 
-// Image Path Formatter
+// Image URL Formatter
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
     return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
@@ -154,28 +197,30 @@ const getImageUrl = (imagePath) => {
   return `${SERVER_HOST}${normalizedPath}`;
 };
 
-// 🟢 Helper to calculate Price, MRP and Discount %
-const calculatePricing = (product, qty = 1) => {
-  const price = Number(product.price) || 0;
-  const originalPrice = Number(product.originalPrice) || 0;
-  const manualDiscount = Number(product.discount) || 0;
+// Pricing & Offer Calculation
+const calculatePricing = (targetObj, qty = 1) => {
+  const price = Number(targetObj?.price) || 0;
+  let mrp = Number(targetObj?.originalPrice) || 0;
+  const manualDiscount = Number(targetObj?.discount) || 0;
 
   let discountPercent = 0;
-  let mrp = originalPrice;
 
   if (manualDiscount > 0) {
     discountPercent = manualDiscount;
     if (!mrp || mrp <= price) {
       mrp = Math.round(price / (1 - discountPercent / 100));
     }
-  } else if (originalPrice > price) {
-    discountPercent = Math.round(((originalPrice - price) / originalPrice) * 100);
+  } else if (mrp > price) {
+    discountPercent = Math.round(((mrp - price) / mrp) * 100);
   }
+
+  const savings = mrp > price ? (mrp - price) * qty : 0;
 
   return {
     price: price * qty,
     mrp: mrp > price ? mrp * qty : null,
-    discountPercent: discountPercent > 0 ? discountPercent : null
+    discountPercent: discountPercent > 0 ? discountPercent : null,
+    savings
   };
 };
 
@@ -193,6 +238,208 @@ const loadWishlist = () => {
   }
 };
 
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
+
+// 🟢 Card Image Slider
+const CardImageSlider = ({ images, alt }) => {
+  const [index, setIndex] = useState(0);
+  const slides = images.length > 0 ? images : [FALLBACK_IMG];
+
+  useEffect(() => {
+    setIndex(0);
+    if (slides.length <= 1) return undefined;
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % slides.length);
+    }, 2200);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
+  return (
+    <>
+      <div
+        className="card-slider-track"
+        style={{ transform: `translateX(-${index * 100}%)` }}
+      >
+        {slides.map((src, i) => (
+          <div className="card-slider-slide" key={i}>
+            <img
+              src={src}
+              alt={i === 0 ? alt : `${alt} offer`}
+              className="card-product-img"
+              loading="lazy"
+              onError={(e) => { e.target.src = FALLBACK_IMG; }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {slides.length > 1 && (
+        <div className="card-slider-dots">
+          {slides.map((_, i) => (
+            <span key={i} className={`card-slider-dot ${i === index ? 'active' : ''}`} />
+          ))}
+        </div>
+      )}
+    </>
+  );
+};
+
+// 🟢 Modal Image Slider
+const ModalImageSlider = ({ images, labels = [], alt, zoomStyle }) => {
+  const [index, setIndex] = useState(0);
+  const slides = images.length > 0 ? images : [FALLBACK_IMG];
+
+  useEffect(() => {
+    setIndex(0);
+    if (slides.length <= 1) return undefined;
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % slides.length);
+    }, 2600);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
+  return (
+    <>
+      <div
+        className="modal-slider-track"
+        style={{ transform: `translateX(-${index * 100}%)` }}
+      >
+        {slides.map((src, i) => (
+          <div className="modal-slider-slide" key={i}>
+            <img
+              src={src}
+              alt={i === 0 ? alt : `${alt} offer`}
+              style={i === index ? zoomStyle : undefined}
+              onError={(e) => { e.target.src = FALLBACK_IMG; }}
+            />
+            {labels[i] && (
+              <span className="modal-slide-free-badge">{labels[i]}</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {slides.length > 1 && (
+        <div className="modal-slider-dots">
+          {slides.map((_, i) => (
+            <span key={i} className={`modal-slider-dot ${i === index ? 'active' : ''}`} />
+          ))}
+        </div>
+      )}
+    </>
+  );
+};
+
+// 🟢 INDIVIDUAL PRODUCT CARD COMPONENT (Shows All Variants Directly + Dynamic Price Below)
+const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAddToCart }) => {
+  const variants = getProductVariants(product);
+  const defaultVar = variants.find((v) => (v.weight || v.label || '').includes('500g')) || variants[0];
+  const [selectedVariant, setSelectedVariant] = useState(defaultVar);
+
+  const pricing = calculatePricing(selectedVariant, 1);
+  const liked = isWishlisted(product._id);
+
+  return (
+    <div className="product-card" onClick={() => onOpenModal(product, selectedVariant)}>
+      {/* TOP BADGE BAR */}
+      <div className="card-top-bar">
+        {pricing.discountPercent ? (
+          <span className="badge-discount">{pricing.discountPercent}% OFF</span>
+        ) : product.originRegion ? (
+          <span className="badge-origin-mini">📍 {product.originRegion}</span>
+        ) : (
+          <span className="badge-category-mini">{product.category}</span>
+        )}
+
+        {/* LIKE BUTTON */}
+        <button
+          type="button"
+          className={`card-heart-btn ${liked ? 'is-liked' : ''}`}
+          onClick={(e) => toggleWishlist(e, product._id)}
+          aria-label="Wishlist"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke={liked ? '#ef4444' : '#64748b'} strokeWidth="2.2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* PRODUCT IMAGE + OFFER SLIDER */}
+      <div className="card-media-box">
+        <CardImageSlider
+          images={
+            product.offerImage
+              ? [getImageUrl(product.image), getImageUrl(product.offerImage)]
+              : [getImageUrl(product.image)]
+          }
+          alt={product.name}
+        />
+      </div>
+
+      {/* OFFER / ORIGIN STRIP */}
+      {product.offerText ? (
+        <div className="card-offer-strip">
+          <span>🏷️ {product.offerText}</span>
+        </div>
+      ) : (
+        <div className="card-origin-strip">
+          <span>📍 Handcrafted in {product.originRegion || 'Authentic Village'}</span>
+        </div>
+      )}
+
+      {/* DETAILS BODY */}
+      <div className="card-body">
+        <h3 className="card-title" title={product.name}>
+          {product.name}
+        </h3>
+
+        {/* 🟢 ALL VARIANTS DISPLAY (NO DROPDOWN - CLICKABLE CHIPS) */}
+        <div className="card-variants-container" onClick={(e) => e.stopPropagation()}>
+          <div className="variant-chips-list">
+            {variants.map((v, idx) => {
+              const isActive = (selectedVariant._id && v._id) ? selectedVariant._id === v._id : selectedVariant.label === v.label;
+              return (
+                <button
+                  key={v._id || idx}
+                  type="button"
+                  className={`variant-pill-btn ${isActive ? 'active' : ''}`}
+                  onClick={() => setSelectedVariant(v)}
+                >
+                  {v.label || v.weight || 'Standard'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* PRICING & ACTION FOOTER (Directly Below Variants) */}
+        <div className="card-footer">
+          <div className="card-price-group">
+            <div className="price-row">
+              <span className="current-price">₹{pricing.price}</span>
+              {pricing.mrp && <span className="mrp-price">₹{pricing.mrp}</span>}
+            </div>
+            {pricing.savings > 0 && (
+              <span className="savings-tag">Save ₹{pricing.savings}</span>
+            )}
+          </div>
+
+          <button
+            className="btn-add-cart"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart(product, 1, selectedVariant);
+            }}
+            disabled={product.inStock === false}
+          >
+            {product.inStock === false ? 'Sold Out' : '+ ADD'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Homepage = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
@@ -202,9 +449,10 @@ const Homepage = ({ addToCart, addedToast }) => {
   const [openFaq, setOpenFaq] = useState(null);
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
-  
+
   // Modal & Quantity State
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedModalVariant, setSelectedModalVariant] = useState(null);
   const [modalQty, setModalQty] = useState(1);
 
   // Ultra Zoom State
@@ -219,7 +467,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     const y = ((e.clientY - top) / height) * 100;
     setZoomStyle({
       transformOrigin: `${x}% ${y}%`,
-      transform: 'scale(2.4)'
+      transform: 'scale(2.3)'
     });
   };
 
@@ -230,8 +478,10 @@ const Homepage = ({ addToCart, addedToast }) => {
     });
   };
 
-  const handleOpenModal = (product) => {
+  const handleOpenModal = (product, initialVariant = null) => {
     setSelectedProduct(product);
+    const variants = getProductVariants(product);
+    setSelectedModalVariant(initialVariant || variants[0]);
     setModalQty(1);
   };
 
@@ -250,21 +500,24 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 🟢 1. FETCH LIVE PRODUCTS FROM BACKEND
+  // 🟢 Fetch Products & Merge with Dummy Products
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
         setLoading(true);
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
-        
+
         if (res.ok && Array.isArray(data) && data.length > 0) {
-          setProducts(data);
+          // Backend products + Dummy products dono combine honge
+          const apiProductIds = new Set(data.map((p) => p._id?.toString()));
+          const nonDuplicateDummies = DUMMY_PRODUCTS.filter((d) => !apiProductIds.has(d._id?.toString()));
+          setProducts([...data, ...nonDuplicateDummies]);
         } else {
           setProducts(DUMMY_PRODUCTS);
         }
       } catch (err) {
-        console.warn('Backend offline, using fallback products:', err);
+        console.warn('Backend offline, using fallback dummy products:', err);
         setProducts(DUMMY_PRODUCTS);
       } finally {
         setLoading(false);
@@ -399,22 +652,24 @@ const Homepage = ({ addToCart, addedToast }) => {
 
     switch (activeTab) {
       case 'ladoo':
-        return combined.includes('ladoo') || combined.includes('laddu') || combined.includes('motichoor') || combined.includes('boondi') || combined.includes('besan');
+        return category === 'ladoo' || combined.includes('ladoo') || combined.includes('laddu') || combined.includes('motichoor') || combined.includes('besan');
       case 'peda':
-        return combined.includes('peda') || combined.includes('pedha') || combined.includes('mathura');
+        return category === 'peda' || combined.includes('peda') || combined.includes('pedha') || combined.includes('mathura');
       case 'petha':
-        return combined.includes('petha') || combined.includes('agra') || combined.includes('angoori');
+        return category === 'petha' || combined.includes('petha') || combined.includes('agra') || combined.includes('angoori');
+      case 'halwa':
+        return category === 'halwa' || combined.includes('halwa') || combined.includes('sohan') || combined.includes('karachi');
       case 'barfi':
-        return combined.includes('barfi') || combined.includes('burfi') || combined.includes('katli') || combined.includes('kaju') || combined.includes('milk cake');
+        return category === 'barfi' || combined.includes('barfi') || combined.includes('burfi') || combined.includes('katli') || combined.includes('kaju') || combined.includes('milk cake');
       case 'special':
-        return combined.includes('special') || combined.includes('ghewar') || combined.includes('ghevar') || combined.includes('rasgulla') || combined.includes('gulab jamun');
+        return category === 'special' || combined.includes('special') || combined.includes('ghewar') || combined.includes('ghevar') || combined.includes('rasgulla') || combined.includes('gulab jamun');
       default:
         return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
     }
   });
 
-  // ADD TO CART
-  const handleProductAddToCart = (p, qty = 1) => {
+  // ADD TO CART WITH SELECTED VARIANT
+  const handleProductAddToCart = (p, qty = 1, variant = null) => {
     const token = getAuthToken();
     if (!token) {
       setAuthAlert('Please login first to add items to your cart!');
@@ -422,13 +677,24 @@ const Homepage = ({ addToCart, addedToast }) => {
       return false;
     }
 
+    const activeVariant = variant || (p.variants && p.variants[0]) || {
+      weight: '500g',
+      label: '500g',
+      price: p.price
+    };
+
+    const variantPrice = Number(activeVariant.price || p.price);
+    const variantLabel = activeVariant.label || activeVariant.weight || '500g';
+
     addToCart({
-      id: p._id,
-      name: p.name,
-      price: `₹${p.price}`,
-      unitPrice: p.price,
+      id: `${p._id}_${variantLabel}`,
+      productId: p._id,
+      name: `${p.name} (${variantLabel})`,
+      variant: variantLabel,
+      price: `₹${variantPrice}`,
+      unitPrice: variantPrice,
       quantity: qty,
-      totalPrice: p.price * qty,
+      totalPrice: variantPrice * qty,
       img: getImageUrl(p.image),
       originRegion: p.originRegion
     });
@@ -443,263 +709,12 @@ const Homepage = ({ addToCart, addedToast }) => {
 
   return (
     <div className="homepage-container">
-      {/* INLINE CSS FOR OFFER BADGES & ZOOM MODAL */}
-      <style>{`
-        .product-card-interactive {
-          cursor: pointer;
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-        .product-card-interactive:hover {
-          transform: translateY(-4px);
-        }
-
-        /* 🏷️ OFFER BADGES ON CARD */
-        .card-offer-badge {
-          position: absolute;
-          top: 10px;
-          left: 10px;
-          background: #ef4444;
-          color: #ffffff;
-          font-size: 10px;
-          font-weight: 800;
-          padding: 3px 8px;
-          border-radius: 4px;
-          text-transform: uppercase;
-          z-index: 2;
-          box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
-        }
-
-        .card-custom-offer-tag {
-          position: absolute;
-          bottom: 8px;
-          left: 8px;
-          background: rgba(15, 23, 42, 0.85);
-          color: #fef08a;
-          font-size: 9px;
-          font-weight: 700;
-          padding: 2px 7px;
-          border-radius: 4px;
-          z-index: 2;
-        }
-
-        .card-offer-image-sticker {
-          position: absolute;
-          bottom: 8px;
-          right: 8px;
-          width: 38px;
-          height: 38px;
-          object-fit: cover;
-          border-radius: 6px;
-          border: 1px solid #f59e0b;
-          z-index: 2;
-          background: #ffffff;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        }
-
-        .product-mrp-price {
-          font-size: 0.78rem;
-          color: #94a3b8;
-          text-decoration: line-through;
-          margin-left: 6px;
-          font-weight: 600;
-        }
-
-        /* Modal Styles */
-        .product-modal-backdrop {
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(11, 28, 23, 0.78);
-          backdrop-filter: blur(10px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 99999;
-          padding: 16px;
-          animation: modalFadeIn 0.25s ease-out;
-        }
-
-        .product-modal-card {
-          background: #ffffff;
-          border-radius: 20px;
-          max-width: 900px;
-          width: 100%;
-          max-height: 92vh;
-          overflow-y: auto;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
-          display: grid;
-          grid-template-columns: 1fr 1.2fr;
-          position: relative;
-          animation: modalScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .modal-close-btn {
-          position: absolute;
-          top: 14px; right: 14px;
-          background: #f1f5f9;
-          border: none;
-          width: 38px; height: 38px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
-          color: #334155;
-          cursor: pointer;
-          z-index: 20;
-        }
-        .modal-close-btn:hover {
-          background: #e2e8f0;
-          color: #0f172a;
-          transform: rotate(90deg);
-        }
-
-        .modal-image-col {
-          background: #f8fafc;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          border-right: 1px solid #f1f5f9;
-          overflow: hidden;
-          position: relative;
-          cursor: crosshair;
-        }
-
-        .modal-image-col img {
-          max-width: 100%;
-          max-height: 330px;
-          object-fit: contain;
-          border-radius: 12px;
-          will-change: transform;
-        }
-
-        .modal-info-col {
-          padding: 28px 24px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
-
-        .modal-origin-badge {
-          display: inline-block;
-          background: #fef3c7;
-          color: #92400e;
-          font-size: 0.78rem;
-          font-weight: 700;
-          padding: 4px 10px;
-          border-radius: 6px;
-          text-transform: uppercase;
-          margin-bottom: 8px;
-        }
-
-        .modal-title {
-          font-size: 1.4rem;
-          font-weight: 800;
-          color: #0f172a;
-          margin-bottom: 8px;
-        }
-
-        .modal-price-row {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-        .modal-price {
-          font-size: 1.65rem;
-          font-weight: 800;
-          color: #059669;
-        }
-        .modal-mrp-price {
-          font-size: 1.15rem;
-          color: #94a3b8;
-          text-decoration: line-through;
-          font-weight: 600;
-        }
-        .modal-discount-tag {
-          background: #fee2e2;
-          color: #ef4444;
-          font-size: 0.75rem;
-          font-weight: 800;
-          padding: 3px 8px;
-          border-radius: 6px;
-        }
-
-        .modal-qty-control-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 10px 14px;
-          margin-bottom: 20px;
-        }
-        .qty-box {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: #ffffff;
-          border: 1px solid #cbd5e1;
-          border-radius: 8px;
-          padding: 4px 8px;
-        }
-        .qty-btn {
-          background: #f1f5f9;
-          border: none;
-          width: 30px; height: 30px;
-          border-radius: 6px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-        .qty-num {
-          font-size: 1.05rem;
-          font-weight: 800;
-          min-width: 22px;
-          text-align: center;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          margin-bottom: 20px;
-        }
-        .modal-btn-cart {
-          flex: 1;
-          background: #047857;
-          color: #ffffff;
-          border: none;
-          padding: 12px 20px;
-          border-radius: 10px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-        .modal-btn-wishlist {
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          padding: 0 16px;
-          border-radius: 10px;
-          cursor: pointer;
-        }
-
-        @media (max-width: 768px) {
-          .product-modal-card {
-            grid-template-columns: 1fr;
-          }
-          .modal-image-col {
-            border-right: none;
-            border-bottom: 1px solid #f1f5f9;
-          }
-        }
-      `}</style>
-
       {/* FLOATING WHATSAPP BUTTON */}
-      <a 
-        href="https://wa.me/919315911105" 
-        className="whatsapp-button pulse-anim" 
-        target="_blank" 
-        rel="noreferrer" 
+      <a
+        href="https://wa.me/919315911105"
+        className="whatsapp-button pulse-anim"
+        target="_blank"
+        rel="noreferrer"
         title="Chat on WhatsApp"
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="#ffffff">
@@ -709,32 +724,9 @@ const Homepage = ({ addToCart, addedToast }) => {
 
       {/* AUTH REQUIRED ALERT */}
       {authAlert && (
-        <div 
-          className="cart-toast fade-slide-up"
-          style={{ 
-            background: '#dc2626', 
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}
-        >
+        <div className="cart-toast fade-slide-up" style={{ background: '#dc2626' }}>
           <span>⚠️ {authAlert}</span>
-          <button
-            onClick={() => navigate('/auth')}
-            style={{
-              background: '#ffffff',
-              color: '#dc2626',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '4px 10px',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            Login Now
-          </button>
+          <button onClick={() => navigate('/auth')} className="toast-login-btn">Login Now</button>
         </div>
       )}
 
@@ -745,114 +737,114 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       )}
 
-      {/* 🌟 PRODUCT DETAILS MODAL */}
+      {/* PRODUCT DETAILS MODAL (QUICK VIEW) */}
       {selectedProduct && (() => {
-        const pricing = calculatePricing(selectedProduct, modalQty);
-        return (
-          <div 
-            className="product-modal-backdrop"
-            onClick={() => setSelectedProduct(null)}
-          >
-            <div 
-              className="product-modal-card"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button 
-                className="modal-close-btn" 
-                onClick={() => setSelectedProduct(null)}
-                aria-label="Close"
-              >
-                ✕
-              </button>
+        const modalVariants = getProductVariants(selectedProduct);
+        const currentActiveVariant = selectedModalVariant || modalVariants[0];
+        const pricing = calculatePricing(currentActiveVariant, modalQty);
 
-              {/* Left Col: Image */}
-              <div 
-                className="modal-image-col"
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
-              >
-                <img
-                  src={getImageUrl(selectedProduct.image)}
+        return (
+          <div className="product-modal-backdrop" onClick={() => setSelectedProduct(null)}>
+            <div className="product-modal-card" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close-btn" onClick={() => setSelectedProduct(null)} aria-label="Close">✕</button>
+
+              {/* Left Column: Image with Zoom */}
+              <div className="modal-image-col" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+                <ModalImageSlider
+                  images={
+                    selectedProduct.offerImage
+                      ? [getImageUrl(selectedProduct.image), getImageUrl(selectedProduct.offerImage)]
+                      : [getImageUrl(selectedProduct.image)]
+                  }
+                  labels={selectedProduct.offerImage ? [null, selectedProduct.offerText || 'FREE'] : [null]}
                   alt={selectedProduct.name}
-                  style={zoomStyle}
-                  onError={(e) => {
-                    e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
-                  }}
+                  zoomStyle={zoomStyle}
                 />
               </div>
 
-              {/* Right Col: Details */}
+              {/* Right Column: Information & Actions */}
               <div className="modal-info-col">
                 <div>
-                  {selectedProduct.originRegion && (
-                    <span className="modal-origin-badge">
-                      📍 {selectedProduct.originRegion} Special
-                    </span>
-                  )}
-
-                  <h3 className="modal-title">{selectedProduct.name}</h3>
-
-                  {/* 🏷️ Dynamic Price & Calculated Discount */}
-                  <div className="modal-price-row">
-                    <span className="modal-price">₹{pricing.price}</span>
-                    {pricing.mrp && (
-                      <span className="modal-mrp-price">₹{pricing.mrp}</span>
+                  <div className="modal-tags-row">
+                    {selectedProduct.originRegion && (
+                      <span className="badge-origin">📍 {selectedProduct.originRegion} Special</span>
                     )}
-                    {pricing.discountPercent && (
-                      <span className="modal-discount-tag">{pricing.discountPercent}% OFF</span>
-                    )}
-                    {selectedProduct.offerText && (
-                      <span className="modal-discount-tag" style={{ background: '#fef3c7', color: '#b45309' }}>
-                        🏷️ {selectedProduct.offerText}
-                      </span>
+                    {selectedProduct.category && (
+                      <span className="badge-category">{selectedProduct.category.toUpperCase()}</span>
                     )}
                   </div>
 
-                  <p className="modal-desc" style={{ color: '#475569', fontSize: '0.9rem', marginBottom: '16px' }}>
+                  <h3 className="modal-title">{selectedProduct.name}</h3>
+
+                  {/* 🟢 ALL VARIANTS DISPLAY IN MODAL (NO DROPDOWN - DIRECT CHIPS) */}
+                  <div className="modal-variant-section">
+                    <span className="variant-section-title">Select Pack Size / Weight:</span>
+                    <div className="modal-variant-chips">
+                      {modalVariants.map((v, idx) => {
+                        const isActive = currentActiveVariant?.label === v.label || currentActiveVariant?.weight === v.weight;
+                        return (
+                          <button
+                            key={v._id || idx}
+                            type="button"
+                            className={`modal-chip-btn ${isActive ? 'active' : ''}`}
+                            onClick={() => setSelectedModalVariant(v)}
+                          >
+                            <span className="chip-label">{v.label || v.weight}</span>
+                            <span className="chip-price">₹{v.price}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Pricing Box (Directly Below Variants) */}
+                  <div className="modal-price-box">
+                    <div className="modal-price-numbers">
+                      <span className="modal-current-price">₹{pricing.price}</span>
+                      {pricing.mrp && <span className="modal-mrp-price">₹{pricing.mrp}</span>}
+                    </div>
+                    {pricing.discountPercent && (
+                      <span className="modal-discount-pill">{pricing.discountPercent}% OFF</span>
+                    )}
+                  </div>
+
+                  {/* Offer Banner if available */}
+                  {selectedProduct.offerText && (
+                    <div className="modal-offer-banner">
+                      <span>🏷️ <strong>Offer:</strong> {selectedProduct.offerText}</span>
+                    </div>
+                  )}
+
+                  <p className="modal-desc">
                     {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
                   </p>
 
-                  {/* Qty Selector */}
-                  <div className="modal-qty-control-row">
-                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>Select Quantity / Box:</span>
-                    <div className="qty-box">
-                      <button
-                        type="button"
-                        className="qty-btn"
-                        onClick={() => setModalQty((prev) => Math.max(1, prev - 1))}
-                        disabled={modalQty <= 1}
-                      >
-                        −
-                      </button>
-                      <span className="qty-num">{modalQty}</span>
-                      <button
-                        type="button"
-                        className="qty-btn"
-                        onClick={() => setModalQty((prev) => prev + 1)}
-                      >
-                        +
-                      </button>
+                  {/* Quantity Stepper */}
+                  <div className="modal-qty-row">
+                    <span className="qty-label">Quantity:</span>
+                    <div className="stepper-box">
+                      <button type="button" className="stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1}>−</button>
+                      <span className="stepper-val">{modalQty}</span>
+                      <button type="button" className="stepper-btn" onClick={() => setModalQty((prev) => prev + 1)}>+</button>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="modal-actions">
+                {/* Modal Buttons */}
+                <div className="modal-actions-row">
                   <button
-                    className="modal-btn-cart"
+                    className="btn-modal-add"
                     onClick={() => {
-                      const added = handleProductAddToCart(selectedProduct, modalQty);
+                      const added = handleProductAddToCart(selectedProduct, modalQty, currentActiveVariant);
                       if (added) setSelectedProduct(null);
                     }}
                     disabled={selectedProduct.inStock === false}
                   >
-                    {selectedProduct.inStock === false 
-                      ? 'Out of Stock' 
-                      : `Add ${modalQty} to Cart • ₹${pricing.price}`}
+                    {selectedProduct.inStock === false ? 'Out of Stock' : `Add ${modalQty} to Cart • ₹${pricing.price}`}
                   </button>
 
                   <button
-                    className="modal-btn-wishlist"
+                    className="btn-modal-wishlist"
                     onClick={(e) => toggleWishlist(e, selectedProduct._id)}
                     title="Wishlist"
                   >
@@ -873,8 +865,8 @@ const Homepage = ({ addToCart, addedToast }) => {
           <div
             key={slide.id}
             className={`hero-slide ${index === currentSlide ? 'active-slide' : ''}`}
-            style={{ 
-              backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.82) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})` 
+            style={{
+              backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.82) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})`
             }}
           />
         ))}
@@ -901,142 +893,57 @@ const Homepage = ({ addToCart, addedToast }) => {
           {/* FILTER TABS */}
           <div className="tab-filters">
             <button className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
-              All Sweets ({products.length})
+              🍬 All Sweets ({products.length})
             </button>
             <button className={`tab-btn ${activeTab === 'ladoo' ? 'active' : ''}`} onClick={() => setActiveTab('ladoo')}>
-              Laddu
+              🟡 Laddu
             </button>
             <button className={`tab-btn ${activeTab === 'peda' ? 'active' : ''}`} onClick={() => setActiveTab('peda')}>
-              Peda
+              🟤 Peda
             </button>
             <button className={`tab-btn ${activeTab === 'petha' ? 'active' : ''}`} onClick={() => setActiveTab('petha')}>
-              Petha
+              ⚪ Petha
+            </button>
+            <button className={`tab-btn ${activeTab === 'halwa' ? 'active' : ''}`} onClick={() => setActiveTab('halwa')}>
+              🥣 Halwa
             </button>
             <button className={`tab-btn ${activeTab === 'barfi' ? 'active' : ''}`} onClick={() => setActiveTab('barfi')}>
-              Barfi & Katli
+              🔶 Barfi & Katli
             </button>
             <button className={`tab-btn ${activeTab === 'special' ? 'active' : ''}`} onClick={() => setActiveTab('special')}>
-              Specials
+              ⭐ Specials
             </button>
             <button className={`tab-btn ${activeTab === 'wishlist' ? 'active' : ''}`} onClick={() => setActiveTab('wishlist')}>
-              ❤ Wishlist ({wishlist.length})
+              ❤️ Wishlist ({wishlist.length})
             </button>
           </div>
         </div>
 
         {/* PRODUCTS GRID */}
         {loading && products.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#b45309' }}>
-            <h3>🍬 Loading fresh regional sweets...</h3>
+          <div className="empty-loading-state">
+            <div className="spinner"></div>
+            <h3>🍬 Loading authentic village sweets...</h3>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fffbeb', borderRadius: '16px', border: '1px dashed #d97706', margin: '20px 0' }}>
-            <h3 style={{ color: '#92400e' }}>
-              {activeTab === 'wishlist' ? 'Your wishlist is empty!' : 'No sweets found in this category!'}
-            </h3>
-            <button className="primary-btn" onClick={() => setActiveTab('all')} style={{ marginTop: '10px' }}>
-              View All Sweets
+          <div className="empty-category-card">
+            <h3>{activeTab === 'wishlist' ? 'Your Wishlist is Empty!' : 'No sweets found in this category!'}</h3>
+            <button className="primary-btn" onClick={() => setActiveTab('all')} style={{ marginTop: '12px' }}>
+              Explore All Sweets
             </button>
           </div>
         ) : (
           <div className="modern-product-grid">
-            {filteredProducts.map((p) => {
-              const liked = isWishlisted(p._id);
-              const pricing = calculatePricing(p, 1);
-
-              return (
-                <div 
-                  key={p._id} 
-                  className="modern-product-card product-card-interactive"
-                  onClick={() => handleOpenModal(p)}
-                >
-                  <div className="product-image-box">
-                    {/* 🟢 Discount Badge */}
-                    {pricing.discountPercent ? (
-                      <span className="card-offer-badge">
-                        {pricing.discountPercent}% OFF
-                      </span>
-                    ) : p.originRegion ? (
-                      <span className="product-tag origin-tag">
-                        📍 {p.originRegion}
-                      </span>
-                    ) : null}
-
-                    {/* 🟢 Custom Offer Tag Text */}
-                    {p.offerText && (
-                      <span className="card-custom-offer-tag">
-                        🏷️ {p.offerText}
-                      </span>
-                    )}
-
-                    {/* 🟢 Offer Image Badge Sticker */}
-                    {p.offerImage && (
-                      <img
-                        src={getImageUrl(p.offerImage)}
-                        alt="Offer Badge"
-                        className="card-offer-image-sticker"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    )}
-
-                    {/* ❤️ HEART / WISHLIST BUTTON */}
-                    <button
-                      type="button"
-                      className={`like-btn ${liked ? 'liked' : ''}`}
-                      onClick={(e) => toggleWishlist(e, p._id)}
-                      aria-label="Wishlist"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke={liked ? '#ef4444' : '#4b5563'} strokeWidth="2.2">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                      </svg>
-                    </button>
-
-                    <img
-                      src={getImageUrl(p.image)}
-                      alt={p.name}
-                      className="zoom-on-hover"
-                      loading="lazy"
-                      onError={(e) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
-                      }}
-                    />
-                  </div>
-
-                  <div className="product-info-box">
-                    <div className="product-rating">
-                      <span className="stars">★★★★★</span>
-                    </div>
-
-                    <h3 className="product-name" title={p.name}>
-                      {p.name}
-                    </h3>
-
-                    <div className="product-footer">
-                      <div className="product-price-block">
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                          <span className="price">₹{p.price}</span>
-                          {pricing.mrp && (
-                            <span className="product-mrp-price">₹{pricing.mrp}</span>
-                          )}
-                        </div>
-                        <span className="unit-label">Per Box / Kg</span>
-                      </div>
-
-                      <button
-                        className="cart-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleProductAddToCart(p, 1);
-                        }}
-                        disabled={p.inStock === false}
-                      >
-                        {p.inStock === false ? 'Out of Stock' : '+ Add'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {filteredProducts.map((p) => (
+              <ProductCard
+                key={p._id}
+                product={p}
+                isWishlisted={isWishlisted}
+                toggleWishlist={toggleWishlist}
+                onOpenModal={handleOpenModal}
+                onAddToCart={handleProductAddToCart}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -1081,8 +988,8 @@ const Homepage = ({ addToCart, addedToast }) => {
             const isOpen = openFaq === idx;
             return (
               <div key={idx} className={`faq-item ${isOpen ? 'open' : ''}`}>
-                <button 
-                  className="faq-question" 
+                <button
+                  className="faq-question"
                   onClick={() => setOpenFaq(isOpen ? null : idx)}
                   aria-expanded={isOpen}
                 >
