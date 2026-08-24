@@ -951,20 +951,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
 
         {/* PURE DESI GHEE TRUST CHECKLIST STRIP */}
-        <div className="sg-trust-badges-strip">
-          <div className="sg-trust-badge-pill">
-            <span className="sg-check-mark">✓</span> 100% Pure Desi Ghee
-          </div>
-          <div className="sg-trust-badge-pill">
-            <span className="sg-check-mark">✓</span> 0 Preservatives Added
-          </div>
-          <div className="sg-trust-badge-pill">
-            <span className="sg-check-mark">✓</span> Shelf Life: 7-10 Days
-          </div>
-          <div className="sg-trust-badge-pill">
-            <span className="sg-check-mark">✓</span> Hygienically Packed
-          </div>
-        </div>
+        
       </section>
 
       {/* MAIN PRODUCTS SECTION */}
