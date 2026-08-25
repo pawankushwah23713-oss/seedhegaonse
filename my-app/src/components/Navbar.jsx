@@ -365,7 +365,7 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'cakes' && (
                 <ul className="mobile-submenu">
-                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🎂 All Cakes</Link></li>
+                  <li><Link to="/cake" onClick={closeMobileMenu}>🎂 All Cakes</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍫 Chocolate Truffle</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>❤️ Red Velvet</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍓 Fresh Fruit</Link></li>
