@@ -581,7 +581,7 @@ const CakePage = ({ addToCart, addedToast }) => {
     },
     {
       id: 2,
-      image: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?q=80&w=1200&auto=format&fit=crop'
+      image: "https://images.pexels.com/photos/1793037/pexels-photo-1793037.jpeg"
     }
   ];
 

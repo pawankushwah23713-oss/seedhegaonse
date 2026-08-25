@@ -39,6 +39,7 @@ import TopRatedProducts from "./pages/TopRatedProducts"
 import TermsAndConditions from './pages/TermsAndConditions';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import AdminInquiries from './pages/admincontact';
+import CakePage from './pages/CakePage';
 
 
 // Inner Wrapper: Hide Navbar/Footer on Admin screen
@@ -167,6 +168,10 @@ const AppContent = ({
          <Route
           path="/privacy"
           element={<PrivacyPolicy />}
+        />
+        <Route
+           path="/cake"
+          element={<CakePage addToCart={addToCart} addedToast={addedToast} />}
         />
  
         

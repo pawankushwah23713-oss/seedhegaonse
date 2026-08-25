@@ -160,7 +160,7 @@ const Navbar = ({
                   </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
-                  <li><Link to="/#products">🍬 All Sweets</Link></li>
+                  <li><Link to="/">🍬 All Sweets</Link></li>
                   <li><Link to="/#products">🟡 Laddu</Link></li>
                   <li><Link to="/#products">🟤 Peda</Link></li>
                   <li><Link to="/#products">⚪ Petha</Link></li>
@@ -179,7 +179,7 @@ const Navbar = ({
                   </svg>
                 </Link>
                 <ul className="dropdown-menu fade-slide-down">
-                  <li><Link to="/cakes#cakes">🎂 All Cakes</Link></li>
+                  <li><Link to="/cake">🎂 All Cakes</Link></li>
                   <li><Link to="/cakes#cakes">🍫 Chocolate Truffle</Link></li>
                   <li><Link to="/cakes#cakes">❤️ Red Velvet</Link></li>
                   <li><Link to="/cakes#cakes">🍓 Fresh Fruit</Link></li>
