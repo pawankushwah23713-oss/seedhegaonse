@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
 import banner1 from '../assets/banner1.png';
@@ -266,25 +266,107 @@ const loadWishlist = () => {
 
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
 
-// 🟢 Card Image Slider
+// 🟢 DRAG THRESHOLD (px) - decides how far user must swipe/drag to change slide
+const SWIPE_THRESHOLD = 40;
+
+// 🟢 Card Image Slider (Auto-scroll + REAL live-follow drag with mouse OR finger)
 const CardImageSlider = ({ images, alt }) => {
   const [index, setIndex] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const containerRef = useRef(null);
+  const trackWidthRef = useRef(1);
+  const startXRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const movedRef = useRef(false);
   const slides = images.length > 0 ? images : [FALLBACK_IMG];
 
   useEffect(() => {
     setIndex(0);
     if (slides.length <= 1) return undefined;
     const timer = setInterval(() => {
+      if (isDraggingRef.current) return;
       setIndex((prev) => (prev + 1) % slides.length);
-    }, 2200);
+    }, 2400);
     return () => clearInterval(timer);
   }, [slides.length]);
 
+  const finishDrag = (finalOffset) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    const width = trackWidthRef.current || 1;
+    const movedEnough = Math.abs(finalOffset) > SWIPE_THRESHOLD || Math.abs(finalOffset) / width > 0.15;
+    if (movedEnough && slides.length > 1) {
+      if (finalOffset < 0) {
+        setIndex((prev) => (prev + 1) % slides.length);
+      } else {
+        setIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+      }
+    }
+    setDragOffset(0);
+  };
+
+  // 🟢 Pointer Events = works for BOTH mouse drag (desktop "hath se scroll") AND touch swipe (mobile)
+  const handlePointerDown = (e) => {
+    if (slides.length <= 1) return;
+    isDraggingRef.current = true;
+    movedRef.current = false;
+    startXRef.current = e.clientX;
+    trackWidthRef.current = containerRef.current ? containerRef.current.offsetWidth : 1;
+    if (e.currentTarget.setPointerCapture) {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDraggingRef.current) return;
+    const delta = e.clientX - startXRef.current;
+    if (Math.abs(delta) > 5) movedRef.current = true;
+    setDragOffset(delta);
+  };
+
+  const handlePointerUp = (e) => {
+    if (!isDraggingRef.current) return;
+    const delta = e.clientX - startXRef.current;
+    finishDrag(delta);
+  };
+
+  const handlePointerCancel = () => finishDrag(dragOffset);
+
+  // Prevents the parent card's onClick (open modal) from firing right after a drag/swipe
+  const handleClickCapture = (e) => {
+    if (movedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      movedRef.current = false;
+    }
+  };
+
   return (
-    <>
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        cursor: slides.length > 1 ? 'grab' : 'default',
+        userSelect: 'none',
+        touchAction: 'pan-y'
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerCancel}
+      onPointerCancel={handlePointerCancel}
+      onClickCapture={handleClickCapture}
+      draggable={false}
+    >
       <div
         className="sg-card-slider-track"
-        style={{ transform: `translateX(-${index * 100}%)` }}
+        style={{
+          transform: `translateX(calc(-${index * 100}% + ${dragOffset}px))`,
+          transition: isDraggingRef.current ? 'none' : 'transform 0.4s cubic-bezier(0.65, 0, 0.35, 1)'
+        }}
       >
         {slides.map((src, i) => (
           <div className="sg-card-slider-slide" key={i}>
@@ -293,6 +375,7 @@ const CardImageSlider = ({ images, alt }) => {
               alt={i === 0 ? alt : `${alt} offer`}
               className="sg-card-product-img"
               loading="lazy"
+              draggable={false}
               onError={(e) => { e.target.src = FALLBACK_IMG; }}
             />
           </div>
@@ -300,35 +383,115 @@ const CardImageSlider = ({ images, alt }) => {
       </div>
 
       {slides.length > 1 && (
-        <div className="sg-card-slider-dots">
+        <div className="sg-card-slider-dots" onClick={(e) => e.stopPropagation()}>
           {slides.map((_, i) => (
-            <span key={i} className={`sg-card-slider-dot ${i === index ? 'sg-active' : ''}`} />
+            <span
+              key={i}
+              className={`sg-card-slider-dot ${i === index ? 'sg-active' : ''}`}
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIndex(i);
+              }}
+            />
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 };
 
-// 🟢 Modal Image Slider
-const ModalImageSlider = ({ images, labels = [], alt, zoomStyle }) => {
+// 🟢 Modal Image Slider (Auto-scroll + REAL live-follow drag with mouse OR finger, popup ke andar)
+const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChange }) => {
   const [index, setIndex] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const containerRef = useRef(null);
+  const trackWidthRef = useRef(1);
+  const startXRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const movedRef = useRef(false);
   const slides = images.length > 0 ? images : [FALLBACK_IMG];
 
   useEffect(() => {
     setIndex(0);
     if (slides.length <= 1) return undefined;
     const timer = setInterval(() => {
+      if (isDraggingRef.current) return;
       setIndex((prev) => (prev + 1) % slides.length);
-    }, 2600);
+    }, 2800);
     return () => clearInterval(timer);
   }, [slides.length]);
 
+  const finishDrag = (finalOffset) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    if (onDragStateChange) onDragStateChange(false);
+    const width = trackWidthRef.current || 1;
+    const movedEnough = Math.abs(finalOffset) > SWIPE_THRESHOLD || Math.abs(finalOffset) / width > 0.15;
+    if (movedEnough && slides.length > 1) {
+      if (finalOffset < 0) {
+        setIndex((prev) => (prev + 1) % slides.length);
+      } else {
+        setIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+      }
+    }
+    setDragOffset(0);
+  };
+
+  // 🟢 Pointer Events = works for BOTH mouse drag (desktop "hath se scroll") AND touch swipe (mobile)
+  // Popup/quick-view ke andar bhi ab hath se (mouse drag) image slide ho sakti hai
+  const handlePointerDown = (e) => {
+    if (slides.length <= 1) return;
+    isDraggingRef.current = true;
+    movedRef.current = false;
+    startXRef.current = e.clientX;
+    trackWidthRef.current = containerRef.current ? containerRef.current.offsetWidth : 1;
+    if (onDragStateChange) onDragStateChange(true);
+    if (e.currentTarget.setPointerCapture) {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDraggingRef.current) return;
+    const delta = e.clientX - startXRef.current;
+    if (Math.abs(delta) > 5) movedRef.current = true;
+    setDragOffset(delta);
+  };
+
+  const handlePointerUp = (e) => {
+    if (!isDraggingRef.current) return;
+    const delta = e.clientX - startXRef.current;
+    finishDrag(delta);
+  };
+
+  const handlePointerCancel = () => finishDrag(dragOffset);
+
   return (
-    <>
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        cursor: slides.length > 1 ? 'grab' : 'default',
+        userSelect: 'none',
+        touchAction: 'pan-y'
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerCancel}
+      onPointerCancel={handlePointerCancel}
+      draggable={false}
+    >
       <div
         className="sg-modal-slider-track"
-        style={{ transform: `translateX(-${index * 100}%)` }}
+        style={{
+          transform: `translateX(calc(-${index * 100}% + ${dragOffset}px))`,
+          transition: isDraggingRef.current ? 'none' : 'transform 0.4s cubic-bezier(0.65, 0, 0.35, 1)'
+        }}
       >
         {slides.map((src, i) => (
           <div className="sg-modal-slider-slide" key={i}>
@@ -336,6 +499,7 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle }) => {
               src={src}
               alt={i === 0 ? alt : `${alt} offer`}
               style={i === index ? zoomStyle : undefined}
+              draggable={false}
               onError={(e) => { e.target.src = FALLBACK_IMG; }}
             />
             {labels[i] && (
@@ -346,13 +510,21 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle }) => {
       </div>
 
       {slides.length > 1 && (
-        <div className="sg-modal-slider-dots">
+        <div className="sg-modal-slider-dots" onClick={(e) => e.stopPropagation()}>
           {slides.map((_, i) => (
-            <span key={i} className={`sg-modal-slider-dot ${i === index ? 'sg-active' : ''}`} />
+            <span
+              key={i}
+              className={`sg-modal-slider-dot ${i === index ? 'sg-active' : ''}`}
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIndex(i);
+              }}
+            />
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 };
 
@@ -488,7 +660,12 @@ const Homepage = ({ addToCart, addedToast }) => {
     transform: 'scale(1)'
   });
 
+  // 🟢 Tracks whether user is currently drag-swiping the popup image with mouse/hand,
+  // so hover-zoom doesn't fight with the manual slide drag
+  const [isImageDragging, setIsImageDragging] = useState(false);
+
   const handleMouseMove = (e) => {
+    if (isImageDragging) return;
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - left) / width) * 100;
     const y = ((e.clientY - top) / height) * 100;
@@ -694,15 +871,8 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
-  // Add To Cart
+  // Add To Cart (Directly allowed even if not logged in)
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
-    const token = getAuthToken();
-    if (!token) {
-      setAuthAlert('Please login first to add items to your cart!');
-      setTimeout(() => setAuthAlert(''), 4000);
-      return false;
-    }
-
     const activeVariant = variant || (p.variants && p.variants[0]) || {
       weight: '250g',
       label: '250g',
@@ -786,6 +956,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                   labels={!isDummy && selectedProduct.offerImage ? [null, selectedProduct.offerText || 'FREE'] : [null]}
                   alt={selectedProduct.name}
                   zoomStyle={zoomStyle}
+                  onDragStateChange={setIsImageDragging}
                 />
               </div>
 
@@ -817,7 +988,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                             onClick={() => setSelectedModalVariant(v)}
                           >
                             <span className="sg-chip-label">{v.label || v.weight}</span>
-                            <span className="sg-chip-price">₹{v.price}</span>
                           </button>
                         );
                       })}
@@ -842,18 +1012,16 @@ const Homepage = ({ addToCart, addedToast }) => {
                     </div>
                   )}
 
-                  {/* Trust Highlights Checklist Box */}
-                  <div className="sg-modal-trust-checklist">
-                    <div className="sg-trust-check-item">✓ 100% Pure Desi Ghee</div>
-                    <div className="sg-trust-check-item">✓ 0 Preservatives Added</div>
-                    <div className="sg-trust-check-item">✓ Shelf Life: 7-10 Days</div>
-                    <div className="sg-trust-check-item">✓ Hygienically Packed</div>
-                  </div>
-
                   <p className="sg-modal-desc">
                     {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
                   </p>
 
+                </div>
+                <div className="sg-modal-trust-checklist">
+                  <div className="sg-trust-check-item">✓ 100% Pure Desi Ghee</div>
+                  <div className="sg-trust-check-item">✓ 0 Preservatives Added</div>
+                  <div className="sg-trust-check-item">✓ Shelf Life: 7-10 Days</div>
+                  <div className="sg-trust-check-item">✓ Hygienically Packed</div>
                 </div>
 
                 {/* Modal Buttons: Heart + Stepper + Add to Cart in one row */}
@@ -949,9 +1117,6 @@ const Homepage = ({ addToCart, addedToast }) => {
             </div>
           </div>
         </div>
-
-        {/* PURE DESI GHEE TRUST CHECKLIST STRIP */}
-        
       </section>
 
       {/* MAIN PRODUCTS SECTION */}
@@ -1047,37 +1212,6 @@ const Homepage = ({ addToCart, addedToast }) => {
           </div>
         </section>
       )}
-
-      {/* FAQ SECTION */}
-      <section className="sg-faq-section sg-container sg-reveal">
-        <div className="sg-section-heading-wrap sg-text-center">
-          <span className="sg-sub-heading">Got Questions?</span>
-          <h2 className="sg-main-heading">Frequently Asked Questions</h2>
-        </div>
-
-        <div className="sg-faq-accordion">
-          {faqList.map((faq, idx) => {
-            const isOpen = openFaq === idx;
-            return (
-              <div key={idx} className={`sg-faq-item ${isOpen ? 'sg-open' : ''}`}>
-                <button
-                  className="sg-faq-question"
-                  onClick={() => setOpenFaq(isOpen ? null : idx)}
-                  aria-expanded={isOpen}
-                >
-                  <h4>{faq.q}</h4>
-                  <span className="sg-faq-toggle-icon">{isOpen ? '−' : '+'}</span>
-                </button>
-                {isOpen && (
-                  <div className="sg-faq-answer-content">
-                    <p>{faq.a}</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
     </div>
   );
 };

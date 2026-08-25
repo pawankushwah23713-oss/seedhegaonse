@@ -110,8 +110,7 @@ const Navbar = ({
 
   const isUserAuthenticated = Boolean(localStorage.getItem('token') && userData);
 
-  // 🟢 Admin check — adjust the field name below to match whatever your
-  // backend actually sends inside the user object (role / isAdmin / userType etc.)
+  // 🟢 Admin check
   const isAdminUser = Boolean(
     userData?.role === 'admin' ||
     userData?.isAdmin === true ||
@@ -152,6 +151,45 @@ const Navbar = ({
                 <Link to="/" className="nav-link active">Home</Link>
               </li>
               
+              {/* 🟢 SWEETS DROPDOWN */}
+              <li className="nav-item has-dropdown">
+                <a href="/#products" className="nav-link">
+                  Sweets 
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </a>
+                <ul className="dropdown-menu fade-slide-down">
+                  <li><Link to="/#products">🍬 All Sweets</Link></li>
+                  <li><Link to="/#products">🟡 Laddu</Link></li>
+                  <li><Link to="/#products">🟤 Peda</Link></li>
+                  <li><Link to="/#products">⚪ Petha</Link></li>
+                  <li><Link to="/#products">🥣 Halwa</Link></li>
+                  <li><Link to="/#products">🔶 Barfi & Katli</Link></li>
+                  <li><Link to="/#products">⭐ Specials</Link></li>
+                </ul>
+              </li>
+
+              {/* 🟢 CAKES DROPDOWN */}
+              <li className="nav-item has-dropdown">
+                <Link to="/cakes" className="nav-link">
+                  Cakes 
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </Link>
+                <ul className="dropdown-menu fade-slide-down">
+                  <li><Link to="/cakes#cakes">🎂 All Cakes</Link></li>
+                  <li><Link to="/cakes#cakes">🍫 Chocolate Truffle</Link></li>
+                  <li><Link to="/cakes#cakes">❤️ Red Velvet</Link></li>
+                  <li><Link to="/cakes#cakes">🍓 Fresh Fruit</Link></li>
+                  <li><Link to="/cakes#cakes">🧀 Cheesecakes</Link></li>
+                  <li><Link to="/cakes#cakes">🎀 Bento & Mini</Link></li>
+                  <li><Link to="/cakes#cakes">🍯 Butterscotch</Link></li>
+                </ul>
+              </li>
+
+              {/* ABOUT US DROPDOWN */}
               <li className="nav-item has-dropdown">
                 <a href="#about-us" className="nav-link">
                   About Us 
@@ -162,13 +200,15 @@ const Navbar = ({
                 <ul className="dropdown-menu fade-slide-down">
                   <li><a href="/AboutUs">Our Story</a></li>
                   <li><a href="/why-us">Why Choose Us</a></li>
-                  
                 </ul>
               </li>
 
+              {/* 🟢 BULK / GIFTING */}
+              <li className="nav-item">
+                <Link to="/bulk-gifting" className="nav-link">Bulk / Gifting</Link>
+              </li>
 
-              
-              <li className="nav-item"><a href="contact-us" className="nav-link">Contact Us</a></li>
+              <li className="nav-item"><a href="/contact-us" className="nav-link">Contact Us</a></li>
             </ul>
           </nav>
 
@@ -216,7 +256,6 @@ const Navbar = ({
 
                     {/* Quick Links */}
                     <ul className="dropdown-links-list">
-                      {/* 🟢 ADMIN DASHBOARD — sirf admin user ko dikhega */}
                       {isAdminUser && (
                         <li>
                           <button onClick={() => { setAccountMenuOpen(false); navigate('/admin'); }}>
@@ -243,7 +282,6 @@ const Navbar = ({
                           Account Settings
                         </button>
                       </li>
-                     
                     </ul>
 
                     <div className="dropdown-divider"></div>
@@ -257,9 +295,6 @@ const Navbar = ({
                 )}
               </div>
             )}
-
-            {/* ⭐ WISHLIST TRIGGER (SIRF LOGIN HONE PAR HI SHOW HOGA) */}
-           
 
             {/* CART TRIGGER */}
             <div className="cart-trigger cart-bounce" title="View Cart" onClick={onCartClick}>
@@ -303,19 +338,43 @@ const Navbar = ({
               <Link to="/" onClick={closeMobileMenu}>Home</Link>
             </li>
 
-            {/* 🟢 Mobile Admin Dashboard Link (Sirf admin par) */}
-            {isUserAuthenticated && isAdminUser && (
-              <li>
-                <Link to="/admin" onClick={closeMobileMenu}>Admin Dashboard</Link>
-              </li>
-            )}
+            {/* Accordion: Sweets */}
+            <li className="mobile-dropdown-item">
+              <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('sweets')}>
+                <span>Sweets</span>
+                <span className={`accordion-icon ${mobileDropdown === 'sweets' ? 'open' : ''}`}>▼</span>
+              </div>
+              {mobileDropdown === 'sweets' && (
+                <ul className="mobile-submenu">
+                  <li><Link to="/#products" onClick={closeMobileMenu}>🍬 All Sweets</Link></li>
+                  <li><Link to="/#products" onClick={closeMobileMenu}>🟡 Laddu</Link></li>
+                  <li><Link to="/#products" onClick={closeMobileMenu}>🟤 Peda</Link></li>
+                  <li><Link to="/#products" onClick={closeMobileMenu}>⚪ Petha</Link></li>
+                  <li><Link to="/#products" onClick={closeMobileMenu}>🥣 Halwa</Link></li>
+                  <li><Link to="/#products" onClick={closeMobileMenu}>🔶 Barfi & Katli</Link></li>
+                  <li><Link to="/#products" onClick={closeMobileMenu}>⭐ Specials</Link></li>
+                </ul>
+              )}
+            </li>
 
-            {/* Mobile Wishlist Link (Sirf Login par) */}
-            {isUserAuthenticated && (
-              <li>
-                <Link to="/wishlist" onClick={closeMobileMenu}>My Wishlist ({wishlistCount})</Link>
-              </li>
-            )}
+            {/* Accordion: Cakes */}
+            <li className="mobile-dropdown-item">
+              <div className="mobile-dropdown-header" onClick={() => toggleMobileSubmenu('cakes')}>
+                <span>Cakes</span>
+                <span className={`accordion-icon ${mobileDropdown === 'cakes' ? 'open' : ''}`}>▼</span>
+              </div>
+              {mobileDropdown === 'cakes' && (
+                <ul className="mobile-submenu">
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🎂 All Cakes</Link></li>
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍫 Chocolate Truffle</Link></li>
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>❤️ Red Velvet</Link></li>
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍓 Fresh Fruit</Link></li>
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🧀 Cheesecakes</Link></li>
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🎀 Bento & Mini</Link></li>
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍯 Butterscotch</Link></li>
+                </ul>
+              )}
+            </li>
 
             {/* Accordion: About Us */}
             <li className="mobile-dropdown-item">
@@ -327,14 +386,29 @@ const Navbar = ({
                 <ul className="mobile-submenu">
                   <li><a href="/AboutUs" onClick={closeMobileMenu}>Our Story</a></li>
                   <li><a href="/why-us" onClick={closeMobileMenu}>Why Choose Us</a></li>
-                  
                 </ul>
               )}
             </li>
 
-          
+            {/* 🟢 Bulk / Gifting (Mobile) */}
+            <li>
+              <Link to="/bulk-gifting" onClick={closeMobileMenu}>Bulk / Gifting</Link>
+            </li>
 
-      
+            {/* Mobile Admin Dashboard Link */}
+            {isUserAuthenticated && isAdminUser && (
+              <li>
+                <Link to="/admin" onClick={closeMobileMenu}>Admin Dashboard</Link>
+              </li>
+            )}
+
+            {/* Mobile Wishlist Link */}
+            {isUserAuthenticated && (
+              <li>
+                <Link to="/wishlist" onClick={closeMobileMenu}>My Wishlist ({wishlistCount})</Link>
+              </li>
+            )}
+
             <li><a href="/contact-us" onClick={closeMobileMenu}>Contact Us</a></li>
 
             {/* Mobile Auth Button */}
