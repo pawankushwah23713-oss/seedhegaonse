@@ -12,6 +12,9 @@ const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes'); // 🟢 Order routes
 const contactRoutes = require('./routes/contactRoutes');
+const couponRoutes = require('./routes/couponRoutes');
+const giftRoutes = require('./routes/giftRoutes');
+const bannerRoutes = require('./routes/bannerRoutes');
 
 const app = express();
 const server = http.createServer(app); // 🟢 Create HTTP server
@@ -65,6 +68,9 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);      // Orders with Realtime Socket
 app.use('/api/payment', paymentRoutes);   // Razorpay create-order + verify
 app.use('/api/wishlist', wishlistRoutes); // Wishlist Route
+app.use('/api/coupons', couponRoutes);
+app.use('/api/gifts', giftRoutes);
+app.use('/api/banners', bannerRoutes);
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/seedhe_gaon_se';

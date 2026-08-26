@@ -1,499 +1,433 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 
-// API Base URL Detection (Vite / CRA / Production Render fallback)
-const getApiBaseUrl = () => {
-  let url = 'https://seedhegaonse-1.onrender.com/api';
-  if (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) {
-    url = process.env.REACT_APP_API_URL.replace('/auth', '');
-  } else if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
-    url = import.meta.env.VITE_API_URL.replace('/auth', '');
-  }
-  return url.endsWith('/api') ? url : `${url}/api`;
+const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
+  ? process.env.REACT_APP_API_URL.replace('/auth', '')
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+
+const defaultForm = {
+  name: '',
+  originRegion: '',
+  category: 'ladoo',
+  price: '',
+  originalPrice: '',
+  description: '',
+  discountPercent: '',
+  discountValidUntil: '',
+  productCouponCode: '',
+  productCouponDiscount: '',
+  productCouponType: 'flat',
+  productCouponValidUntil: '',
+  highValueThreshold: '',
+  highValueDiscountPercent: '',
+  isFreeDelivery: false
 };
 
-const API_BASE = getApiBaseUrl();
-
-const AdminAddProduct = () => {
-  const navigate = useNavigate();
-
-  const [formData, setFormData] = useState({
-    name: '',
-    originRegion: '',
-    price: '',
-    originalPrice: '',
-    discount: '',
-    offerText: '',
-    category: 'ladoo',
-    description: ''
-  });
-
-  // Main Image States
+const AdminAllInOneProducts = () => {
+  const [products, setProducts] = useState([]);
+  const [formData, setFormData] = useState(defaultForm);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  // Offer Image States (Optional)
-  const [offerImageFile, setOfferImageFile] = useState(null);
-  const [offerImagePreview, setOfferImagePreview] = useState(null);
-
+  const [editingId, setEditingId] = useState(null); // null = Add mode, id = Edit mode
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [msg, setMsg] = useState({ text: '', type: '' });
 
-  // Handle Text Inputs
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (error) setError('');
+  const token = localStorage.getItem('token');
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/products`);
+      const data = await res.json();
+      if (Array.isArray(data)) setProducts(data);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  // Handle Main Image Selection & Preview
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Main image size cannot exceed 5MB!');
-        return;
-      }
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
-      setError('');
     }
   };
 
-  // Handle Offer Image Selection & Preview
-  const handleOfferImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Offer image size cannot exceed 5MB!');
-        return;
-      }
-      setOfferImageFile(file);
-      setOfferImagePreview(URL.createObjectURL(file));
-      setError('');
-    }
+  // Click on Edit Product
+  const handleEditClick = (p) => {
+    setEditingId(p._id);
+    setFormData({
+      name: p.name || '',
+      originRegion: p.originRegion || '',
+      category: p.category || 'ladoo',
+      price: p.price || '',
+      originalPrice: p.originalPrice || '',
+      description: p.description || '',
+      discountPercent: p.discountPercent || '',
+      discountValidUntil: p.discountValidUntil ? p.discountValidUntil.slice(0, 16) : '',
+      productCouponCode: p.productCouponCode || '',
+      productCouponDiscount: p.productCouponDiscount || '',
+      productCouponType: p.productCouponType || 'flat',
+      productCouponValidUntil: p.productCouponValidUntil ? p.productCouponValidUntil.slice(0, 16) : '',
+      highValueThreshold: p.highValueThreshold || '',
+      highValueDiscountPercent: p.highValueDiscountPercent || '',
+      isFreeDelivery: !!p.isFreeDelivery
+    });
+    setImagePreview(p.image ? (p.image.startsWith('http') ? p.image : `${API_BASE.replace('/api', '')}${p.image}`) : null);
+    setImageFile(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Remove Images
-  const handleRemoveImage = () => {
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setFormData(defaultForm);
     setImageFile(null);
     setImagePreview(null);
   };
 
-  const handleRemoveOfferImage = () => {
-    setOfferImageFile(null);
-    setOfferImagePreview(null);
-  };
-
-  // Form Submit
+  // Submit (Add or Edit)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    // Validations
-    if (!formData.name.trim()) {
-      setError('Please enter sweet product name!');
-      return;
-    }
-    if (!formData.originRegion.trim()) {
-      setError('Please enter sweet origin region/village!');
-      return;
-    }
-    if (!formData.price || Number(formData.price) <= 0) {
-      setError('Please enter a valid selling price greater than 0!');
-      return;
-    }
-    if (!imageFile) {
-      setError('Please select a sweet product image!');
-      return;
-    }
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Admin token not found. Please log in again.');
-      return;
-    }
-
     setLoading(true);
+    setMsg({ text: '', type: '' });
 
     try {
-      // Create FormData payload for Multipart upload
       const data = new FormData();
-      data.append('name', formData.name.trim());
-      data.append('originRegion', formData.originRegion.trim());
-      data.append('price', String(formData.price));
-      data.append('originalPrice', String(formData.originalPrice || 0));
-      data.append('discount', String(formData.discount || 0));
-      data.append('offerText', formData.offerText ? formData.offerText.trim() : '');
-      data.append('category', formData.category);
-      data.append('description', formData.description ? formData.description.trim() : '');
-      data.append('image', imageFile);
-
-      if (offerImageFile) {
-        data.append('offerImage', offerImageFile);
+      Object.keys(formData).forEach((key) => {
+        data.append(key, formData[key]);
+      });
+      if (imageFile) {
+        data.append('image', imageFile);
       }
 
-      const response = await fetch(`${API_BASE}/products`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-          // Note: FormData ke sath 'Content-Type' header mat lagana, browser boundary auto-set karta hai
-        },
+      const url = editingId ? `${API_BASE}/products/${editingId}` : `${API_BASE}/products`;
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
         body: data
       });
 
-      // Safe Response Parsing (prevents JSON parse errors on 500 HTML response)
-      let result;
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        result = await response.json();
-      } else {
-        const rawText = await response.text();
-        throw new Error(`Server returned error (${response.status}): ${rawText.slice(0, 150)}`);
-      }
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || 'Operation failed');
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to create sweet product.');
-      }
-
-      setSuccess('🎉 Sweet product & offers added to store successfully!');
-
-      // Reset Form
-      setFormData({
-        name: '',
-        originRegion: '',
-        price: '',
-        originalPrice: '',
-        discount: '',
-        offerText: '',
-        category: 'ladoo',
-        description: ''
+      setMsg({
+        text: editingId ? '🎉 Product updated successfully!' : '🎉 New product added successfully!',
+        type: 'success'
       });
-      setImageFile(null);
-      setImagePreview(null);
-      setOfferImageFile(null);
-      setOfferImagePreview(null);
 
-      // Auto redirect to products list after 1.5s
-      setTimeout(() => {
-        navigate('/admin/products');
-      }, 1500);
+      handleCancelEdit();
+      fetchProducts();
     } catch (err) {
-      console.error('Submit Error:', err);
-      setError(err.message || 'Something went wrong!');
+      setMsg({ text: err.message || 'Error occurred', type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Delete Product
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/products/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setMsg({ text: '🗑️ Product deleted', type: 'success' });
+        fetchProducts();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '750px', margin: '0 auto', padding: '20px' }}>
-      <h1 className="page-heading" style={{ fontSize: '1.8rem', fontWeight: 'bold', marginBottom: '20px' }}>
-        ➕ Add New Authentic Sweet & Offers
-      </h1>
+    <div style={{ maxWidth: '1100px', margin: '20px auto', padding: '20px', fontFamily: 'Segoe UI, sans-serif' }}>
+      
+      {/* HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div>
+          <h1 style={{ margin: 0, color: '#94191d' }}>
+            {editingId ? '✏️ Edit Sweet Product & Custom Offers' : '➕ Add Sweet Product & Dynamic Offers'}
+          </h1>
+          <p style={{ margin: '5px 0 0', color: '#64748b' }}>
+            Manage limited-time discounts, product coupons, bulk spending rules (₹12,000+), and free delivery in one place.
+          </p>
+        </div>
+        {editingId && (
+          <button
+            onClick={handleCancelEdit}
+            style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+          >
+            ✕ Cancel Edit
+          </button>
+        )}
+      </div>
 
-      {error && (
-        <div
-          className="badge badge-pending"
-          style={{
-            display: 'block',
-            padding: '12px 16px',
-            marginBottom: '15px',
-            color: '#dc2626',
-            background: '#fee2e2',
-            borderRadius: '8px',
-            border: '1px solid #fca5a5'
-          }}
-        >
-          ⚠️ {error}
+      {/* FEEDBACK MSG */}
+      {msg.text && (
+        <div style={{
+          padding: '12px 16px',
+          marginBottom: '20px',
+          borderRadius: '8px',
+          background: msg.type === 'success' ? '#dcfce7' : '#fee2e2',
+          color: msg.type === 'success' ? '#15803d' : '#b91c1c',
+          fontWeight: 'bold'
+        }}>
+          {msg.text}
         </div>
       )}
 
-      {success && (
-        <div
-          className="badge badge-success"
-          style={{
-            display: 'block',
-            padding: '12px 16px',
-            marginBottom: '15px',
-            color: '#15803d',
-            background: '#dcfce7',
-            borderRadius: '8px',
-            border: '1px solid #86efac'
-          }}
-        >
-          {success}
+      {/* 📝 MASTER ALL-IN-ONE FORM */}
+      <form onSubmit={handleSubmit} style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
+        
+        {/* SECTION 1: BASIC DETAILS */}
+        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', color: '#334155' }}>📦 1. Basic Sweet Details</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', marginTop: '12px' }}>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Sweet Name *</label>
+            <input type="text" name="name" required placeholder="e.g. Shuddh Desi Ghee Besan Laddu" value={formData.name} onChange={handleChange} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Origin Region / Gaon *</label>
+            <input type="text" name="originRegion" required placeholder="e.g. Kanpur, UP" value={formData.originRegion} onChange={handleChange} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Category *</label>
+            <select name="category" value={formData.category} onChange={handleChange} style={inputStyle}>
+              <option value="ladoo">Ladoo</option>
+              <option value="peda">Peda</option>
+              <option value="petha">Petha</option>
+              <option value="halwa">Halwa</option>
+              <option value="barfi">Barfi & Katli</option>
+              <option value="special">Regional Special</option>
+            </select>
+          </div>
         </div>
-      )}
 
-      <div className="admin-content-card" style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
-        <form onSubmit={handleSubmit} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Sweet Name */}
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontWeight: '600' }}>Sweet Name *</label>
-            <input
-              type="text"
-              name="name"
-              placeholder="e.g. Pure Desi Ghee Besan Laddu"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-            />
+        {/* SECTION 2: BASE PRICING & MRP */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', marginTop: '15px' }}>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Selling Price (₹) *</label>
+            <input type="number" name="price" required min="1" placeholder="e.g. 500" value={formData.price} onChange={handleChange} style={inputStyle} />
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {/* Origin */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontWeight: '600' }}>Origin Region / Gaon *</label>
-              <input
-                type="text"
-                name="originRegion"
-                placeholder="e.g. Kanpur, Uttar Pradesh"
-                value={formData.originRegion}
-                onChange={handleChange}
-                required
-                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-              />
-            </div>
-
-            {/* Category */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontWeight: '600' }}>Category *</label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: '#fff' }}
-              >
-                <option value="ladoo">Laddu (Besan, Motichoor, Gond)</option>
-                <option value="peda">Peda (Mathura, Dharwad)</option>
-                <option value="petha">Petha (Agra Special)</option>
-                <option value="halwa">Halwa (Sohan, Karachi)</option>
-                <option value="barfi">Barfi & Kaju Katli</option>
-                <option value="special">Regional Special Sweets</option>
-              </select>
-            </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>MRP / Original Price (₹)</label>
+            <input type="number" name="originalPrice" min="0" placeholder="e.g. 600" value={formData.originalPrice} onChange={handleChange} style={inputStyle} />
           </div>
-
-          {/* Pricing & Discount Section */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-            {/* Selling Price */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontWeight: '600' }}>Selling Price (₹) *</label>
-              <input
-                type="number"
-                name="price"
-                min="1"
-                placeholder="e.g. 900"
-                value={formData.price}
-                onChange={handleChange}
-                required
-                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-              />
-            </div>
-
-            {/* Original MRP */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontWeight: '600' }}>Original MRP (₹)</label>
-              <input
-                type="number"
-                name="originalPrice"
-                min="0"
-                placeholder="e.g. 1000"
-                value={formData.originalPrice}
-                onChange={handleChange}
-                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-              />
-            </div>
-
-            {/* Discount */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontWeight: '600' }}>Discount (%)</label>
-              <input
-                type="number"
-                name="discount"
-                min="0"
-                max="100"
-                placeholder="e.g. 10"
-                value={formData.discount}
-                onChange={handleChange}
-                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-              />
-            </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Product Description</label>
+            <input type="text" name="description" placeholder="Desi mithaas, made with 100% bilona ghee..." value={formData.description} onChange={handleChange} style={inputStyle} />
           </div>
+        </div>
 
-          {/* Offer Text */}
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontWeight: '600' }}>Offer Tag / Badge Text (Optional)</label>
-            <input
-              type="text"
-              name="offerText"
-              placeholder="e.g. Diwali Dhamaka, Buy 1 Get 1, Special Discount"
-              value={formData.offerText}
-              onChange={handleChange}
-              style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
-            />
+        {/* SECTION 3: TIMELINE-BASED DISCOUNT (SOME DAYS OFFER) */}
+        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#d97706' }}>
+          ⏳ 2. Limited Days Special Discount (Timeline Offer)
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', marginTop: '12px', background: '#fffbeb', padding: '15px', borderRadius: '8px' }}>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Special Discount (%)</label>
+            <input type="number" name="discountPercent" min="0" max="100" placeholder="e.g. 15" value={formData.discountPercent} onChange={handleChange} style={inputStyle} />
           </div>
-
-          {/* Description */}
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontWeight: '600' }}>Product Story / Description</label>
-            <textarea
-              name="description"
-              rows="3"
-              placeholder="Desi gaon ka shuddh swaad, traditional bhatti par tayyar..."
-              value={formData.description}
-              onChange={handleChange}
-              style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', resize: 'vertical' }}
-            />
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Offer Valid Until (Date & Time Expiry)</label>
+            <input type="datetime-local" name="discountValidUntil" value={formData.discountValidUntil} onChange={handleChange} style={inputStyle} />
           </div>
+        </div>
 
-          {/* 📸 1. MAIN PRODUCT IMAGE UPLOAD */}
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontWeight: '600' }}>Main Product Image (.png, .jpg, .webp, .svg up to 5MB) *</label>
+        {/* SECTION 4: PRODUCT-SPECIFIC SECRET COUPON */}
+        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#7c3aed' }}>
+          🎟️ 3. Product-Specific Coupon Code (Optional)
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 2fr', gap: '15px', marginTop: '12px', background: '#f5f3ff', padding: '15px', borderRadius: '8px' }}>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Coupon Code</label>
+            <input type="text" name="productCouponCode" placeholder="e.g. BESAN50" value={formData.productCouponCode} onChange={handleChange} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Discount Type</label>
+            <select name="productCouponType" value={formData.productCouponType} onChange={handleChange} style={inputStyle}>
+              <option value="flat">Flat ₹ OFF</option>
+              <option value="percentage">% Percentage</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Coupon Value</label>
+            <input type="number" name="productCouponDiscount" placeholder="e.g. 50" value={formData.productCouponDiscount} onChange={handleChange} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Coupon Expiry Date</label>
+            <input type="datetime-local" name="productCouponValidUntil" value={formData.productCouponValidUntil} onChange={handleChange} style={inputStyle} />
+          </div>
+        </div>
 
-            {!imagePreview ? (
-              <label
-                style={{
-                  border: '2px dashed #d97706',
-                  borderRadius: '10px',
-                  padding: '24px 20px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  background: '#fffbeb',
-                  display: 'block'
-                }}
-              >
-                <div style={{ fontSize: '1.8rem' }}>📷</div>
-                <p style={{ margin: '6px 0 0', fontWeight: '600', color: '#b45309' }}>
-                  Click to Browse Main Image
-                </p>
-                <span style={{ fontSize: '0.8rem', color: '#92400e' }}>Supports PNG, JPG, WEBP, SVG</span>
-                <input
-                  type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/svg+xml"
-                  onChange={handleImageChange}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            ) : (
-              <div style={{ position: 'relative', width: 'fit-content', marginTop: '10px' }}>
-                <img
-                  src={imagePreview}
-                  alt="Main Preview"
-                  style={{ width: '160px', height: '120px', objectFit: 'cover', borderRadius: '10px', border: '2px solid #e2e8f0' }}
-                />
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    right: '-8px',
-                    background: '#ef4444',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '24px',
-                    height: '24px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
+        {/* SECTION 5: HIGH VALUE / BULK RULE (₹12,000+) & FREE DELIVERY */}
+        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#059669' }}>
+          💎 4. High-Value Threshold (₹12,000+) & Delivery Rules
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1.5fr', gap: '15px', marginTop: '12px', background: '#ecfdf5', padding: '15px', borderRadius: '8px', alignItems: 'center' }}>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#047857' }}>Bulk Spend Threshold (₹)</label>
+            <input type="number" name="highValueThreshold" placeholder="e.g. 12000" value={formData.highValueThreshold} onChange={handleChange} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#047857' }}>Extra Bulk Discount (%)</label>
+            <input type="number" name="highValueDiscountPercent" placeholder="e.g. 20" value={formData.highValueDiscountPercent} onChange={handleChange} style={inputStyle} />
+          </div>
+          <div style={{ paddingTop: '18px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: '#047857', cursor: 'pointer' }}>
+              <input type="checkbox" name="isFreeDelivery" checked={formData.isFreeDelivery} onChange={handleChange} style={{ width: '18px', height: '18px' }} />
+              🚚 Free Delivery on this Sweet
+            </label>
+          </div>
+        </div>
+
+        {/* SECTION 6: PRODUCT IMAGE */}
+        <div style={{ marginTop: '20px' }}>
+          <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Product Photo {editingId ? '(Leave empty to keep existing image)' : '*'}</label>
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '8px' }}>
+            <input type="file" accept="image/*" onChange={handleImageChange} required={!editingId} />
+            {imagePreview && (
+              <img src={imagePreview} alt="Preview" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd' }} />
             )}
           </div>
+        </div>
 
-          {/* 🎁 2. OFFER BANNER / BADGE IMAGE (OPTIONAL) */}
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
-            <label style={{ fontWeight: '600' }}>Offer Badge / Banner Image (Optional)</label>
-
-            {!offerImagePreview ? (
-              <label
-                style={{
-                  border: '2px dashed #cbd5e1',
-                  borderRadius: '10px',
-                  padding: '20px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  background: '#f8fafc',
-                  display: 'block'
-                }}
-              >
-                <div style={{ fontSize: '1.5rem' }}>🏷️</div>
-                <p style={{ margin: '4px 0 0', fontWeight: '600', color: '#64748b' }}>
-                  Upload Special Offer Badge / Sticker
-                </p>
-                <input
-                  type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/svg+xml"
-                  onChange={handleOfferImageChange}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            ) : (
-              <div style={{ position: 'relative', width: 'fit-content', marginTop: '10px' }}>
-                <img
-                  src={offerImagePreview}
-                  alt="Offer Preview"
-                  style={{ width: '140px', height: '100px', objectFit: 'cover', borderRadius: '10px', border: '2px dashed #f59e0b' }}
-                />
-                <button
-                  type="button"
-                  onClick={handleRemoveOfferImage}
-                  style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    right: '-8px',
-                    background: '#ef4444',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '24px',
-                    height: '24px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Submit Button */}
+        {/* SUBMIT BUTTON */}
+        <div style={{ marginTop: '25px', display: 'flex', gap: '10px' }}>
           <button
             type="submit"
             disabled={loading}
             style={{
-              marginTop: '15px',
-              padding: '12px 20px',
-              background: loading ? '#9ca3af' : '#d97706',
+              padding: '12px 28px',
+              background: editingId ? '#059669' : '#94191d',
               color: '#fff',
               border: 'none',
               borderRadius: '8px',
               fontWeight: 'bold',
-              cursor: loading ? 'not-allowed' : 'pointer',
               fontSize: '1rem',
-              transition: 'background 0.2s ease'
+              cursor: 'pointer'
             }}
           >
-            {loading ? '⏳ Uploading & Saving Sweet...' : '🚀 Save & Publish Sweet'}
+            {loading ? 'Processing...' : editingId ? '💾 Update Sweet Product' : '🚀 Save & Publish Sweet'}
           </button>
-        </form>
+          {editingId && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              style={{ padding: '12px 20px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+
+      {/* 📋 SECTION: ALL PRODUCTS LIST */}
+      <div>
+        <h2>📋 All Store Products & Active Rules ({products.length})</h2>
+        <div style={{ display: 'grid', gap: '12px' }}>
+          {products.map((p) => {
+            const hasTimelineDiscount = p.discountPercent > 0 && (!p.discountValidUntil || new Date(p.discountValidUntil) > new Date());
+            const hasCoupon = p.productCouponCode && (!p.productCouponValidUntil || new Date(p.productCouponValidUntil) > new Date());
+            const hasBulkRule = p.highValueThreshold > 0;
+            const imgSrc = p.image?.startsWith('http') ? p.image : `${API_BASE.replace('/api', '')}${p.image}`;
+
+            return (
+              <div
+                key={p._id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: '#fff',
+                  padding: '16px 20px',
+                  borderRadius: '10px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                  borderLeft: `5px solid ${editingId === p._id ? '#059669' : '#94191d'}`
+                }}
+              >
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                  <img src={imgSrc} alt={p.name} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover' }} />
+                  <div>
+                    <h3 style={{ margin: '0 0 4px', fontSize: '1.05rem', color: '#1e293b' }}>{p.name}</h3>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      Price: <strong>₹{p.price}</strong> | Origin: {p.originRegion} | Category: {p.category}
+                    </div>
+
+                    {/* Active Rules Badges */}
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      {hasTimelineDiscount && (
+                        <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          ⏳ {p.discountPercent}% OFF (Ends: {new Date(p.discountValidUntil).toLocaleDateString()})
+                        </span>
+                      )}
+                      {hasCoupon && (
+                        <span style={{ background: '#ede9fe', color: '#5b21b6', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          🎟️ Coupon: {p.productCouponCode} ({p.productCouponType === 'flat' ? `₹${p.productCouponDiscount}` : `${p.productCouponDiscount}%`})
+                        </span>
+                      )}
+                      {hasBulkRule && (
+                        <span style={{ background: '#dcfce7', color: '#166534', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          💎 ₹{p.highValueThreshold}+ spend = {p.highValueDiscountPercent}% OFF
+                        </span>
+                      )}
+                      {p.isFreeDelivery && (
+                        <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          🚚 Free Shipping
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => handleEditClick(p)}
+                    style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p._id)}
+                    style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer' }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
     </div>
   );
 };
 
-export default AdminAddProduct;
+const inputStyle = {
+  width: '100%',
+  padding: '9px 12px',
+  marginTop: '5px',
+  borderRadius: '6px',
+  border: '1px solid #cbd5e1',
+  fontSize: '0.9rem',
+  outline: 'none',
+  boxSizing: 'border-box'
+};
+
+export default AdminAllInOneProducts;

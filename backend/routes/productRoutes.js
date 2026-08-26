@@ -8,25 +8,7 @@ const Product = require('../models/Product');
 const upload = require('../middleware/uploadMiddleware');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
-// Multer upload fields
-const productUploads = upload.fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'offerImage', maxCount: 1 }
-]);
-
-// Upload error catcher middleware
-const handleUpload = (req, res, next) => {
-  productUploads(req, res, (err) => {
-    if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: `Multer Upload Error: ${err.message}` });
-    } else if (err) {
-      return res.status(400).json({ message: err.message });
-    }
-    next();
-  });
-};
-
-// 1. GET ALL PRODUCTS
+// 1. GET ALL PRODUCTS (Public & Admin)
 router.get('/', async (req, res) => {
   try {
     const products = await Product.find().sort({ createdAt: -1 });
@@ -36,130 +18,134 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 2. ADD NEW PRODUCT (Admin Only)
-router.post('/', protect, adminOnly, handleUpload, async (req, res) => {
+// 2. GET SINGLE PRODUCT
+router.get('/:id', async (req, res) => {
   try {
-    const { name, originRegion, price, originalPrice, discount, offerText, category, description } = req.body;
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    res.status(200).json(product);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 3. CREATE PRODUCT (Admin)
+router.post('/', protect, adminOnly, upload.single('image'), async (req, res) => {
+  try {
+    const {
+      name,
+      originRegion,
+      category,
+      description,
+      price,
+      originalPrice,
+      discountPercent,
+      discountValidUntil,
+      productCouponCode,
+      productCouponDiscount,
+      productCouponType,
+      productCouponValidUntil,
+      highValueThreshold,
+      highValueDiscountPercent,
+      isFreeDelivery
+    } = req.body;
 
     if (!name || !originRegion || !price || !category) {
-      return res.status(400).json({ message: 'Required fields missing: name, originRegion, price, category' });
+      return res.status(400).json({ message: 'Name, origin, category aur price zaroori hain.' });
     }
 
-    if (!req.files || !req.files['image'] || req.files['image'].length === 0) {
-      return res.status(400).json({ message: 'Please upload the main sweet product image.' });
+    if (!req.file) {
+      return res.status(400).json({ message: 'Product photo upload karna zaroori hai.' });
     }
 
-    const imagePath = `/uploads/products/${req.files['image'][0].filename}`;
-    const offerImagePath = req.files['offerImage'] && req.files['offerImage'].length > 0
-      ? `/uploads/products/${req.files['offerImage'][0].filename}`
-      : '';
+    const imagePath = `/uploads/products/${req.file.filename}`;
 
     const newProduct = await Product.create({
       name: String(name).trim(),
       originRegion: String(originRegion).trim(),
-      price: Number(price),
-      originalPrice: originalPrice ? Number(originalPrice) : 0,
-      discount: discount ? Number(discount) : 0,
-      offerText: offerText ? String(offerText).trim() : '',
-      offerImage: offerImagePath,
       category,
-      description: description ? String(description).trim() : '',
-      image: imagePath
+      description: description || '',
+      image: imagePath,
+      price: Number(price),
+      originalPrice: Number(originalPrice) || 0,
+      discountPercent: Number(discountPercent) || 0,
+      discountValidUntil: discountValidUntil ? new Date(discountValidUntil) : null,
+      productCouponCode: productCouponCode ? productCouponCode.trim().toUpperCase() : '',
+      productCouponDiscount: Number(productCouponDiscount) || 0,
+      productCouponType: productCouponType || 'flat',
+      productCouponValidUntil: productCouponValidUntil ? new Date(productCouponValidUntil) : null,
+      highValueThreshold: Number(highValueThreshold) || 0,
+      highValueDiscountPercent: Number(highValueDiscountPercent) || 0,
+      isFreeDelivery: isFreeDelivery === 'true' || isFreeDelivery === true
     });
 
-    res.status(201).json({
-      message: '🎉 Sweet added successfully with offer details!',
-      product: newProduct
-    });
+    res.status(201).json({ message: 'Sweet product added successfully!', product: newProduct });
   } catch (error) {
-    console.error('Error saving product:', error);
-    res.status(500).json({ message: error.message || 'Server failed to save product' });
+    res.status(500).json({ message: error.message });
   }
 });
 
-// 3. EDIT / UPDATE PRODUCT
-router.put('/:id', protect, adminOnly, handleUpload, async (req, res) => {
+// 4. UPDATE PRODUCT (Admin Edit)
+router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, originRegion, price, originalPrice, discount, offerText, category, description, inStock } = req.body;
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found!' });
 
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({ message: 'Sweet product not found!' });
-    }
-
-    // Main Image Update
-    if (req.files && req.files['image'] && req.files['image'].length > 0) {
+    // Agar nayi image upload hui hai toh purani delete karke nayi lagao
+    if (req.file) {
       if (product.image) {
-        const oldImagePath = path.join(process.cwd(), product.image);
-        if (fs.existsSync(oldImagePath)) {
-          try { fs.unlinkSync(oldImagePath); } catch (e) { console.error(e); }
-        }
+        const oldPath = path.join(process.cwd(), product.image);
+        if (fs.existsSync(oldPath)) try { fs.unlinkSync(oldPath); } catch (e) {}
       }
-      product.image = `/uploads/products/${req.files['image'][0].filename}`;
+      product.image = `/uploads/products/${req.file.filename}`;
     }
 
-    // Offer Image Update
-    if (req.files && req.files['offerImage'] && req.files['offerImage'].length > 0) {
-      if (product.offerImage) {
-        const oldOfferPath = path.join(process.cwd(), product.offerImage);
-        if (fs.existsSync(oldOfferPath)) {
-          try { fs.unlinkSync(oldOfferPath); } catch (e) { console.error(e); }
-        }
-      }
-      product.offerImage = `/uploads/products/${req.files['offerImage'][0].filename}`;
-    }
+    const b = req.body;
+    if (b.name) product.name = b.name.trim();
+    if (b.originRegion) product.originRegion = b.originRegion.trim();
+    if (b.category) product.category = b.category;
+    if (b.description !== undefined) product.description = b.description;
+    if (b.price) product.price = Number(b.price);
+    if (b.originalPrice !== undefined) product.originalPrice = Number(b.originalPrice) || 0;
 
-    if (name) product.name = String(name).trim();
-    if (originRegion) product.originRegion = String(originRegion).trim();
-    if (price) product.price = Number(price);
-    if (originalPrice !== undefined) product.originalPrice = Number(originalPrice) || 0;
-    if (discount !== undefined) product.discount = Number(discount) || 0;
-    if (offerText !== undefined) product.offerText = String(offerText).trim();
-    if (category) product.category = category;
-    if (description !== undefined) product.description = String(description).trim();
-    if (inStock !== undefined) product.inStock = inStock === 'true' || inStock === true;
+    // Timeline Discount
+    product.discountPercent = Number(b.discountPercent) || 0;
+    product.discountValidUntil = b.discountValidUntil ? new Date(b.discountValidUntil) : null;
 
-    const updatedProduct = await product.save();
+    // Coupon
+    product.productCouponCode = b.productCouponCode ? b.productCouponCode.trim().toUpperCase() : '';
+    product.productCouponDiscount = Number(b.productCouponDiscount) || 0;
+    product.productCouponType = b.productCouponType || 'flat';
+    product.productCouponValidUntil = b.productCouponValidUntil ? new Date(b.productCouponValidUntil) : null;
 
-    res.status(200).json({
-      message: '🎉 Sweet updated successfully!',
-      product: updatedProduct
-    });
+    // High value & Free shipping
+    product.highValueThreshold = Number(b.highValueThreshold) || 0;
+    product.highValueDiscountPercent = Number(b.highValueDiscountPercent) || 0;
+    product.isFreeDelivery = b.isFreeDelivery === 'true' || b.isFreeDelivery === true;
+    if (b.inStock !== undefined) product.inStock = b.inStock === 'true' || b.inStock === true;
+
+    const updated = await product.save();
+    res.status(200).json({ message: 'Sweet product updated successfully!', product: updated });
   } catch (error) {
-    res.status(500).json({ message: 'Update failed: ' + error.message });
+    res.status(500).json({ message: error.message });
   }
 });
 
-// 4. DELETE PRODUCT
+// 5. DELETE PRODUCT
 router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const { id } = req.params;
-    const product = await Product.findById(id);
-
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found!' });
-    }
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found!' });
 
     if (product.image) {
-      const imagePath = path.join(process.cwd(), product.image);
-      if (fs.existsSync(imagePath)) {
-        try { fs.unlinkSync(imagePath); } catch (e) { console.error(e); }
-      }
+      const imgPath = path.join(process.cwd(), product.image);
+      if (fs.existsSync(imgPath)) try { fs.unlinkSync(imgPath); } catch (e) {}
     }
 
-    if (product.offerImage) {
-      const offerPath = path.join(process.cwd(), product.offerImage);
-      if (fs.existsSync(offerPath)) {
-        try { fs.unlinkSync(offerPath); } catch (e) { console.error(e); }
-      }
-    }
-
-    await Product.findByIdAndDelete(id);
-
-    res.status(200).json({ message: '🗑️ Sweet deleted successfully!' });
+    await Product.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'Product deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Delete failed: ' + error.message });
+    res.status(500).json({ message: error.message });
   }
 });
 

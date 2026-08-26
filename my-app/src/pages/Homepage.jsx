@@ -24,16 +24,31 @@ const isDummyProduct = (product) => {
   return Boolean(product.isDummy || product._id?.toString().startsWith('dummy'));
 };
 
-// 🟢 Helper to get Default Variants (Lowest Weight Default & No Fake Discount on Dummy)
+// 🟢 Check if timeline discount is currently valid
+const isTimelineDiscountValid = (product) => {
+  if (!product) return false;
+  const discount = Number(product.discountPercent || product.discount) || 0;
+  if (discount <= 0) return false;
+  if (!product.discountValidUntil) return true;
+  return new Date(product.discountValidUntil) > new Date();
+};
+
+// 🟢 Helper to get Default Variants (Lowest Weight Default & Dynamic Discount check)
 export const getProductVariants = (product) => {
   if (Array.isArray(product.variants) && product.variants.length > 0) {
     return product.variants;
   }
   const isDummy = isDummyProduct(product);
   const basePrice = Number(product.price) || 0;
-  const hasDiscount = !isDummy && (Number(product.originalPrice) > basePrice || Number(product.discount) > 0);
-  const baseMrp = Number(product.originalPrice) || basePrice;
-  const discountVal = isDummy ? 0 : (Number(product.discount) || 0);
+  const hasTimeline = !isDummy && isTimelineDiscountValid(product);
+  const discountVal = hasTimeline ? Number(product.discountPercent || product.discount) : 0;
+
+  let baseMrp = Number(product.originalPrice) || 0;
+  if (!baseMrp || baseMrp <= basePrice) {
+    baseMrp = discountVal > 0 ? Math.round(basePrice / (1 - discountVal / 100)) : basePrice;
+  }
+
+  const hasDiscount = !isDummy && (baseMrp > basePrice || discountVal > 0);
 
   return [
     {
@@ -63,7 +78,7 @@ export const getProductVariants = (product) => {
   ];
 };
 
-// 🟢 Dummy Products (isDummy: true & 0 Discount/Offers)
+// 🟢 Dummy Fallback Products
 const DUMMY_PRODUCTS = [
   {
     _id: 'dummy-1',
@@ -227,8 +242,7 @@ const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
   }
 
   let mrp = Number(targetObj?.originalPrice) || 0;
-  const manualDiscount = Number(targetObj?.discount) || 0;
-
+  const manualDiscount = Number(targetObj?.discount || targetObj?.discountPercent) || 0;
   let discountPercent = 0;
 
   if (manualDiscount > 0) {
@@ -265,11 +279,9 @@ const loadWishlist = () => {
 };
 
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
-
-// 🟢 DRAG THRESHOLD (px) - decides how far user must swipe/drag to change slide
 const SWIPE_THRESHOLD = 40;
 
-// 🟢 Card Image Slider (Auto-scroll + REAL live-follow drag with mouse OR finger)
+// 🟢 Card Image Slider
 const CardImageSlider = ({ images, alt }) => {
   const [index, setIndex] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -305,7 +317,6 @@ const CardImageSlider = ({ images, alt }) => {
     setDragOffset(0);
   };
 
-  // 🟢 Pointer Events = works for BOTH mouse drag (desktop "hath se scroll") AND touch swipe (mobile)
   const handlePointerDown = (e) => {
     if (slides.length <= 1) return;
     isDraggingRef.current = true;
@@ -313,7 +324,7 @@ const CardImageSlider = ({ images, alt }) => {
     startXRef.current = e.clientX;
     trackWidthRef.current = containerRef.current ? containerRef.current.offsetWidth : 1;
     if (e.currentTarget.setPointerCapture) {
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
     }
   };
 
@@ -332,7 +343,6 @@ const CardImageSlider = ({ images, alt }) => {
 
   const handlePointerCancel = () => finishDrag(dragOffset);
 
-  // Prevents the parent card's onClick (open modal) from firing right after a drag/swipe
   const handleClickCapture = (e) => {
     if (movedRef.current) {
       e.preventDefault();
@@ -401,7 +411,7 @@ const CardImageSlider = ({ images, alt }) => {
   );
 };
 
-// 🟢 Modal Image Slider (Auto-scroll + REAL live-follow drag with mouse OR finger, popup ke andar)
+// 🟢 Modal Image Slider
 const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChange }) => {
   const [index, setIndex] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -409,7 +419,6 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChan
   const trackWidthRef = useRef(1);
   const startXRef = useRef(0);
   const isDraggingRef = useRef(false);
-  const movedRef = useRef(false);
   const slides = images.length > 0 ? images : [FALLBACK_IMG];
 
   useEffect(() => {
@@ -438,24 +447,20 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChan
     setDragOffset(0);
   };
 
-  // 🟢 Pointer Events = works for BOTH mouse drag (desktop "hath se scroll") AND touch swipe (mobile)
-  // Popup/quick-view ke andar bhi ab hath se (mouse drag) image slide ho sakti hai
   const handlePointerDown = (e) => {
     if (slides.length <= 1) return;
     isDraggingRef.current = true;
-    movedRef.current = false;
     startXRef.current = e.clientX;
     trackWidthRef.current = containerRef.current ? containerRef.current.offsetWidth : 1;
     if (onDragStateChange) onDragStateChange(true);
     if (e.currentTarget.setPointerCapture) {
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
     }
   };
 
   const handlePointerMove = (e) => {
     if (!isDraggingRef.current) return;
     const delta = e.clientX - startXRef.current;
-    if (Math.abs(delta) > 5) movedRef.current = true;
     setDragOffset(delta);
   };
 
@@ -538,12 +543,33 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
   const pricing = calculatePricing(selectedVariant, 1, isDummy);
   const liked = isWishlisted(product._id);
 
+  // Dynamic Badges & Offer Checks from Database
+  const hasTimelineDiscount = !isDummy && isTimelineDiscountValid(product);
+  const hasFreeDelivery = !isDummy && Boolean(product.isFreeDelivery);
+  const hasBulkOffer = !isDummy && Number(product.highValueThreshold) > 0;
+  const hasCoupon = !isDummy && Boolean(product.productCouponCode);
+
+  // Format Bulk Offer Text for Offer Strip
+  const bulkOfferString = hasBulkOffer
+    ? `💎 Buy ₹${Number(product.highValueThreshold).toLocaleString('en-IN')}+ Get ${product.highValueDiscountPercent || 10}% EXTRA OFF`
+    : '';
+
+  const couponOfferString = hasCoupon
+    ? `🎟️ Coupon: ${product.productCouponCode} (${product.productCouponType === 'flat' ? `₹${product.productCouponDiscount} OFF` : `${product.productCouponDiscount}% OFF`})`
+    : '';
+
   return (
     <div className="sg-product-card" onClick={() => onOpenModal(product, selectedVariant)}>
       {/* TOP BADGE BAR */}
       <div className="sg-card-top-bar">
         {!isDummy && pricing.discountPercent ? (
-          <span className="sg-badge-discount">{pricing.discountPercent}% OFF</span>
+          <span className="sg-badge-discount">⏳ {pricing.discountPercent}% OFF</span>
+        ) : hasBulkOffer ? (
+          <span className="sg-badge-discount" style={{ background: '#059669' }}>
+            💎 ₹{Number(product.highValueThreshold).toLocaleString('en-IN')}+ Bulk
+          </span>
+        ) : hasFreeDelivery ? (
+          <span className="sg-badge-discount" style={{ background: '#2563eb' }}>🚚 FREE SHIP</span>
         ) : product.originRegion ? (
           <span className="sg-badge-origin-mini">📍 {product.originRegion}</span>
         ) : (
@@ -575,10 +601,16 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
         />
       </div>
 
-      {/* OFFER / ORIGIN STRIP */}
-      {!isDummy && product.offerText ? (
-        <div className="sg-card-offer-strip">
-          <span>🏷️ {product.offerText}</span>
+      {/* 🏷️ DYNAMIC OFFER / BULK / COUPON STRIP */}
+      {!isDummy && (hasBulkOffer || hasCoupon || product.offerText) ? (
+        <div
+          className="sg-card-offer-strip"
+          style={{
+            background: hasBulkOffer ? '#ecfdf5' : '#fef3c7',
+            color: hasBulkOffer ? '#065f46' : '#92400e'
+          }}
+        >
+          <span>{bulkOfferString || couponOfferString || `🏷️ ${product.offerText}`}</span>
         </div>
       ) : (
         <div className="sg-card-origin-strip">
@@ -642,10 +674,10 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
 const Homepage = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [openFaq, setOpenFaq] = useState(null);
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
 
@@ -660,8 +692,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     transform: 'scale(1)'
   });
 
-  // 🟢 Tracks whether user is currently drag-swiping the popup image with mouse/hand,
-  // so hover-zoom doesn't fight with the manual slide drag
   const [isImageDragging, setIsImageDragging] = useState(false);
 
   const handleMouseMove = (e) => {
@@ -704,7 +734,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Fetch Live Products & Merge with Dummy Products
+  // 🟢 FETCH LIVE PRODUCTS & BANNERS FROM BACKEND
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
@@ -724,6 +754,26 @@ const Homepage = ({ addToCart, addedToast }) => {
         setProducts(DUMMY_PRODUCTS);
       } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchLiveBanners = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/banners`);
+        const data = await res.json();
+        if (res.ok && Array.isArray(data) && data.length > 0) {
+          setBanners(data.map((b) => ({ id: b._id, image: getImageUrl(b.bannerImage) })));
+        } else {
+          setBanners([
+            { id: 1, image: banner1 },
+            { id: 2, image: banner2 }
+          ]);
+        }
+      } catch {
+        setBanners([
+          { id: 1, image: banner1 },
+          { id: 2, image: banner2 }
+        ]);
       }
     };
 
@@ -757,6 +807,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     };
 
     fetchLiveProducts();
+    fetchLiveBanners();
     fetchBackendWishlist();
   }, []);
 
@@ -832,10 +883,8 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   };
 
-  const heroSlides = [
-    { id: 1, image: banner1 },
-    { id: 2, image: banner2 }
-  ];
+  // Hero Slider Auto-Timer
+  const heroSlides = banners.length > 0 ? banners : [{ id: 1, image: banner1 }, { id: 2, image: banner2 }];
 
   useEffect(() => {
     const slideInterval = setInterval(() => {
@@ -871,7 +920,7 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
-  // Add To Cart (Directly allowed even if not logged in)
+  // Add To Cart (With All Dynamic Backend Rules Passed)
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
     const activeVariant = variant || (p.variants && p.variants[0]) || {
       weight: '250g',
@@ -892,16 +941,16 @@ const Homepage = ({ addToCart, addedToast }) => {
       quantity: qty,
       totalPrice: variantPrice * qty,
       img: getImageUrl(p.image),
-      originRegion: p.originRegion
+      originRegion: p.originRegion,
+      isFreeDelivery: Boolean(p.isFreeDelivery),
+      highValueThreshold: Number(p.highValueThreshold || 0),
+      highValueDiscountPercent: Number(p.highValueDiscountPercent || 0),
+      productCouponCode: p.productCouponCode || '',
+      productCouponDiscount: Number(p.productCouponDiscount || 0),
+      productCouponType: p.productCouponType || 'flat'
     });
     return true;
   };
-
-  const faqList = [
-    { q: 'How do you guarantee Same Day Delivery in Delhi NCR?', a: 'All orders placed before 4 PM in Delhi NCR are freshly prepared in the morning and dispatched via our express delivery partners.' },
-    { q: 'Are preservatives or artificial flavours added?', a: 'No! Absolutely 0 preservatives and 0 artificial flavours. We prepare sweets daily using 100% pure Desi Ghee.' },
-    { q: 'What is the shelf life of these traditional sweets?', a: 'Our sweets remain perfectly fresh for 7 to 10 days at room temperature, and up to 15 days if refrigerated.' }
-  ];
 
   return (
     <div className="sg-homepage-container">
@@ -939,6 +988,9 @@ const Homepage = ({ addToCart, addedToast }) => {
         const modalVariants = getProductVariants(selectedProduct);
         const currentActiveVariant = selectedModalVariant || modalVariants[0];
         const pricing = calculatePricing(currentActiveVariant, modalQty, isDummy);
+        const hasBulk = !isDummy && Number(selectedProduct.highValueThreshold) > 0;
+        const hasCoupon = !isDummy && Boolean(selectedProduct.productCouponCode);
+        const hasTimeline = !isDummy && isTimelineDiscountValid(selectedProduct);
 
         return (
           <div className="sg-product-modal-backdrop" onClick={() => setSelectedProduct(null)}>
@@ -970,9 +1022,43 @@ const Homepage = ({ addToCart, addedToast }) => {
                     {selectedProduct.category && (
                       <span className="sg-badge-category">{selectedProduct.category.toUpperCase()}</span>
                     )}
+                    {!isDummy && selectedProduct.isFreeDelivery && (
+                      <span className="sg-badge-category" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 'bold' }}>
+                        🚚 FREE DELIVERY
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="sg-modal-title">{selectedProduct.name}</h3>
+
+                  {/* 💎 HIGH-VALUE / BULK ORDER SPECIAL HIGHLIGHT BOX */}
+                  {hasBulk && (
+                    <div style={{ background: '#ecfdf5', border: '1.5px dashed #059669', padding: '10px 14px', borderRadius: '10px', margin: '10px 0', color: '#065f46' }}>
+                      <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.92rem' }}>
+                        💎 Bulk Order Discount Active!
+                      </div>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.84rem', lineHeight: '1.4' }}>
+                        Buy worth <strong>₹{Number(selectedProduct.highValueThreshold).toLocaleString('en-IN')}+</strong> of this sweet and get <strong>{selectedProduct.highValueDiscountPercent || 10}% EXTRA Discount</strong> automatically in cart!
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 🎟️ PRODUCT SPECIFIC EXCLUSIVE COUPON BOX */}
+                  {hasCoupon && (
+                    <div style={{ background: '#f5f3ff', border: '1px solid #c4b5fd', padding: '8px 12px', borderRadius: '8px', margin: '8px 0', color: '#6d28d9', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🎟️ Exclusive Coupon: <strong>{selectedProduct.productCouponCode}</strong></span>
+                      <span style={{ fontWeight: '800' }}>
+                        {selectedProduct.productCouponType === 'flat' ? `₹${selectedProduct.productCouponDiscount} FLAT OFF` : `${selectedProduct.productCouponDiscount}% OFF`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ⏳ TIMELINE OFFER EXPIRY DATE */}
+                  {hasTimeline && selectedProduct.discountValidUntil && (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', margin: '6px 0' }}>
+                      ⏳ Limited Time Offer! Valid till: {new Date(selectedProduct.discountValidUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
 
                   {/* ALL VARIANTS DISPLAY IN MODAL */}
                   <div className="sg-modal-variant-section">
@@ -1006,7 +1092,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                   </div>
 
                   {/* Offer Banner if available */}
-                  {!isDummy && selectedProduct.offerText && (
+                  {!isDummy && selectedProduct.offerText && !hasCoupon && (
                     <div className="sg-modal-offer-banner">
                       <span>🏷️ <strong>Offer:</strong> {selectedProduct.offerText}</span>
                     </div>
@@ -1015,8 +1101,8 @@ const Homepage = ({ addToCart, addedToast }) => {
                   <p className="sg-modal-desc">
                     {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
                   </p>
-
                 </div>
+
                 <div className="sg-modal-trust-checklist">
                   <div className="sg-trust-check-item">✓ 100% Pure Desi Ghee</div>
                   <div className="sg-trust-check-item">✓ 0 Preservatives Added</div>
@@ -1063,7 +1149,7 @@ const Homepage = ({ addToCart, addedToast }) => {
       <section className="sg-hero-slider-section">
         {heroSlides.map((slide, index) => (
           <div
-            key={slide.id}
+            key={slide.id || index}
             className={`sg-hero-slide ${index === currentSlide ? 'sg-active-slide' : ''}`}
             style={{
               backgroundImage: `linear-gradient(135deg, rgba(7, 35, 27, 0.82) 0%, rgba(13, 59, 46, 0.65) 100%), url(${slide.image})`
@@ -1082,7 +1168,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       </section>
 
-      {/* HERO KE BAAD: 4 USP FEATURE CARDS + TRUST HIGHLIGHTS */}
+      {/* HERO KE BAAD: 4 USP FEATURE CARDS */}
       <section className="sg-usp-banner-section sg-container sg-reveal">
         <div className="sg-usp-grid">
           <div className="sg-usp-card">

@@ -40,6 +40,7 @@ import TermsAndConditions from './pages/TermsAndConditions';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import AdminInquiries from './pages/admincontact';
 import CakePage from './pages/CakePage';
+import AdminMarketingManager from './pages/admin/AdminMarketingManager';
 
 
 // Inner Wrapper: Hide Navbar/Footer on Admin screen
@@ -197,6 +198,8 @@ const AppContent = ({
           <Route path="/admin" element={<AdminLayout user={currentUser} onLogout={handleLogout} />}>
             <Route index element={<AdminOverview />} />
             <Route path="orders" element={<AdminOrders />} />
+
+            <Route path="herobanner" element={<AdminMarketingManager />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="add-product" element={<AdminAddProduct />} />
              <Route path="admincontact" element={<AdminInquiries />} />

@@ -132,6 +132,7 @@ const AdminProducts = () => {
   };
 
   return (
+    <>
     <div>
       {/* Top Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -343,7 +344,11 @@ const AdminProducts = () => {
         </div>
       )}
     </div>
+  
+    
+    </>
   );
 };
 
 export default AdminProducts;
+

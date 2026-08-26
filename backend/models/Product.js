@@ -2,56 +2,38 @@ const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: [true, 'Sweet name is required'],
-      trim: true
-    },
-    originRegion: {
-      type: String,
-      required: [true, 'Origin region/village is required'],
-      trim: true
-    },
-    price: {
-      type: Number,
-      required: [true, 'Price is required'],
-      min: [1, 'Price must be greater than 0']
-    },
-    // 🟢 Offer & Chhoot Fields
-    originalPrice: {
-      type: Number,
-      default: 0
-    },
-    discount: {
-      type: Number, // Chhoot (% me)
-      default: 0
-    },
-    offerText: {
-      type: String,
-      trim: true,
-      default: ''
-    },
-    offerImage: {
-      type: String, // Offer banner / sticker image path
-      default: ''
-    },
+    // Basic Details
+    name: { type: String, required: true, trim: true },
+    originRegion: { type: String, required: true, trim: true },
     category: {
       type: String,
-      required: [true, 'Category is required'],
+      required: true,
       enum: ['ladoo', 'peda', 'petha', 'halwa', 'barfi', 'special']
     },
-    description: {
-      type: String,
-      trim: true
-    },
-    image: {
-      type: String,
-      required: [true, 'Product main image is required']
-    },
-    inStock: {
-      type: Boolean,
-      default: true
-    }
+    description: { type: String, default: '' },
+    image: { type: String, required: true },
+    inStock: { type: Boolean, default: true },
+
+    // Pricing
+    price: { type: Number, required: true, min: 1 }, // Selling Base Price
+    originalPrice: { type: Number, default: 0 },     // MRP
+
+    // ⏳ 1. Time-Based Discount (Limited Days Offer)
+    discountPercent: { type: Number, default: 0 },
+    discountValidUntil: { type: Date, default: null }, // Date jis tak discount chalega
+
+    // 🎟️ 2. Product-Specific Coupon Code
+    productCouponCode: { type: String, uppercase: true, trim: true, default: '' },
+    productCouponDiscount: { type: Number, default: 0 }, // Value (% ya Flat ₹)
+    productCouponType: { type: String, enum: ['flat', 'percentage'], default: 'flat' },
+    productCouponValidUntil: { type: Date, default: null },
+
+    // 💰 3. High-Value / Bulk Order Rule (Jaise ₹12,000+ spend par)
+    highValueThreshold: { type: Number, default: 0 }, // Min amount (e.g. 12000)
+    highValueDiscountPercent: { type: Number, default: 0 }, // Extra discount %
+
+    // 🚚 4. Free Delivery Override for this product
+    isFreeDelivery: { type: Boolean, default: false }
   },
   { timestamps: true }
 );
