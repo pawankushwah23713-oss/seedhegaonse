@@ -153,14 +153,14 @@ const Navbar = ({
               
               {/* 🟢 SWEETS DROPDOWN */}
               <li className="nav-item has-dropdown">
-                <a href="/#products" className="nav-link">
+                <a href="/cake" className="nav-link">
                   Sweets 
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="dropdown-arrow">
                     <polyline points="6 9 12 15 18 9"></polyline>
                   </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
-                  <li><Link to="/#products">🍬 All Sweets</Link></li>
+                  <li><Link to="/">🍬 All Sweets</Link></li>
                   <li><Link to="/#products">🟡 Laddu</Link></li>
                   <li><Link to="/#products">🟤 Peda</Link></li>
                   <li><Link to="/#products">⚪ Petha</Link></li>
@@ -179,7 +179,7 @@ const Navbar = ({
                   </svg>
                 </Link>
                 <ul className="dropdown-menu fade-slide-down">
-                  <li><Link to="/cakes#cakes">🎂 All Cakes</Link></li>
+                  <li><Link to="/cake">🎂 All Cakes</Link></li>
                   <li><Link to="/cakes#cakes">🍫 Chocolate Truffle</Link></li>
                   <li><Link to="/cakes#cakes">❤️ Red Velvet</Link></li>
                   <li><Link to="/cakes#cakes">🍓 Fresh Fruit</Link></li>
@@ -346,7 +346,7 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'sweets' && (
                 <ul className="mobile-submenu">
-                  <li><Link to="/#products" onClick={closeMobileMenu}>🍬 All Sweets</Link></li>
+                  <li><Link to="/" onClick={closeMobileMenu}>🍬 All Sweets</Link></li>
                   <li><Link to="/#products" onClick={closeMobileMenu}>🟡 Laddu</Link></li>
                   <li><Link to="/#products" onClick={closeMobileMenu}>🟤 Peda</Link></li>
                   <li><Link to="/#products" onClick={closeMobileMenu}>⚪ Petha</Link></li>
@@ -365,7 +365,7 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'cakes' && (
                 <ul className="mobile-submenu">
-                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🎂 All Cakes</Link></li>
+                  <li><Link to="/cake" onClick={closeMobileMenu}>🎂 All Cakes</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍫 Chocolate Truffle</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>❤️ Red Velvet</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍓 Fresh Fruit</Link></li>
