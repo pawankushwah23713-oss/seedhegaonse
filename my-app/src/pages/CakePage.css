@@ -1,13 +1,12 @@
-/* =================================================== */
-/* 🎂 CAKE PAGE THEME & STYLES                         */
-/* =================================================== */
+/* VARIABLES */
 :root {
-  --cake-primary: #e11d48;       /* Berry/Strawberry Pink-Red */
-  --cake-hover: #be123c;
-  --cake-accent: #f59e0b;        /* Warm Vanilla/Caramel Gold */
-  --cake-dark: #1e1b18;          /* Rich Truffle Brown */
+  --cake-primary: #94191d;
+  --cake-hover: #7b1317;
+  --cake-accent: #d8a24a;
+  --cake-dark: #0f172a;
   --cake-text-muted: #64748b;
   --cake-bg-card: #ffffff;
+  --cake-border-subtle: #f1f5f9;
   --cake-green-offer: #059669;
 }
 
@@ -19,7 +18,7 @@
   width: 100%;
   overflow-x: hidden;
   position: relative;
-  background-color: #fffbf9;
+  background-color: #fafaf9;
   font-family: inherit;
 }
 
@@ -79,7 +78,7 @@
   border-radius: 30px;
   font-size: 13px;
   font-weight: 600;
-  box-shadow: 0 8px 25px rgba(225, 29, 72, 0.35);
+  box-shadow: 0 8px 25px rgba(148, 25, 29, 0.35);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -144,20 +143,22 @@
 }
 
 /* =================================================== */
-/* USP 4-CARDS SECTION                                 */
+/* USP 4-CARDS + TRUST CHECKLIST STRIP                 */
 /* =================================================== */
 .ck-usp-banner-section {
   margin-top: 18px;
   margin-bottom: 22px;
 }
+
 .ck-usp-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
+
 .ck-usp-card {
   background: #ffffff;
-  border: 1px solid #fee2e2;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 12px 14px;
   display: flex;
@@ -168,21 +169,23 @@
 }
 .ck-usp-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(225, 29, 72, 0.08);
-  border-color: #fecdd3;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  border-color: #cbd5e1;
 }
+
 .ck-usp-icon-wrap {
   width: 42px;
   height: 42px;
-  background: #fff1f2;
+  background: #f8fafc;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 19px;
   flex-shrink: 0;
-  border: 1px solid #ffe4e6;
+  border: 1px solid #f1f5f9;
 }
+
 .ck-usp-text h4 {
   margin: 0;
   font-size: 13.5px;
@@ -190,11 +193,41 @@
   color: var(--cake-dark);
   line-height: 1.25;
 }
+
 .ck-usp-text p {
   margin: 3px 0 0 0;
   font-size: 11.5px;
   color: var(--cake-text-muted);
   font-weight: 500;
+}
+
+.ck-trust-badges-strip {
+  margin-top: 14px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.ck-trust-badge-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #065f46;
+  white-space: nowrap;
+}
+
+.ck-trust-badge-pill .ck-check-mark {
+  color: #059669;
+  font-size: 14px;
+  font-weight: 900;
 }
 
 /* HEADING & TAB FILTERS */
@@ -234,7 +267,7 @@
 }
 .ck-tab-btn {
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   padding: 8px 16px;
   border-radius: 25px;
   font-size: 13px;
@@ -250,21 +283,22 @@
   background: var(--cake-primary);
   color: #ffffff;
   border-color: var(--cake-primary);
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+  box-shadow: 0 4px 12px rgba(148, 25, 29, 0.2);
 }
 
 /* =================================================== */
-/* PRODUCT GRID & CARDS                                */
+/* PRODUCT GRID & MODERN PRODUCT CARDS                  */
 /* =================================================== */
 .ck-modern-product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 20px;
 }
+
 .ck-product-card {
   background: var(--cake-bg-card);
   border-radius: 16px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid #e2e8f0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -273,10 +307,11 @@
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
+
 .ck-product-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
-  border-color: #fecdd3;
+  border-color: #cbd5e1;
 }
 
 /* TOP BADGE BAR */
@@ -289,6 +324,7 @@
   top: 0; left: 0; right: 0;
   z-index: 5;
 }
+
 .ck-badge-discount {
   background: #ef4444;
   color: #ffffff;
@@ -296,8 +332,10 @@
   font-weight: 800;
   padding: 3px 7px;
   border-radius: 6px;
+  letter-spacing: 0.3px;
   box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
 }
+
 .ck-badge-origin-mini {
   background: rgba(254, 243, 199, 0.95);
   color: #92400e;
@@ -310,9 +348,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .ck-badge-category-mini {
-  background: rgba(255, 241, 242, 0.95);
-  color: #be123c;
+  background: rgba(241, 245, 249, 0.95);
+  color: #475569;
   font-size: 10px;
   font-weight: 700;
   padding: 3px 7px;
@@ -331,11 +370,12 @@
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease;
   flex-shrink: 0;
 }
 .ck-card-heart-btn:hover {
   transform: scale(1.12);
+  background: #ffffff;
 }
 
 /* MEDIA CONTAINER */
@@ -350,11 +390,11 @@
   overflow: hidden;
   padding: 10px;
 }
+
 .ck-card-product-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: 10px;
+  object-fit: contain;
   transition: transform 0.35s ease;
 }
 .ck-product-card:hover .ck-card-product-img {
@@ -376,6 +416,13 @@
   align-items: center;
   justify-content: center;
 }
+.ck-card-slider-slide .ck-card-product-img {
+  transform: none;
+}
+.ck-product-card:hover .ck-card-slider-slide .ck-card-product-img {
+  transform: scale(1.05);
+}
+
 .ck-card-slider-dots {
   position: absolute;
   bottom: 6px;
@@ -386,31 +433,35 @@
   z-index: 6;
 }
 .ck-card-slider-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.25);
   transition: all 0.25s ease;
 }
 .ck-card-slider-dot.ck-active {
   background: var(--cake-primary);
-  width: 16px;
+  width: 15px;
   border-radius: 3px;
 }
 
-/* STRIPS */
+/* OFFER / ORIGIN STRIP */
 .ck-card-offer-strip {
-  background: #fff1f2;
-  color: #be123c;
+  background: linear-gradient(90deg, #fef3c7 0%, #ffedd5 100%);
+  color: #92400e;
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
-  border-top: 1px solid #ffe4e6;
-  border-bottom: 1px solid #ffe4e6;
+  border-top: 1px solid #fde68a;
+  border-bottom: 1px solid #fde68a;
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .ck-card-origin-strip {
   background: #f8fafc;
   color: #64748b;
@@ -418,15 +469,19 @@
   font-weight: 600;
   padding: 4px 10px;
   border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* DETAILS BODY */
+/* CARD DETAILS BODY */
 .ck-card-body {
   padding: 12px;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
 }
+
 .ck-card-title {
   font-size: 14px;
   font-weight: 700;
@@ -444,12 +499,14 @@
 .ck-card-variants-container {
   margin-bottom: 10px;
 }
+
 .ck-variant-chips-list {
   display: flex;
   gap: 5px;
   flex-wrap: wrap;
   align-items: center;
 }
+
 .ck-variant-pill-btn {
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
@@ -460,14 +517,20 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.18s ease;
+  user-select: none;
 }
+
 .ck-variant-pill-btn:hover {
+  background: #f1f5f9;
   border-color: #cbd5e1;
+  color: var(--cake-dark);
 }
+
 .ck-variant-pill-btn.ck-active {
   background: #fff1f2;
   border-color: var(--cake-primary);
   color: var(--cake-primary);
+  box-shadow: 0 2px 5px rgba(148, 25, 29, 0.12);
 }
 
 /* FOOTER PRICING & ACTION */
@@ -480,47 +543,65 @@
   border-top: 1px dashed #e2e8f0;
   gap: 6px;
 }
+
 .ck-card-price-group {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
+
 .ck-price-row {
   display: flex;
   align-items: baseline;
   gap: 5px;
+  flex-wrap: wrap;
 }
+
 .ck-current-price {
   font-size: 16px;
   font-weight: 800;
   color: var(--cake-primary);
 }
+
 .ck-mrp-price {
   font-size: 11.5px;
   color: #94a3b8;
   text-decoration: line-through;
   font-weight: 600;
 }
+
 .ck-savings-tag {
   font-size: 9.5px;
   font-weight: 700;
   color: var(--cake-green-offer);
 }
+
 .ck-btn-add-cart {
-  background: #fff1f2;
-  color: var(--cake-primary);
-  border: 1px solid #fecdd3;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
   padding: 6px 14px;
   border-radius: 10px;
   font-size: 11.5px;
   font-weight: 800;
+  letter-spacing: 0.3px;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
+
 .ck-btn-add-cart:hover:not(:disabled) {
-  background: var(--cake-primary);
+  background: #16a34a;
   color: #ffffff;
-  border-color: var(--cake-primary);
-  box-shadow: 0 4px 10px rgba(225, 29, 72, 0.25);
+  border-color: #16a34a;
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.25);
+}
+
+.ck-btn-add-cart:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
 }
 
 /* =================================================== */
@@ -555,6 +636,7 @@
   grid-template-columns: 1fr 1.2fr;
   position: relative;
 }
+
 .ck-modal-close-btn {
   position: absolute;
   top: 12px; right: 12px;
@@ -573,7 +655,9 @@
 }
 .ck-modal-close-btn:hover {
   transform: rotate(90deg);
+  background: #e2e8f0;
 }
+
 .ck-modal-image-col {
   background: #ffffff;
   display: flex;
@@ -588,9 +672,10 @@
 .ck-modal-image-col img {
   max-width: 100%;
   max-height: 300px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 12px;
 }
+
 .ck-modal-slider-track {
   display: flex;
   width: 100%;
@@ -604,27 +689,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.ck-modal-slider-dots {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 6px;
-  z-index: 10;
-}
-.ck-modal-slider-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3);
-  transition: all 0.25s ease;
-}
-.ck-modal-slider-dot.ck-active {
-  background: var(--cake-primary);
-  width: 18px;
-  border-radius: 4px;
+  position: relative;
 }
 
 .ck-modal-info-col {
@@ -633,6 +698,7 @@
   flex-direction: column;
   justify-content: space-between;
 }
+
 .ck-modal-tags-row {
   display: flex;
   gap: 8px;
@@ -648,19 +714,22 @@
   border-radius: 6px;
 }
 .ck-badge-category {
-  background: #ffe4e6;
-  color: #be123c;
+  background: #e0f2fe;
+  color: #0369a1;
   font-size: 11px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 6px;
 }
+
 .ck-modal-title {
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--cake-dark);
   margin: 4px 0 10px;
+  line-height: 1.3;
 }
+
 .ck-modal-variant-section {
   margin-bottom: 12px;
 }
@@ -681,18 +750,38 @@
   border: 1.5px solid #cbd5e1;
   border-radius: 10px;
   padding: 7px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 70px;
 }
 .ck-modal-chip-btn .ck-chip-label {
   font-size: 11.5px;
   font-weight: 700;
   color: #1e293b;
 }
+.ck-modal-chip-btn .ck-chip-price {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+  margin-top: 2px;
+}
+.ck-modal-chip-btn:hover {
+  border-color: #94191d;
+  background: #ffffff;
+}
 .ck-modal-chip-btn.ck-active {
   background: #fff1f2;
   border-color: var(--cake-primary);
+  box-shadow: 0 3px 10px rgba(148, 25, 29, 0.15);
+}
+.ck-modal-chip-btn.ck-active .ck-chip-label {
   color: var(--cake-primary);
+}
+.ck-modal-chip-btn.ck-active .ck-chip-price {
+  color: #b91c1c;
 }
 
 .ck-modal-price-box {
@@ -700,11 +789,17 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.ck-modal-price-numbers {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 .ck-modal-current-price {
   font-size: 1.5rem;
   font-weight: 800;
-  color: var(--cake-primary);
+  color: #059669;
 }
 .ck-modal-mrp-price {
   font-size: 1.05rem;
@@ -721,8 +816,8 @@
 }
 
 .ck-modal-trust-checklist {
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
   border-radius: 10px;
   padding: 9px 12px;
   display: grid;
@@ -733,8 +828,9 @@
 .ck-trust-check-item {
   font-size: 11px;
   font-weight: 700;
-  color: #9f1239;
+  color: #065f46;
 }
+
 .ck-modal-desc {
   font-size: 0.85rem;
   color: #475569;
@@ -742,19 +838,20 @@
   margin-bottom: 12px;
 }
 
-.ck-modal-actions-row {
+.ck-modal-qty-row {
   display: flex;
-  gap: 10px;
-}
-.ck-btn-modal-wishlist {
+  justify-content: center;
+  align-items: center;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  padding: 0 14px;
+  padding: 8px 12px;
   border-radius: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-bottom: 14px;
+}
+.ck-qty-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
 }
 .ck-stepper-box {
   display: flex;
@@ -764,6 +861,7 @@
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 2px 6px;
+  flex-shrink: 0;
 }
 .ck-stepper-btn {
   background: #f1f5f9;
@@ -779,9 +877,14 @@
   min-width: 18px;
   text-align: center;
 }
+
+.ck-modal-actions-row {
+  display: flex;
+  gap: 10px;
+}
 .ck-btn-modal-add {
   flex: 1;
-  background: var(--cake-primary);
+  background: #047857;
   color: #ffffff;
   border: none;
   padding: 12px 16px;
@@ -789,17 +892,33 @@
   font-weight: 700;
   font-size: 13.5px;
   cursor: pointer;
+  transition: background 0.2s;
 }
-.ck-btn-modal-add:hover {
-  background: var(--cake-hover);
+.ck-btn-modal-add:hover:not(:disabled) {
+  background: #065f46;
+}
+.ck-btn-modal-add:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 
-/* GALLERY & INFINITE SLIDER */
+.ck-btn-modal-wishlist {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* GALLERY & FAQ */
 .ck-gallery-slider-section {
   padding: 20px 0 28px;
-  background: #fff1f2;
-  border-top: 1px solid #fecdd3;
-  border-bottom: 1px solid #fecdd3;
+  background: #fefce8;
+  border-top: 1px solid #fef08a;
+  border-bottom: 1px solid #fef08a;
   margin-top: 30px;
 }
 .ck-gallery-slider-viewport {
@@ -822,12 +941,12 @@
   height: 180px;
   border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #fecdd3;
+  border: 1px solid #e2e8f0;
   background: #fff;
-  padding: 6px;
+  padding: 8px;
 }
 .ck-gallery-slide-item img {
-  width: 100%; height: 100%; object-fit: cover; border-radius: 10px;
+  width: 100%; height: 100%; object-fit: contain;
 }
 .ck-gallery-slide-caption {
   position: absolute;
@@ -842,38 +961,363 @@
   text-overflow: ellipsis;
 }
 
-/* RESPONSIVE BREAKPOINTS */
+.ck-faq-section {
+  max-width: 800px;
+  margin: 32px auto;
+}
+.ck-faq-accordion {
+  margin-top: 16px;
+}
+.ck-faq-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.ck-faq-item.ck-open {
+  border-color: var(--cake-primary);
+}
+.ck-faq-question {
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  text-align: left;
+}
+.ck-faq-question h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cake-dark);
+}
+.ck-faq-toggle-icon {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--cake-primary);
+}
+.ck-faq-answer-content {
+  padding: 0 16px 14px;
+  color: #475569;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* =================================================== */
+/* 🟢 ADVANCED RESPONSIVE MEDIA QUERIES               */
+/* =================================================== */
+
+/* Tablet & Smaller Laptops (<= 992px) */
 @media screen and (max-width: 992px) {
   .ck-usp-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .ck-trust-badges-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ck-modern-product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
   }
 }
+
+/* Tablets & Mobile Screens (<= 768px) */
 @media screen and (max-width: 768px) {
   .ck-container {
     padding: 0 12px;
+    margin: 18px auto;
   }
+
+  .ck-main-heading {
+    font-size: 22px;
+  }
+  
+  .ck-section-heading-wrap {
+    margin-bottom: 16px;
+  }
+
+  .ck-tab-filters {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 6px;
+    width: 100%;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ck-tab-filters::-webkit-scrollbar {
+    display: none;
+  }
+  .ck-tab-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+    flex-shrink: 0;
+  }
+
   .ck-modern-product-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
+
+  .ck-card-media-box {
+    height: 140px;
+    padding: 8px;
+  }
+
+  .ck-card-title {
+    font-size: 13px;
+    min-height: 2.6em;
+  }
+
+  .ck-current-price {
+    font-size: 15px;
+  }
+
+  .ck-variant-pill-btn {
+    padding: 2.5px 6px;
+    font-size: 10px;
+  }
+
+  /* Modal in Single Column */
   .ck-product-modal-card {
     grid-template-columns: 1fr;
+    max-height: 92vh;
   }
   .ck-modal-image-col {
     border-right: none;
     border-bottom: 1px solid #f1f5f9;
+    padding: 16px;
+  }
+  .ck-modal-image-col img {
+    max-height: 180px;
+  }
+  .ck-modal-info-col {
+    padding: 16px;
+  }
+
+  .ck-gallery-slide-item {
+    width: 150px;
+    height: 150px;
   }
 }
+
+/* Small Mobile Phones (<= 480px) */
 @media screen and (max-width: 480px) {
   .ck-container {
     padding: 0 8px;
+    margin: 12px auto;
   }
+
   .ck-usp-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
+  .ck-usp-card {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .ck-usp-icon-wrap {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+  .ck-usp-text h4 {
+    font-size: 11.5px;
+  }
+  .ck-usp-text p {
+    font-size: 10px;
+  }
+
+  .ck-trust-badges-strip {
+    padding: 10px;
+    gap: 6px;
+  }
+  .ck-trust-badge-pill {
+    font-size: 10.5px;
+  }
+
   .ck-modern-product-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
+
+  .ck-product-card {
+    border-radius: 12px;
+  }
+  .ck-card-media-box {
+    height: 125px;
+    padding: 6px;
+  }
+  .ck-card-body {
+    padding: 8px;
+  }
+  .ck-card-title {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .ck-variant-pill-btn {
+    padding: 2px 5px;
+    font-size: 9.5px;
+  }
+  .ck-current-price {
+    font-size: 14px;
+  }
+  .ck-btn-add-cart {
+    padding: 4px 8px;
+    font-size: 10.5px;
+  }
+
+  .ck-whatsapp-button {
+    bottom: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+  }
+  .ck-cart-toast {
+    bottom: 16px;
+    left: 16px;
+    font-size: 12px;
+    padding: 8px 14px;
+  }
+
+  .ck-gallery-slide-item {
+    width: 120px;
+    height: 120px;
+  }
+
+  .ck-card-heart-btn {
+    width: 26px;
+    height: 26px;
+  }
+  .ck-stepper-btn {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* =================================================== */
+/* 🟢 EXTRA RESPONSIVE FIXES (fills gaps, nothing else  */
+/* changed — ultra-small phones, foldables, landscape,  */
+/* wide desktops, modal overflow guards, tap targets)   */
+/* =================================================== */
+
+/* Ultra-small phones (<= 360px) */
+@media screen and (max-width: 360px) {
+  .ck-modern-product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .ck-card-media-box {
+    height: 110px;
+    padding: 5px;
+  }
+  .ck-card-title {
+    font-size: 11px;
+    min-height: 2.4em;
+  }
+  .ck-current-price {
+    font-size: 13px;
+  }
+  .ck-mrp-price {
+    font-size: 10px;
+  }
+  .ck-btn-add-cart {
+    padding: 3px 6px;
+    font-size: 9.5px;
+  }
+  .ck-usp-text h4 {
+    font-size: 10.5px;
+  }
+  .ck-usp-text p {
+    font-size: 9px;
+  }
+  .ck-main-heading {
+    font-size: 19px;
+  }
+  .ck-modal-title {
+    font-size: 1.1rem;
+  }
+  .ck-modal-current-price {
+    font-size: 1.2rem;
+  }
+  .ck-modal-actions-row {
+    flex-wrap: wrap;
+  }
+  .ck-btn-modal-add {
+    min-width: 100%;
+    order: 1;
+  }
+  .ck-btn-modal-wishlist {
+    order: 2;
+  }
+}
+
+/* Foldables / narrow tablets in between breakpoints (481px - 600px) */
+@media screen and (min-width: 481px) and (max-width: 600px) {
+  .ck-modern-product-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Landscape phones (short height, wider width) */
+@media screen and (max-height: 480px) and (orientation: landscape) {
+  .ck-hero-slider-section {
+    height: clamp(140px, 30vw, 260px);
+  }
+  .ck-product-modal-backdrop {
+    align-items: flex-start;
+  }
+  .ck-product-modal-card {
+    max-height: 96vh;
+    margin: 8px 0;
+  }
+  .ck-modal-image-col img {
+    max-height: 140px;
+  }
+}
+
+/* Large desktops / wide monitors (>= 1440px) */
+@media screen and (min-width: 1440px) {
+  .ck-container {
+    max-width: 1400px;
+  }
+  .ck-modern-product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+  }
+  .ck-hero-slider-section {
+    height: clamp(300px, 38vw, 560px);
+  }
+}
+
+/* Prevent modal overflow / horizontal scroll on any small device */
+@media screen and (max-width: 768px) {
+  .ck-product-modal-backdrop {
+    padding: 8px;
+  }
+  .ck-product-modal-card {
+    width: 100%;
+    max-width: 100%;
+  }
+  .ck-modal-price-box,
+  .ck-modal-tags-row,
+  .ck-modal-variant-chips {
+    flex-wrap: wrap;
+  }
+}
+
+/* Ensure grid never single-column-squishes oddly on very narrow (<= 340px) devices */
+@media screen and (max-width: 340px) {
+  .ck-modern-product-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .ck-card-body {
+    padding: 6px;
+  }
+  
 }

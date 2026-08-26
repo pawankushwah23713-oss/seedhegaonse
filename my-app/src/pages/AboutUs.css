@@ -23,7 +23,7 @@ body {
 
 /* 1. Header Banner */
 .hero-banner {
-  background:linear-gradient(135deg,#fff8f1,#fdf2e4);
+  background: linear-gradient(135deg, #fff8f1, #fdf2e4);
   border: 1px solid #fae8d2;
   border-radius: 20px;
   padding: 50px 30px;
@@ -40,7 +40,7 @@ body {
 }
 
 .hero-subtitle {
-  color: #945d1f !important ;
+  color: #945d1f !important;
   font-size: 1.05rem;
   max-width: 700px;
   margin: 0 auto;
@@ -162,7 +162,7 @@ body {
 
 /* Golden Quote Banner */
 .quote-banner {
-  background: rgb(175, 88, 29) !important ;
+  background: rgb(175, 88, 29) !important;
   border-radius: 14px;
   padding: 35px 25px;
   width: 100%;
@@ -177,6 +177,78 @@ body {
   font-weight: 400;
   line-height: 1.7;
   letter-spacing: 0.3px;
+}
+
+/* ========================================================= */
+/* 🟢 FAQ Section Styles                                     */
+/* ========================================================= */
+.faq-section {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 40px 30px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+  margin-top: 10px;
+}
+
+.faq-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 850px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  background: #fffbf5;
+  border: 1px solid #fae8d2;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.faq-item.faq-open {
+  border-color: #d88918;
+  box-shadow: 0 4px 15px rgba(216, 137, 24, 0.08);
+}
+
+.faq-question {
+  width: 100%;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  text-align: left;
+}
+
+.faq-question h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.faq-toggle-icon {
+  font-size: 20px;
+  font-weight: 800;
+  color: #288628;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.faq-answer-content {
+  padding: 0 20px 16px;
+  border-top: 1px dashed #f2ede4;
+  margin-top: 4px;
+}
+
+.faq-answer-content p {
+  color: #555555;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 10px;
 }
 
 /* 3. Floating Action Buttons */
@@ -271,8 +343,12 @@ body {
     font-size: 1.8rem;
   }
   .section-card,
-  .promise-card {
+  .promise-card,
+  .faq-section {
     padding: 25px 20px;
+  }
+  .faq-question h4 {
+    font-size: 14px;
   }
   .kquote-text {
     font-size: 1.1rem;

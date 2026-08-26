@@ -51,7 +51,7 @@ const Navbar = ({
     return () => window.removeEventListener('storage', syncUser);
   }, [location.pathname, isLoggedIn, userName]);
 
-  // 2. Scroll detection for Sticky Header
+  // 2. Scroll detection for Header Style
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 40);
@@ -122,7 +122,7 @@ const Navbar = ({
   const userInitial = displayName ? displayName.charAt(0).toUpperCase() : 'U';
 
   return (
-    <>
+    <div className="navbar-sticky-wrapper">
       {/* ANNOUNCEMENT BAR */}
       <div className="announcement-bar">
         <div className="announcement-content">
@@ -160,7 +160,7 @@ const Navbar = ({
                   </svg>
                 </a>
                 <ul className="dropdown-menu fade-slide-down">
-                  <li><Link to="/">🍬 All Sweets</Link></li>
+                  <li><Link to="/#products">🍬 All Sweets</Link></li>
                   <li><Link to="/#products">🟡 Laddu</Link></li>
                   <li><Link to="/#products">🟤 Peda</Link></li>
                   <li><Link to="/#products">⚪ Petha</Link></li>
@@ -179,7 +179,7 @@ const Navbar = ({
                   </svg>
                 </Link>
                 <ul className="dropdown-menu fade-slide-down">
-                  <li><Link to="/cake">🎂 All Cakes</Link></li>
+                  <li><Link to="/cakes#cakes">🎂 All Cakes</Link></li>
                   <li><Link to="/cakes#cakes">🍫 Chocolate Truffle</Link></li>
                   <li><Link to="/cakes#cakes">❤️ Red Velvet</Link></li>
                   <li><Link to="/cakes#cakes">🍓 Fresh Fruit</Link></li>
@@ -365,7 +365,7 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'cakes' && (
                 <ul className="mobile-submenu">
-                  <li><Link to="/cake" onClick={closeMobileMenu}>🎂 All Cakes</Link></li>
+                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🎂 All Cakes</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍫 Chocolate Truffle</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>❤️ Red Velvet</Link></li>
                   <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍓 Fresh Fruit</Link></li>
@@ -390,7 +390,7 @@ const Navbar = ({
               )}
             </li>
 
-            {/* 🟢 Bulk / Gifting (Mobile) */}
+            {/* Bulk / Gifting */}
             <li>
               <Link to="/bulk-gifting" onClick={closeMobileMenu}>Bulk / Gifting</Link>
             </li>
@@ -424,7 +424,7 @@ const Navbar = ({
           </ul>
         </div>
       </header>
-    </>
+    </div>
   );
 };
 

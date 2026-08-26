@@ -201,6 +201,14 @@ const CartDrawer = ({
   const taxAmount = Math.round((subTotal - couponDiscount) * 0.05); // 5% GST
   const grandTotal = Math.max(0, subTotal - couponDiscount + packagingCharge + shippingCharge + taxAmount);
 
+  // 🎁 Only the HIGHEST milestone tier reached should be "Unlocked".
+  // Lower tiers that were already crossed get marked as "Upgraded" (superseded),
+  // not "Unlocked" — so only one gift is ever active at a time.
+  const sortedMilestones = [...GIFT_MILESTONES].sort((a, b) => a.minOrder - b.minOrder);
+  const highestUnlockedMilestone = [...sortedMilestones]
+    .reverse()
+    .find((m) => subTotal >= m.minOrder) || null;
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name === 'pincode') {
@@ -496,8 +504,10 @@ const CartDrawer = ({
                     </div>
 
                     <div className="rewards-milestone-list">
-                      {GIFT_MILESTONES.map((m) => {
-                        const isUnlocked = subTotal >= m.minOrder;
+                      {sortedMilestones.map((m) => {
+                        const qualifies = subTotal >= m.minOrder;
+                        const isUnlocked = !!highestUnlockedMilestone && highestUnlockedMilestone.id === m.id;
+                        const isSuperseded = qualifies && !isUnlocked;
                         const amountNeeded = m.minOrder - subTotal;
 
                         return (
@@ -513,6 +523,14 @@ const CartDrawer = ({
                             <div className="milestone-right">
                               {isUnlocked ? (
                                 <span className="milestone-unlocked-badge">✓ Unlocked</span>
+                              ) : isSuperseded ? (
+                                <span
+                                  className="milestone-unlocked-badge"
+                                  style={{ background: '#e2e8f0', color: '#64748b' }}
+                                  title="A bigger gift is unlocked instead of this one"
+                                >
+                                  🔒 Upgraded
+                                </span>
                               ) : (
                                 <span className="milestone-add-btn">
                                   Add ₹{amountNeeded.toFixed(2)}

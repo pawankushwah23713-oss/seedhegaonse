@@ -47,6 +47,7 @@ const AppContent = ({
   cartItems,
   cartOpen,
   setCartOpen,
+  setCartItems,
   addedToast,
   currentUser,
   handleLogin,
@@ -243,12 +244,28 @@ function App() {
   const parsePrice = (priceStr) => parseFloat(String(priceStr).replace(/[₹,]/g, '')) || 0;
 
   const addToCart = (product) => {
+    const incomingQty = product.qty || product.quantity || 1;
+
     setCartItems((prev) => {
       const existing = prev.find((i) => i.id === product.id);
       if (existing) {
-        return prev.map((i) => (i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
+        return prev.map((i) =>
+          i.id === product.id ? { ...i, qty: i.qty + incomingQty } : i
+        );
       }
-      return [...prev, { id: product.id, name: product.name, price: product.price, img: product.img, qty: 1 }];
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          variant: product.variant,
+          price: product.price,
+          unitPrice: product.unitPrice,
+          img: product.img,
+          originRegion: product.originRegion,
+          qty: incomingQty
+        }
+      ];
     });
     setAddedToast(product.name);
     setTimeout(() => setAddedToast(null), 1800);
@@ -285,6 +302,7 @@ function App() {
         cartItems={cartItems}
         cartOpen={cartOpen}
         setCartOpen={setCartOpen}
+        setCartItems={setCartItems}
         addedToast={addedToast}
         currentUser={currentUser}
         handleLogin={handleLogin}
@@ -301,4 +319,3 @@ function App() {
 
 // ⚠️ YEH LINE MISSING THI JISKI WAJAH SE ERROR AA RAHA THA:
 export default App;
-// admin me mujhe ek home page and user sare show krane h or 
