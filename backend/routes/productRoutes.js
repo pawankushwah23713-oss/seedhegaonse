@@ -2,13 +2,24 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
 
 const Product = require('../models/Product');
 const upload = require('../middleware/uploadMiddleware');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
-// 1. GET ALL PRODUCTS (Public & Admin)
+// Safe JSON array parser for multipart form-data
+const safeJsonParse = (val, fallback = []) => {
+  if (!val) return fallback;
+  if (Array.isArray(val)) return val;
+  try {
+    const parsed = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+};
+
+// 1. GET ALL PRODUCTS
 router.get('/', async (req, res) => {
   try {
     const products = await Product.find().sort({ createdAt: -1 });
@@ -32,55 +43,54 @@ router.get('/:id', async (req, res) => {
 // 3. CREATE PRODUCT (Admin)
 router.post('/', protect, adminOnly, upload.single('image'), async (req, res) => {
   try {
-    const {
-      name,
-      originRegion,
-      category,
-      description,
-      price,
-      originalPrice,
-      discountPercent,
-      discountValidUntil,
-      productCouponCode,
-      productCouponDiscount,
-      productCouponType,
-      productCouponValidUntil,
-      highValueThreshold,
-      highValueDiscountPercent,
-      isFreeDelivery
-    } = req.body;
+    const b = req.body;
 
-    if (!name || !originRegion || !price || !category) {
-      return res.status(400).json({ message: 'Name, origin, category aur price zaroori hain.' });
+    if (!b.name || !b.originRegion || !b.price || !b.category) {
+      return res.status(400).json({ message: 'Name, origin, category, and price are required.' });
     }
 
     if (!req.file) {
-      return res.status(400).json({ message: 'Product photo upload karna zaroori hai.' });
+      return res.status(400).json({ message: 'Product image is required.' });
     }
 
     const imagePath = `/uploads/products/${req.file.filename}`;
 
+    // Parse all dynamic '+' arrays
+    const parsedBulkTiers = safeJsonParse(b.bulkTiers);
+    const parsedGiftTiers = safeJsonParse(b.giftTiers);
+    const parsedCouponsList = safeJsonParse(b.couponsList);
+    const parsedQuantityDiscounts = safeJsonParse(b.quantityDiscounts);
+
     const newProduct = await Product.create({
-      name: String(name).trim(),
-      originRegion: String(originRegion).trim(),
-      category,
-      description: description || '',
+      name: String(b.name).trim(),
+      originRegion: String(b.originRegion).trim(),
+      category: b.category,
+      description: b.description || '',
       image: imagePath,
-      price: Number(price),
-      originalPrice: Number(originalPrice) || 0,
-      discountPercent: Number(discountPercent) || 0,
-      discountValidUntil: discountValidUntil ? new Date(discountValidUntil) : null,
-      productCouponCode: productCouponCode ? productCouponCode.trim().toUpperCase() : '',
-      productCouponDiscount: Number(productCouponDiscount) || 0,
-      productCouponType: productCouponType || 'flat',
-      productCouponValidUntil: productCouponValidUntil ? new Date(productCouponValidUntil) : null,
-      highValueThreshold: Number(highValueThreshold) || 0,
-      highValueDiscountPercent: Number(highValueDiscountPercent) || 0,
-      isFreeDelivery: isFreeDelivery === 'true' || isFreeDelivery === true
+      price: Number(b.price),
+      originalPrice: Number(b.originalPrice) || 0,
+      discountPercent: Number(b.discountPercent) || 0,
+      discountValidUntil: b.discountValidUntil ? new Date(b.discountValidUntil) : null,
+
+      // 🟢 Save all dynamic arrays
+      bulkTiers: parsedBulkTiers,
+      giftTiers: parsedGiftTiers,
+      couponsList: parsedCouponsList,
+      quantityDiscounts: parsedQuantityDiscounts,
+
+      // Fallback single fields
+      highValueThreshold: parsedBulkTiers.length > 0 ? Number(parsedBulkTiers[0].minSpend || 0) : Number(b.highValueThreshold || 0),
+      highValueDiscountPercent: parsedBulkTiers.length > 0 ? Number(parsedBulkTiers[0].discountValue || parsedBulkTiers[0].discountPercent || 0) : Number(b.highValueDiscountPercent || 0),
+      productCouponCode: parsedCouponsList.length > 0 ? parsedCouponsList[0].code : (b.productCouponCode || ''),
+      productCouponDiscount: parsedCouponsList.length > 0 ? Number(parsedCouponsList[0].discountValue || 0) : Number(b.productCouponDiscount || 0),
+      productCouponType: parsedCouponsList.length > 0 ? parsedCouponsList[0].discountType : (b.productCouponType || 'flat'),
+
+      isFreeDelivery: b.isFreeDelivery === 'true' || b.isFreeDelivery === true
     });
 
-    res.status(201).json({ message: 'Sweet product added successfully!', product: newProduct });
+    res.status(201).json({ message: '🎉 Product with all dynamic slabs saved successfully!', product: newProduct });
   } catch (error) {
+    console.error('Save product error:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -91,7 +101,6 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found!' });
 
-    // Agar nayi image upload hui hai toh purani delete karke nayi lagao
     if (req.file) {
       if (product.image) {
         const oldPath = path.join(process.cwd(), product.image);
@@ -101,8 +110,8 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     }
 
     const b = req.body;
-    if (b.name) product.name = b.name.trim();
-    if (b.originRegion) product.originRegion = b.originRegion.trim();
+    if (b.name) product.name = String(b.name).trim();
+    if (b.originRegion) product.originRegion = String(b.originRegion).trim();
     if (b.category) product.category = b.category;
     if (b.description !== undefined) product.description = b.description;
     if (b.price) product.price = Number(b.price);
@@ -112,20 +121,32 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     product.discountPercent = Number(b.discountPercent) || 0;
     product.discountValidUntil = b.discountValidUntil ? new Date(b.discountValidUntil) : null;
 
-    // Coupon
-    product.productCouponCode = b.productCouponCode ? b.productCouponCode.trim().toUpperCase() : '';
-    product.productCouponDiscount = Number(b.productCouponDiscount) || 0;
-    product.productCouponType = b.productCouponType || 'flat';
-    product.productCouponValidUntil = b.productCouponValidUntil ? new Date(b.productCouponValidUntil) : null;
+    // 🟢 Update Dynamic Arrays
+    if (b.bulkTiers !== undefined) product.bulkTiers = safeJsonParse(b.bulkTiers);
+    if (b.giftTiers !== undefined) product.giftTiers = safeJsonParse(b.giftTiers);
+    if (b.couponsList !== undefined) product.couponsList = safeJsonParse(b.couponsList);
+    if (b.quantityDiscounts !== undefined) product.quantityDiscounts = safeJsonParse(b.quantityDiscounts);
 
-    // High value & Free shipping
-    product.highValueThreshold = Number(b.highValueThreshold) || 0;
-    product.highValueDiscountPercent = Number(b.highValueDiscountPercent) || 0;
-    product.isFreeDelivery = b.isFreeDelivery === 'true' || b.isFreeDelivery === true;
-    if (b.inStock !== undefined) product.inStock = b.inStock === 'true' || b.inStock === true;
+    // Fallbacks
+    if (product.bulkTiers.length > 0) {
+      product.highValueThreshold = Number(product.bulkTiers[0].minSpend || 0);
+      product.highValueDiscountPercent = Number(product.bulkTiers[0].discountValue || product.bulkTiers[0].discountPercent || 0);
+    }
+    if (product.couponsList.length > 0) {
+      product.productCouponCode = product.couponsList[0].code || '';
+      product.productCouponDiscount = Number(product.couponsList[0].discountValue || 0);
+      product.productCouponType = product.couponsList[0].discountType || 'flat';
+    }
+
+    if (b.isFreeDelivery !== undefined) {
+      product.isFreeDelivery = b.isFreeDelivery === 'true' || b.isFreeDelivery === true;
+    }
+    if (b.inStock !== undefined) {
+      product.inStock = b.inStock === 'true' || b.inStock === true;
+    }
 
     const updated = await product.save();
-    res.status(200).json({ message: 'Sweet product updated successfully!', product: updated });
+    res.status(200).json({ message: '🎉 Product updated with all slabs successfully!', product: updated });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

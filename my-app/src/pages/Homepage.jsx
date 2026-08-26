@@ -1031,27 +1031,9 @@ const Homepage = ({ addToCart, addedToast }) => {
 
                   <h3 className="sg-modal-title">{selectedProduct.name}</h3>
 
-                  {/* 💎 HIGH-VALUE / BULK ORDER SPECIAL HIGHLIGHT BOX */}
-                  {hasBulk && (
-                    <div style={{ background: '#ecfdf5', border: '1.5px dashed #059669', padding: '10px 14px', borderRadius: '10px', margin: '10px 0', color: '#065f46' }}>
-                      <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.92rem' }}>
-                        💎 Bulk Order Discount Active!
-                      </div>
-                      <p style={{ margin: '4px 0 0', fontSize: '0.84rem', lineHeight: '1.4' }}>
-                        Buy worth <strong>₹{Number(selectedProduct.highValueThreshold).toLocaleString('en-IN')}+</strong> of this sweet and get <strong>{selectedProduct.highValueDiscountPercent || 10}% EXTRA Discount</strong> automatically in cart!
-                      </p>
-                    </div>
-                  )}
-
+                 
                   {/* 🎟️ PRODUCT SPECIFIC EXCLUSIVE COUPON BOX */}
-                  {hasCoupon && (
-                    <div style={{ background: '#f5f3ff', border: '1px solid #c4b5fd', padding: '8px 12px', borderRadius: '8px', margin: '8px 0', color: '#6d28d9', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>🎟️ Exclusive Coupon: <strong>{selectedProduct.productCouponCode}</strong></span>
-                      <span style={{ fontWeight: '800' }}>
-                        {selectedProduct.productCouponType === 'flat' ? `₹${selectedProduct.productCouponDiscount} FLAT OFF` : `${selectedProduct.productCouponDiscount}% OFF`}
-                      </span>
-                    </div>
-                  )}
+                 
 
                   {/* ⏳ TIMELINE OFFER EXPIRY DATE */}
                   {hasTimeline && selectedProduct.discountValidUntil && (
@@ -1109,6 +1091,26 @@ const Homepage = ({ addToCart, addedToast }) => {
                   <div className="sg-trust-check-item">✓ Shelf Life: 7-10 Days</div>
                   <div className="sg-trust-check-item">✓ Hygienically Packed</div>
                 </div>
+
+                 {hasCoupon && (
+                    <div style={{ background: '#f5f3ff', border: '1px solid #c4b5fd', padding: '8px 12px', borderRadius: '8px', margin: '8px 0', color: '#6d28d9', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🎟️ Exclusive Coupon: <strong>{selectedProduct.productCouponCode}</strong></span>
+                      <span style={{ fontWeight: '800' }}>
+                        {selectedProduct.productCouponType === 'flat' ? `₹${selectedProduct.productCouponDiscount} FLAT OFF` : `${selectedProduct.productCouponDiscount}% OFF`}
+                      </span>
+                    </div>
+                  )}
+                  {/* 💎 HIGH-VALUE / BULK ORDER SPECIAL HIGHLIGHT BOX */}
+                  {hasBulk && (
+                    <div style={{ background: '#ecfdf5', border: '1.5px dashed #059669', padding: '10px 14px', borderRadius: '10px', margin: '10px 0', color: '#065f46' }}>
+                      <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.92rem' }}>
+                        💎 Bulk Order Discount Active!
+                      </div>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.84rem', lineHeight: '1.4' }}>
+                        Buy worth <strong>₹{Number(selectedProduct.highValueThreshold).toLocaleString('en-IN')}+</strong> of this sweet and get <strong>{selectedProduct.highValueDiscountPercent || 10}% EXTRA Discount</strong> automatically in cart!
+                      </p>
+                    </div>
+                  )}
 
                 {/* Modal Buttons: Heart + Stepper + Add to Cart in one row */}
                 <div className="sg-modal-actions-row">
@@ -1202,8 +1204,11 @@ const Homepage = ({ addToCart, addedToast }) => {
               <p>Village Artisans Recipe</p>
             </div>
           </div>
+          
         </div>
+        
       </section>
+      
 
       {/* MAIN PRODUCTS SECTION */}
       <section id="products" className="sg-products-section sg-container sg-reveal">

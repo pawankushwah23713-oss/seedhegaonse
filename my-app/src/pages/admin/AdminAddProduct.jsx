@@ -13,12 +13,18 @@ const defaultForm = {
   description: '',
   discountPercent: '',
   discountValidUntil: '',
-  productCouponCode: '',
-  productCouponDiscount: '',
-  productCouponType: 'flat',
-  productCouponValidUntil: '',
-  highValueThreshold: '',
-  highValueDiscountPercent: '',
+  couponsList: [
+    { code: 'DESI50', discountType: 'flat', discountValue: '50', minSpend: '500', validUntil: '' }
+  ],
+  quantityDiscounts: [
+    { minQty: '2', discountPercent: '10' }
+  ],
+  bulkTiers: [
+    { minSpend: '12000', discountType: 'percentage', discountValue: '20' }
+  ],
+  giftTiers: [
+    { minSpend: '1500', giftTitle: 'Free 100g Desi Ghee Peda Box', giftImage: '' }
+  ],
   isFreeDelivery: false
 };
 
@@ -28,7 +34,7 @@ const AdminAllInOneProducts = () => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  const [editingId, setEditingId] = useState(null); // null = Add mode, id = Edit mode
+  const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ text: '', type: '' });
 
@@ -56,6 +62,70 @@ const AdminAllInOneProducts = () => {
     }));
   };
 
+  // ➕ 1. Dynamic Coupons Handlers
+  const handleCouponChange = (index, field, value) => {
+    const updated = [...formData.couponsList];
+    updated[index][field] = field === 'code' ? value.toUpperCase() : value;
+    setFormData((prev) => ({ ...prev, couponsList: updated }));
+  };
+  const addCoupon = () => {
+    setFormData((prev) => ({
+      ...prev,
+      couponsList: [...prev.couponsList, { code: '', discountType: 'flat', discountValue: '', minSpend: '0', validUntil: '' }]
+    }));
+  };
+  const removeCoupon = (index) => {
+    setFormData((prev) => ({ ...prev, couponsList: prev.couponsList.filter((_, i) => i !== index) }));
+  };
+
+  // ➕ 2. Dynamic Quantity Discount Handlers
+  const handleQtyDiscountChange = (index, field, value) => {
+    const updated = [...formData.quantityDiscounts];
+    updated[index][field] = value;
+    setFormData((prev) => ({ ...prev, quantityDiscounts: updated }));
+  };
+  const addQtyDiscount = () => {
+    setFormData((prev) => ({
+      ...prev,
+      quantityDiscounts: [...prev.quantityDiscounts, { minQty: '', discountPercent: '' }]
+    }));
+  };
+  const removeQtyDiscount = (index) => {
+    setFormData((prev) => ({ ...prev, quantityDiscounts: prev.quantityDiscounts.filter((_, i) => i !== index) }));
+  };
+
+  // ➕ 3. Dynamic Bulk Slabs Handlers
+  const handleBulkTierChange = (index, field, value) => {
+    const updated = [...formData.bulkTiers];
+    updated[index][field] = value;
+    setFormData((prev) => ({ ...prev, bulkTiers: updated }));
+  };
+  const addBulkTier = () => {
+    setFormData((prev) => ({
+      ...prev,
+      bulkTiers: [...prev.bulkTiers, { minSpend: '', discountType: 'percentage', discountValue: '' }]
+    }));
+  };
+  const removeBulkTier = (index) => {
+    setFormData((prev) => ({ ...prev, bulkTiers: prev.bulkTiers.filter((_, i) => i !== index) }));
+  };
+
+  // ➕ 4. Dynamic Gift Slabs Handlers
+  const handleGiftTierChange = (index, field, value) => {
+    const updated = [...formData.giftTiers];
+    updated[index][field] = value;
+    setFormData((prev) => ({ ...prev, giftTiers: updated }));
+  };
+  const addGiftTier = () => {
+    setFormData((prev) => ({
+      ...prev,
+      giftTiers: [...prev.giftTiers, { minSpend: '', giftTitle: '', giftImage: '' }]
+    }));
+  };
+  const removeGiftTier = (index) => {
+    setFormData((prev) => ({ ...prev, giftTiers: prev.giftTiers.filter((_, i) => i !== index) }));
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -64,9 +134,30 @@ const AdminAllInOneProducts = () => {
     }
   };
 
-  // Click on Edit Product
+  // ✏️ Edit Product (Loads all slabs cleanly)
   const handleEditClick = (p) => {
     setEditingId(p._id);
+
+    let existingBulkTiers = Array.isArray(p.bulkTiers) && p.bulkTiers.length > 0
+      ? p.bulkTiers
+      : p.highValueThreshold > 0
+      ? [{ minSpend: String(p.highValueThreshold), discountType: 'percentage', discountValue: String(p.highValueDiscountPercent || 20) }]
+      : [{ minSpend: '12000', discountType: 'percentage', discountValue: '20' }];
+
+    let existingGiftTiers = Array.isArray(p.giftTiers) && p.giftTiers.length > 0
+      ? p.giftTiers
+      : [{ minSpend: '1500', giftTitle: 'Free 100g Desi Ghee Peda Box', giftImage: '' }];
+
+    let existingCoupons = Array.isArray(p.couponsList) && p.couponsList.length > 0
+      ? p.couponsList
+      : p.productCouponCode
+      ? [{ code: p.productCouponCode, discountType: p.productCouponType || 'flat', discountValue: String(p.productCouponDiscount || 50), minSpend: '0', validUntil: p.productCouponValidUntil ? p.productCouponValidUntil.slice(0, 16) : '' }]
+      : [{ code: '', discountType: 'flat', discountValue: '', minSpend: '0', validUntil: '' }];
+
+    let existingQtyDiscounts = Array.isArray(p.quantityDiscounts) && p.quantityDiscounts.length > 0
+      ? p.quantityDiscounts
+      : [{ minQty: '2', discountPercent: '10' }];
+
     setFormData({
       name: p.name || '',
       originRegion: p.originRegion || '',
@@ -76,14 +167,13 @@ const AdminAllInOneProducts = () => {
       description: p.description || '',
       discountPercent: p.discountPercent || '',
       discountValidUntil: p.discountValidUntil ? p.discountValidUntil.slice(0, 16) : '',
-      productCouponCode: p.productCouponCode || '',
-      productCouponDiscount: p.productCouponDiscount || '',
-      productCouponType: p.productCouponType || 'flat',
-      productCouponValidUntil: p.productCouponValidUntil ? p.productCouponValidUntil.slice(0, 16) : '',
-      highValueThreshold: p.highValueThreshold || '',
-      highValueDiscountPercent: p.highValueDiscountPercent || '',
+      couponsList: existingCoupons,
+      quantityDiscounts: existingQtyDiscounts,
+      bulkTiers: existingBulkTiers,
+      giftTiers: existingGiftTiers,
       isFreeDelivery: !!p.isFreeDelivery
     });
+
     setImagePreview(p.image ? (p.image.startsWith('http') ? p.image : `${API_BASE.replace('/api', '')}${p.image}`) : null);
     setImageFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -96,7 +186,7 @@ const AdminAllInOneProducts = () => {
     setImagePreview(null);
   };
 
-  // Submit (Add or Edit)
+  // Submit Form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -105,8 +195,13 @@ const AdminAllInOneProducts = () => {
     try {
       const data = new FormData();
       Object.keys(formData).forEach((key) => {
-        data.append(key, formData[key]);
+        if (['bulkTiers', 'giftTiers', 'couponsList', 'quantityDiscounts'].includes(key)) {
+          data.append(key, JSON.stringify(formData[key]));
+        } else {
+          data.append(key, formData[key]);
+        }
       });
+
       if (imageFile) {
         data.append('image', imageFile);
       }
@@ -124,7 +219,7 @@ const AdminAllInOneProducts = () => {
       if (!res.ok) throw new Error(resData.message || 'Operation failed');
 
       setMsg({
-        text: editingId ? '🎉 Product updated successfully!' : '🎉 New product added successfully!',
+        text: editingId ? '🎉 Product & All Dynamic Slabs updated!' : '🎉 New product & Slabs saved successfully!',
         type: 'success'
       });
 
@@ -137,9 +232,8 @@ const AdminAllInOneProducts = () => {
     }
   };
 
-  // Delete Product
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    if (!window.confirm('Delete this product and all its offers?')) return;
     try {
       const res = await fetch(`${API_BASE}/products/${id}`, {
         method: 'DELETE',
@@ -156,50 +250,36 @@ const AdminAllInOneProducts = () => {
 
   return (
     <div style={{ maxWidth: '1100px', margin: '20px auto', padding: '20px', fontFamily: 'Segoe UI, sans-serif' }}>
-      
-      {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h1 style={{ margin: 0, color: '#94191d' }}>
-            {editingId ? '✏️ Edit Sweet Product & Custom Offers' : '➕ Add Sweet Product & Dynamic Offers'}
+            {editingId ? '✏️ Edit Sweet & Dynamic Multi-Offer Rules' : '➕ Add Sweet & Unlimited Custom Offers'}
           </h1>
           <p style={{ margin: '5px 0 0', color: '#64748b' }}>
-            Manage limited-time discounts, product coupons, bulk spending rules (₹12,000+), and free delivery in one place.
+            Create and manage multiple discounts, pack quantity offers, secret coupons, bulk slabs (₹12k+), and free gifts in one form!
           </p>
         </div>
         {editingId && (
-          <button
-            onClick={handleCancelEdit}
-            style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-          >
+          <button onClick={handleCancelEdit} style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
             ✕ Cancel Edit
           </button>
         )}
       </div>
 
-      {/* FEEDBACK MSG */}
       {msg.text && (
-        <div style={{
-          padding: '12px 16px',
-          marginBottom: '20px',
-          borderRadius: '8px',
-          background: msg.type === 'success' ? '#dcfce7' : '#fee2e2',
-          color: msg.type === 'success' ? '#15803d' : '#b91c1c',
-          fontWeight: 'bold'
-        }}>
+        <div style={{ padding: '12px 16px', marginBottom: '20px', borderRadius: '8px', background: msg.type === 'success' ? '#dcfce7' : '#fee2e2', color: msg.type === 'success' ? '#15803d' : '#b91c1c', fontWeight: 'bold' }}>
           {msg.text}
         </div>
       )}
 
-      {/* 📝 MASTER ALL-IN-ONE FORM */}
       <form onSubmit={handleSubmit} style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
         
-        {/* SECTION 1: BASIC DETAILS */}
+        {/* 1. BASIC DETAILS */}
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', color: '#334155' }}>📦 1. Basic Sweet Details</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', marginTop: '12px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Sweet Name *</label>
-            <input type="text" name="name" required placeholder="e.g. Shuddh Desi Ghee Besan Laddu" value={formData.name} onChange={handleChange} style={inputStyle} />
+            <input type="text" name="name" required placeholder="e.g. Pure Desi Ghee Besan Laddu" value={formData.name} onChange={handleChange} style={inputStyle} />
           </div>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Origin Region / Gaon *</label>
@@ -218,10 +298,10 @@ const AdminAllInOneProducts = () => {
           </div>
         </div>
 
-        {/* SECTION 2: BASE PRICING & MRP */}
+        {/* 2. PRICING */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', marginTop: '15px' }}>
           <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Selling Price (₹) *</label>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Base Selling Price (₹) *</label>
             <input type="number" name="price" required min="1" placeholder="e.g. 500" value={formData.price} onChange={handleChange} style={inputStyle} />
           </div>
           <div>
@@ -230,11 +310,11 @@ const AdminAllInOneProducts = () => {
           </div>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Product Description</label>
-            <input type="text" name="description" placeholder="Desi mithaas, made with 100% bilona ghee..." value={formData.description} onChange={handleChange} style={inputStyle} />
+            <input type="text" name="description" placeholder="Handcrafted with 100% bilona ghee..." value={formData.description} onChange={handleChange} style={inputStyle} />
           </div>
         </div>
 
-        {/* SECTION 3: TIMELINE-BASED DISCOUNT (SOME DAYS OFFER) */}
+        {/* 3. TIMELINE DISCOUNT */}
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#d97706' }}>
           ⏳ 2. Limited Days Special Discount (Timeline Offer)
         </h3>
@@ -244,61 +324,148 @@ const AdminAllInOneProducts = () => {
             <input type="number" name="discountPercent" min="0" max="100" placeholder="e.g. 15" value={formData.discountPercent} onChange={handleChange} style={inputStyle} />
           </div>
           <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Offer Valid Until (Date & Time Expiry)</label>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Offer Valid Until (Expiry Date)</label>
             <input type="datetime-local" name="discountValidUntil" value={formData.discountValidUntil} onChange={handleChange} style={inputStyle} />
           </div>
         </div>
 
-        {/* SECTION 4: PRODUCT-SPECIFIC SECRET COUPON */}
-        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#7c3aed' }}>
-          🎟️ 3. Product-Specific Coupon Code (Optional)
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 2fr', gap: '15px', marginTop: '12px', background: '#f5f3ff', padding: '15px', borderRadius: '8px' }}>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Coupon Code</label>
-            <input type="text" name="productCouponCode" placeholder="e.g. BESAN50" value={formData.productCouponCode} onChange={handleChange} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Discount Type</label>
-            <select name="productCouponType" value={formData.productCouponType} onChange={handleChange} style={inputStyle}>
-              <option value="flat">Flat ₹ OFF</option>
-              <option value="percentage">% Percentage</option>
-            </select>
-          </div>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Coupon Value</label>
-            <input type="number" name="productCouponDiscount" placeholder="e.g. 50" value={formData.productCouponDiscount} onChange={handleChange} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#6d28d9' }}>Coupon Expiry Date</label>
-            <input type="datetime-local" name="productCouponValidUntil" value={formData.productCouponValidUntil} onChange={handleChange} style={inputStyle} />
-          </div>
+        {/* 4. MULTIPLE COUPONS */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+          <h3 style={{ margin: 0, color: '#7c3aed' }}>🎟️ 3. Product Secret Coupons (Add Multiple with +)</h3>
+          <button type="button" onClick={addCoupon} style={{ padding: '6px 14px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+            ➕ Add Another Coupon
+          </button>
         </div>
 
-        {/* SECTION 5: HIGH VALUE / BULK RULE (₹12,000+) & FREE DELIVERY */}
-        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#059669' }}>
-          💎 4. High-Value Threshold (₹12,000+) & Delivery Rules
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1.5fr', gap: '15px', marginTop: '12px', background: '#ecfdf5', padding: '15px', borderRadius: '8px', alignItems: 'center' }}>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#047857' }}>Bulk Spend Threshold (₹)</label>
-            <input type="number" name="highValueThreshold" placeholder="e.g. 12000" value={formData.highValueThreshold} onChange={handleChange} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#047857' }}>Extra Bulk Discount (%)</label>
-            <input type="number" name="highValueDiscountPercent" placeholder="e.g. 20" value={formData.highValueDiscountPercent} onChange={handleChange} style={inputStyle} />
-          </div>
-          <div style={{ paddingTop: '18px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: '#047857', cursor: 'pointer' }}>
-              <input type="checkbox" name="isFreeDelivery" checked={formData.isFreeDelivery} onChange={handleChange} style={{ width: '18px', height: '18px' }} />
-              🚚 Free Delivery on this Sweet
-            </label>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+          {formData.couponsList.map((c, idx) => (
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.5fr auto', gap: '10px', background: '#f5f3ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Coupon Code</label>
+                <input type="text" placeholder="e.g. LADDU50" value={c.code} onChange={(e) => handleCouponChange(idx, 'code', e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Type</label>
+                <select value={c.discountType} onChange={(e) => handleCouponChange(idx, 'discountType', e.target.value)} style={inputStyle}>
+                  <option value="flat">Flat (₹)</option>
+                  <option value="percentage">% Percent</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Value</label>
+                <input type="number" placeholder="50" value={c.discountValue} onChange={(e) => handleCouponChange(idx, 'discountValue', e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Min Spend (₹)</label>
+                <input type="number" placeholder="500" value={c.minSpend} onChange={(e) => handleCouponChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Expiry Date</label>
+                <input type="datetime-local" value={c.validUntil} onChange={(e) => handleCouponChange(idx, 'validUntil', e.target.value)} style={inputStyle} />
+              </div>
+              {formData.couponsList.length > 1 && (
+                <button type="button" onClick={() => removeCoupon(idx)} style={removeBtnStyle} title="Remove">✕</button>
+              )}
+            </div>
+          ))}
         </div>
 
-        {/* SECTION 6: PRODUCT IMAGE */}
+        {/* 5. MULTIPLE PACK DISCOUNTS */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+          <h3 style={{ margin: 0, color: '#ea580c' }}>📦 4. Quantity / Pack Discounts (Buy 2+, Buy 5+ with +)</h3>
+          <button type="button" onClick={addQtyDiscount} style={{ padding: '6px 14px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+            ➕ Add Qty Slab
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+          {formData.quantityDiscounts.map((q, idx) => (
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr auto', gap: '12px', background: '#fff7ed', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#c2410c' }}>Min Packs / Qty (e.g. 2, 5)</label>
+                <input type="number" placeholder="e.g. 2" value={q.minQty} onChange={(e) => handleQtyDiscountChange(idx, 'minQty', e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#c2410c' }}>Extra Discount (% OFF)</label>
+                <input type="number" placeholder="e.g. 10" value={q.discountPercent} onChange={(e) => handleQtyDiscountChange(idx, 'discountPercent', e.target.value)} style={inputStyle} />
+              </div>
+              {formData.quantityDiscounts.length > 1 && (
+                <button type="button" onClick={() => removeQtyDiscount(idx)} style={removeBtnStyle} title="Remove">✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 6. MULTIPLE BULK TIERS */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+          <h3 style={{ margin: 0, color: '#059669' }}>💎 5. High-Value Bulk Spend Tiers (₹5k, ₹12k, ₹25k+ with +)</h3>
+          <button type="button" onClick={addBulkTier} style={{ padding: '6px 14px', background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+            ➕ Add More Bulk Tier
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+          {formData.bulkTiers.map((tier, idx) => (
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.5fr auto', gap: '12px', background: '#ecfdf5', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#047857' }}>Min Spend Threshold (₹) [Tier {idx + 1}]</label>
+                <input type="number" placeholder="e.g. 12000" value={tier.minSpend} onChange={(e) => handleBulkTierChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#047857' }}>Type</label>
+                <select value={tier.discountType || 'percentage'} onChange={(e) => handleBulkTierChange(idx, 'discountType', e.target.value)} style={inputStyle}>
+                  <option value="percentage">% Percentage</option>
+                  <option value="flat">Flat (₹)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#047857' }}>Discount Value</label>
+                <input type="number" placeholder="e.g. 20" value={tier.discountValue || tier.discountPercent || ''} onChange={(e) => handleBulkTierChange(idx, 'discountValue', e.target.value)} style={inputStyle} />
+              </div>
+              {formData.bulkTiers.length > 1 && (
+                <button type="button" onClick={() => removeBulkTier(idx)} style={removeBtnStyle} title="Remove">✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 7. MULTIPLE FREE GIFTS */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+          <h3 style={{ margin: 0, color: '#2563eb' }}>🎁 6. Free Gifts on Spending Roadmap (Add Multiple with +)</h3>
+          <button type="button" onClick={addGiftTier} style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+            ➕ Add More Gift Tier
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+          {formData.giftTiers.map((tier, idx) => (
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr auto', gap: '12px', background: '#eff6ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#1e40af' }}>Min Spend to Unlock Gift (₹)</label>
+                <input type="number" placeholder="e.g. 1500" value={tier.minSpend} onChange={(e) => handleGiftTierChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#1e40af' }}>Free Gift Name / Title</label>
+                <input type="text" placeholder="e.g. Free 100g Mathura Peda Box" value={tier.giftTitle} onChange={(e) => handleGiftTierChange(idx, 'giftTitle', e.target.value)} style={inputStyle} />
+              </div>
+              {formData.giftTiers.length > 1 && (
+                <button type="button" onClick={() => removeGiftTier(idx)} style={removeBtnStyle} title="Remove">✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 8. FREE DELIVERY */}
+        <div style={{ marginTop: '18px', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: '#047857', cursor: 'pointer' }}>
+            <input type="checkbox" name="isFreeDelivery" checked={formData.isFreeDelivery} onChange={handleChange} style={{ width: '18px', height: '18px' }} />
+            🚚 Provide 100% FREE Delivery directly on this Sweet
+          </label>
+        </div>
+
+        {/* 9. IMAGE UPLOAD */}
         <div style={{ marginTop: '20px' }}>
-          <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Product Photo {editingId ? '(Leave empty to keep existing image)' : '*'}</label>
+          <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Product Photo {editingId ? '(Leave empty to keep current)' : '*'}</label>
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '8px' }}>
             <input type="file" accept="image/*" onChange={handleImageChange} required={!editingId} />
             {imagePreview && (
@@ -309,58 +476,31 @@ const AdminAllInOneProducts = () => {
 
         {/* SUBMIT BUTTON */}
         <div style={{ marginTop: '25px', display: 'flex', gap: '10px' }}>
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              padding: '12px 28px',
-              background: editingId ? '#059669' : '#94191d',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              cursor: 'pointer'
-            }}
-          >
+          <button type="submit" disabled={loading} style={{ padding: '12px 28px', background: editingId ? '#059669' : '#94191d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
             {loading ? 'Processing...' : editingId ? '💾 Update Sweet Product' : '🚀 Save & Publish Sweet'}
           </button>
           {editingId && (
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              style={{ padding: '12px 20px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
+            <button type="button" onClick={handleCancelEdit} style={{ padding: '12px 20px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
               Cancel
             </button>
           )}
         </div>
       </form>
 
-      {/* 📋 SECTION: ALL PRODUCTS LIST */}
+      {/* 📋 PRODUCTS LIST */}
       <div>
-        <h2>📋 All Store Products & Active Rules ({products.length})</h2>
+        <h2>📋 All Store Sweets & Active Dynamic Offers ({products.length})</h2>
         <div style={{ display: 'grid', gap: '12px' }}>
           {products.map((p) => {
-            const hasTimelineDiscount = p.discountPercent > 0 && (!p.discountValidUntil || new Date(p.discountValidUntil) > new Date());
-            const hasCoupon = p.productCouponCode && (!p.productCouponValidUntil || new Date(p.productCouponValidUntil) > new Date());
-            const hasBulkRule = p.highValueThreshold > 0;
+            const hasTimeline = p.discountPercent > 0 && (!p.discountValidUntil || new Date(p.discountValidUntil) > new Date());
+            const bulkList = Array.isArray(p.bulkTiers) ? p.bulkTiers : (p.highValueThreshold ? [{ minSpend: p.highValueThreshold, discountValue: p.highValueDiscountPercent }] : []);
+            const giftList = Array.isArray(p.giftTiers) ? p.giftTiers : [];
+            const coupons = Array.isArray(p.couponsList) ? p.couponsList : (p.productCouponCode ? [{ code: p.productCouponCode, discountValue: p.productCouponDiscount }] : []);
+            const qtyList = Array.isArray(p.quantityDiscounts) ? p.quantityDiscounts : [];
             const imgSrc = p.image?.startsWith('http') ? p.image : `${API_BASE.replace('/api', '')}${p.image}`;
 
             return (
-              <div
-                key={p._id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: '#fff',
-                  padding: '16px 20px',
-                  borderRadius: '10px',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                  borderLeft: `5px solid ${editingId === p._id ? '#059669' : '#94191d'}`
-                }}
-              >
+              <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '16px 20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `5px solid ${editingId === p._id ? '#059669' : '#94191d'}` }}>
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                   <img src={imgSrc} alt={p.name} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover' }} />
                   <div>
@@ -369,26 +509,35 @@ const AdminAllInOneProducts = () => {
                       Price: <strong>₹{p.price}</strong> | Origin: {p.originRegion} | Category: {p.category}
                     </div>
 
-                    {/* Active Rules Badges */}
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-                      {hasTimelineDiscount && (
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      {hasTimeline && (
                         <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          ⏳ {p.discountPercent}% OFF (Ends: {new Date(p.discountValidUntil).toLocaleDateString()})
+                          ⏳ {p.discountPercent}% OFF
                         </span>
                       )}
-                      {hasCoupon && (
-                        <span style={{ background: '#ede9fe', color: '#5b21b6', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          🎟️ Coupon: {p.productCouponCode} ({p.productCouponType === 'flat' ? `₹${p.productCouponDiscount}` : `${p.productCouponDiscount}%`})
+                      {coupons.map((c, i) => (
+                        <span key={i} style={{ background: '#ede9fe', color: '#5b21b6', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          🎟️ {c.code} ({c.discountType === 'percentage' ? `${c.discountValue}%` : `₹${c.discountValue}`})
                         </span>
-                      )}
-                      {hasBulkRule && (
-                        <span style={{ background: '#dcfce7', color: '#166534', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          💎 ₹{p.highValueThreshold}+ spend = {p.highValueDiscountPercent}% OFF
+                      ))}
+                      {qtyList.map((q, i) => (
+                        <span key={i} style={{ background: '#ffedd5', color: '#c2410c', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          📦 Buy {q.minQty}+ Packs = {q.discountPercent}% OFF
                         </span>
-                      )}
+                      ))}
+                      {bulkList.map((b, i) => (
+                        <span key={i} style={{ background: '#dcfce7', color: '#166534', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          💎 ₹{Number(b.minSpend).toLocaleString('en-IN')}+ = {b.discountValue || b.discountPercent}% OFF
+                        </span>
+                      ))}
+                      {giftList.map((g, i) => (
+                        <span key={i} style={{ background: '#dbeafe', color: '#1e40af', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          🎁 ₹{Number(g.minSpend).toLocaleString('en-IN')}+ = {g.giftTitle}
+                        </span>
+                      ))}
                       {p.isFreeDelivery && (
                         <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          🚚 Free Shipping
+                          🚚 Free Delivery
                         </span>
                       )}
                     </div>
@@ -396,16 +545,10 @@ const AdminAllInOneProducts = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={() => handleEditClick(p)}
-                    style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
+                  <button onClick={() => handleEditClick(p)} style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                     ✏️ Edit
                   </button>
-                  <button
-                    onClick={() => handleDelete(p._id)}
-                    style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer' }}
-                  >
+                  <button onClick={() => handleDelete(p._id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer' }}>
                     🗑️ Delete
                   </button>
                 </div>
@@ -414,7 +557,6 @@ const AdminAllInOneProducts = () => {
           })}
         </div>
       </div>
-
     </div>
   );
 };
@@ -428,6 +570,18 @@ const inputStyle = {
   fontSize: '0.9rem',
   outline: 'none',
   boxSizing: 'border-box'
+};
+
+const removeBtnStyle = {
+  background: '#ef4444',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '6px',
+  padding: '8px 12px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+  alignSelf: 'flex-end',
+  marginBottom: '2px'
 };
 
 export default AdminAllInOneProducts;
