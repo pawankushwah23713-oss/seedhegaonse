@@ -1,173 +1,94 @@
-const express = require('express');
-const router = express.Router();
-const path = require('path');
-const fs = require('fs');
+const mongoose = require('mongoose');
 
-const Product = require('../models/Product');
-const upload = require('../middleware/uploadMiddleware');
-const { protect, adminOnly } = require('../middleware/authMiddleware');
+// 1. Bulk Spend Sub-schema
+const bulkTierSchema = new mongoose.Schema(
+  {
+    minSpend: { type: Number, default: 0 },
+    discountType: { type: String, enum: ['percentage', 'flat'], default: 'percentage' },
+    discountValue: { type: Number, default: 0 }
+  },
+  { _id: false }
+);
 
-// Safe JSON array parser for multipart form-data
-const safeJsonParse = (val, fallback = []) => {
-  if (!val) return fallback;
-  if (Array.isArray(val)) return val;
-  try {
-    const parsed = JSON.parse(val);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch (e) {
-    return fallback;
-  }
-};
+// 2. Free Gift Sub-schema
+const giftTierSchema = new mongoose.Schema(
+  {
+    minSpend: { type: Number, default: 0 },
+    giftTitle: { type: String, trim: true, default: '' },
+    giftImage: { type: String, default: '' }
+  },
+  { _id: false }
+);
 
-// 1. GET ALL PRODUCTS
-router.get('/', async (req, res) => {
-  try {
-    const products = await Product.find().sort({ createdAt: -1 });
-    res.status(200).json(products);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch sweets: ' + error.message });
-  }
-});
+// 3. Coupon Sub-schema
+const couponItemSchema = new mongoose.Schema(
+  {
+    code: { type: String, uppercase: true, trim: true, default: '' },
+    discountType: { type: String, enum: ['flat', 'percentage'], default: 'flat' },
+    discountValue: { type: Number, default: 0 },
+    minSpend: { type: Number, default: 0 },
+    validUntil: { type: Date, default: null }
+  },
+  { _id: false }
+);
 
-// 2. GET SINGLE PRODUCT
-router.get('/:id', async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.status(200).json(product);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+// 4. Quantity / Pack Discount Sub-schema
+const qtyDiscountSchema = new mongoose.Schema(
+  {
+    minQty: { type: Number, default: 0 },
+    discountPercent: { type: Number, default: 0 }
+  },
+  { _id: false }
+);
 
-// 3. CREATE PRODUCT (Admin)
-router.post('/', protect, adminOnly, upload.single('image'), async (req, res) => {
-  try {
-    const b = req.body;
+const productSchema = new mongoose.Schema(
+  {
+    // Basic Details
+    name: { type: String, required: true, trim: true },
+    originRegion: { type: String, required: true, trim: true },
+    category: {
+      type: String,
+      required: true,
+      enum: ['ladoo', 'peda', 'petha', 'halwa', 'barfi', 'special']
+    },
+    description: { type: String, default: '' },
+    image: { type: String, required: true },
+    inStock: { type: Boolean, default: true },
 
-    if (!b.name || !b.originRegion || !b.price || !b.category) {
-      return res.status(400).json({ message: 'Name, origin, category, and price are required.' });
-    }
+    // Base Pricing & MRP
+    price: { type: Number, required: true, min: 1 },
+    originalPrice: { type: Number, default: 0 },
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'Product image is required.' });
-    }
+    // ⏳ 1. Time-Based Discount
+    discountPercent: { type: Number, default: 0 },
+    discountValidUntil: { type: Date, default: null },
 
-    const imagePath = `/uploads/products/${req.file.filename}`;
+    // 🎟️ 2. Dynamic Multiple Coupons (+ Add Multiple)
+    couponsList: { type: [couponItemSchema], default: [] },
 
-    // Parse all dynamic '+' arrays
-    const parsedBulkTiers = safeJsonParse(b.bulkTiers);
-    const parsedGiftTiers = safeJsonParse(b.giftTiers);
-    const parsedCouponsList = safeJsonParse(b.couponsList);
-    const parsedQuantityDiscounts = safeJsonParse(b.quantityDiscounts);
+    // 📦 3. Dynamic Quantity / Pack Discounts (+ Add Multiple)
+    quantityDiscounts: { type: [qtyDiscountSchema], default: [] },
 
-    const newProduct = await Product.create({
-      name: String(b.name).trim(),
-      originRegion: String(b.originRegion).trim(),
-      category: b.category,
-      description: b.description || '',
-      image: imagePath,
-      price: Number(b.price),
-      originalPrice: Number(b.originalPrice) || 0,
-      discountPercent: Number(b.discountPercent) || 0,
-      discountValidUntil: b.discountValidUntil ? new Date(b.discountValidUntil) : null,
+    // 💎 4. Dynamic Multiple Bulk Slabs (+ Add Multiple Tiers)
+    bulkTiers: { type: [bulkTierSchema], default: [] },
 
-      // 🟢 Save all dynamic arrays
-      bulkTiers: parsedBulkTiers,
-      giftTiers: parsedGiftTiers,
-      couponsList: parsedCouponsList,
-      quantityDiscounts: parsedQuantityDiscounts,
+    // 🎁 5. Dynamic Multiple Free Gifts (+ Add Multiple Gifts)
+    giftTiers: { type: [giftTierSchema], default: [] },
 
-      // Fallback single fields
-      highValueThreshold: parsedBulkTiers.length > 0 ? Number(parsedBulkTiers[0].minSpend || 0) : Number(b.highValueThreshold || 0),
-      highValueDiscountPercent: parsedBulkTiers.length > 0 ? Number(parsedBulkTiers[0].discountValue || parsedBulkTiers[0].discountPercent || 0) : Number(b.highValueDiscountPercent || 0),
-      productCouponCode: parsedCouponsList.length > 0 ? parsedCouponsList[0].code : (b.productCouponCode || ''),
-      productCouponDiscount: parsedCouponsList.length > 0 ? Number(parsedCouponsList[0].discountValue || 0) : Number(b.productCouponDiscount || 0),
-      productCouponType: parsedCouponsList.length > 0 ? parsedCouponsList[0].discountType : (b.productCouponType || 'flat'),
+    // 🚚 6. Free Delivery Override
+    isFreeDelivery: { type: Boolean, default: false },
 
-      isFreeDelivery: b.isFreeDelivery === 'true' || b.isFreeDelivery === true
-    });
+    // Single-field Backward Compatibility
+    productCouponCode: { type: String, uppercase: true, trim: true, default: '' },
+    productCouponDiscount: { type: Number, default: 0 },
+    productCouponType: { type: String, enum: ['flat', 'percentage'], default: 'flat' },
+    productCouponValidUntil: { type: Date, default: null },
+    highValueThreshold: { type: Number, default: 0 },
+    highValueDiscountPercent: { type: Number, default: 0 }
+  },
+  { timestamps: true }
+);
 
-    res.status(201).json({ message: '🎉 Product with all dynamic slabs saved successfully!', product: newProduct });
-  } catch (error) {
-    console.error('Save product error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// 4. UPDATE PRODUCT (Admin Edit)
-router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found!' });
-
-    if (req.file) {
-      if (product.image) {
-        const oldPath = path.join(process.cwd(), product.image);
-        if (fs.existsSync(oldPath)) try { fs.unlinkSync(oldPath); } catch (e) {}
-      }
-      product.image = `/uploads/products/${req.file.filename}`;
-    }
-
-    const b = req.body;
-    if (b.name) product.name = String(b.name).trim();
-    if (b.originRegion) product.originRegion = String(b.originRegion).trim();
-    if (b.category) product.category = b.category;
-    if (b.description !== undefined) product.description = b.description;
-    if (b.price) product.price = Number(b.price);
-    if (b.originalPrice !== undefined) product.originalPrice = Number(b.originalPrice) || 0;
-
-    // Timeline Discount
-    product.discountPercent = Number(b.discountPercent) || 0;
-    product.discountValidUntil = b.discountValidUntil ? new Date(b.discountValidUntil) : null;
-
-    // 🟢 Update Dynamic Arrays
-    if (b.bulkTiers !== undefined) product.bulkTiers = safeJsonParse(b.bulkTiers);
-    if (b.giftTiers !== undefined) product.giftTiers = safeJsonParse(b.giftTiers);
-    if (b.couponsList !== undefined) product.couponsList = safeJsonParse(b.couponsList);
-    if (b.quantityDiscounts !== undefined) product.quantityDiscounts = safeJsonParse(b.quantityDiscounts);
-
-    // Fallbacks
-    if (product.bulkTiers.length > 0) {
-      product.highValueThreshold = Number(product.bulkTiers[0].minSpend || 0);
-      product.highValueDiscountPercent = Number(product.bulkTiers[0].discountValue || product.bulkTiers[0].discountPercent || 0);
-    }
-    if (product.couponsList.length > 0) {
-      product.productCouponCode = product.couponsList[0].code || '';
-      product.productCouponDiscount = Number(product.couponsList[0].discountValue || 0);
-      product.productCouponType = product.couponsList[0].discountType || 'flat';
-    }
-
-    if (b.isFreeDelivery !== undefined) {
-      product.isFreeDelivery = b.isFreeDelivery === 'true' || b.isFreeDelivery === true;
-    }
-    if (b.inStock !== undefined) {
-      product.inStock = b.inStock === 'true' || b.inStock === true;
-    }
-
-    const updated = await product.save();
-    res.status(200).json({ message: '🎉 Product updated with all slabs successfully!', product: updated });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// 5. DELETE PRODUCT
-router.delete('/:id', protect, adminOnly, async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found!' });
-
-    if (product.image) {
-      const imgPath = path.join(process.cwd(), product.image);
-      if (fs.existsSync(imgPath)) try { fs.unlinkSync(imgPath); } catch (e) {}
-    }
-
-    await Product.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: 'Product deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-module.exports = router;
+// 🟢 Fail-safe export (Prevents Model overwrite & undefined errors)
+const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+module.exports = Product;

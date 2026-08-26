@@ -3,7 +3,10 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 
-const Product = require('../models/Product');
+const RawProduct = require('../models/Product');
+// 🟢 Fail-safe Import: Handles both CommonJS module.exports and ES default exports
+const Product = RawProduct.default || RawProduct.Product || RawProduct;
+
 const upload = require('../middleware/uploadMiddleware');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
@@ -61,7 +64,7 @@ router.post('/', protect, adminOnly, upload.single('image'), async (req, res) =>
     const parsedCouponsList = safeJsonParse(b.couponsList);
     const parsedQuantityDiscounts = safeJsonParse(b.quantityDiscounts);
 
-    const newProduct = await Product.create({
+    const productData = {
       name: String(b.name).trim(),
       originRegion: String(b.originRegion).trim(),
       category: b.category,
@@ -72,13 +75,13 @@ router.post('/', protect, adminOnly, upload.single('image'), async (req, res) =>
       discountPercent: Number(b.discountPercent) || 0,
       discountValidUntil: b.discountValidUntil ? new Date(b.discountValidUntil) : null,
 
-      // 🟢 Save all dynamic arrays
+      // Dynamic Slabs
       bulkTiers: parsedBulkTiers,
       giftTiers: parsedGiftTiers,
       couponsList: parsedCouponsList,
       quantityDiscounts: parsedQuantityDiscounts,
 
-      // Fallback single fields
+      // Single field fallbacks
       highValueThreshold: parsedBulkTiers.length > 0 ? Number(parsedBulkTiers[0].minSpend || 0) : Number(b.highValueThreshold || 0),
       highValueDiscountPercent: parsedBulkTiers.length > 0 ? Number(parsedBulkTiers[0].discountValue || parsedBulkTiers[0].discountPercent || 0) : Number(b.highValueDiscountPercent || 0),
       productCouponCode: parsedCouponsList.length > 0 ? parsedCouponsList[0].code : (b.productCouponCode || ''),
@@ -86,12 +89,16 @@ router.post('/', protect, adminOnly, upload.single('image'), async (req, res) =>
       productCouponType: parsedCouponsList.length > 0 ? parsedCouponsList[0].discountType : (b.productCouponType || 'flat'),
 
       isFreeDelivery: b.isFreeDelivery === 'true' || b.isFreeDelivery === true
-    });
+    };
+
+    // 🟢 Safe Save using new instance
+    const newProduct = new Product(productData);
+    await newProduct.save();
 
     res.status(201).json({ message: '🎉 Product with all dynamic slabs saved successfully!', product: newProduct });
   } catch (error) {
     console.error('Save product error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message || 'Server error saving product.' });
   }
 });
 
@@ -121,18 +128,18 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     product.discountPercent = Number(b.discountPercent) || 0;
     product.discountValidUntil = b.discountValidUntil ? new Date(b.discountValidUntil) : null;
 
-    // 🟢 Update Dynamic Arrays
+    // Update Dynamic Arrays
     if (b.bulkTiers !== undefined) product.bulkTiers = safeJsonParse(b.bulkTiers);
     if (b.giftTiers !== undefined) product.giftTiers = safeJsonParse(b.giftTiers);
     if (b.couponsList !== undefined) product.couponsList = safeJsonParse(b.couponsList);
     if (b.quantityDiscounts !== undefined) product.quantityDiscounts = safeJsonParse(b.quantityDiscounts);
 
     // Fallbacks
-    if (product.bulkTiers.length > 0) {
+    if (product.bulkTiers && product.bulkTiers.length > 0) {
       product.highValueThreshold = Number(product.bulkTiers[0].minSpend || 0);
       product.highValueDiscountPercent = Number(product.bulkTiers[0].discountValue || product.bulkTiers[0].discountPercent || 0);
     }
-    if (product.couponsList.length > 0) {
+    if (product.couponsList && product.couponsList.length > 0) {
       product.productCouponCode = product.couponsList[0].code || '';
       product.productCouponDiscount = Number(product.couponsList[0].discountValue || 0);
       product.productCouponType = product.couponsList[0].discountType || 'flat';
@@ -148,7 +155,8 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     const updated = await product.save();
     res.status(200).json({ message: '🎉 Product updated with all slabs successfully!', product: updated });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Update product error:', error);
+    res.status(500).json({ message: error.message || 'Server error updating product.' });
   }
 });
 
