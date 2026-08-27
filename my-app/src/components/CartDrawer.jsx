@@ -36,7 +36,7 @@ const ensureArray = (val) => {
 
 const isTrueFlag = (val) => val === true || val === 'true' || val === 1 || val === '1';
 
-// Helper to extract clean numeric price
+
 const parseNumericPrice = (val) => {
   if (typeof val === 'number') return val;
   return parseFloat(String(val || 0).replace(/[₹,]/g, '').trim()) || 0;
