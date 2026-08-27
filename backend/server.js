@@ -15,7 +15,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const giftRoutes = require('./routes/giftRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
-
+const deliveryRoutes = require('./routes/deliveryRoutes'); 
 const app = express();
 const server = http.createServer(app); // 🟢 Create HTTP server
 
@@ -62,6 +62,7 @@ app.use(
 );
 
 // API Routes
+app.use('/api/delivery', deliveryRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

@@ -41,7 +41,8 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import AdminInquiries from './pages/admincontact';
 import CakePage from './pages/CakePage';
 import AdminMarketingManager from './pages/admin/AdminMarketingManager';
-
+import  CheckoutPage from './pages/admin/Addpincharges'; // 🟢 NAYA COMPONENT
+import AdminPincodeManager from './pages/admin/Addpincharges'; // 🟢 NAYA COMPONENT
 
 // Inner Wrapper: Hide Navbar/Footer on Admin screen
 const AppContent = ({
@@ -203,6 +204,7 @@ const AppContent = ({
             <Route path="products" element={<AdminProducts />} />
             <Route path="add-product" element={<AdminAddProduct />} />
              <Route path="admincontact" element={<AdminInquiries />} />
+             <Route path="addpincharges" element={<AdminPincodeManager />} />
            
           </Route>
         </Route>
