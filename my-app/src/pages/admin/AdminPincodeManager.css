@@ -1,0 +1,167 @@
+/* Container Box */
+.pincode-admin-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px 15px;
+  background-color: #f8fafc;
+  min-height: 80vh;
+}
+
+.pincode-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 460px;
+  padding: 28px 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+}
+
+/* Header */
+.pincode-card-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.pincode-card-header .icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  background: #fef2f2;
+  color: #94191d;
+  font-size: 26px;
+  border-radius: 50%;
+  margin-bottom: 10px;
+  border: 1.5px solid #fee2e2;
+}
+
+.pincode-card-header h3 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.pincode-card-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Form Styles */
+.pincode-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.form-group label span {
+  color: #dc2626;
+}
+
+.pincode-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  font-size: 0.95rem;
+  color: #1e293b;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease-in-out;
+}
+
+.pincode-input:focus {
+  border-color: #94191d;
+  box-shadow: 0 0 0 3px rgba(148, 25, 29, 0.12);
+}
+
+.pincode-input::placeholder {
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+/* Submit Button */
+.btn-save-pincode {
+  width: 100%;
+  padding: 13px;
+  margin-top: 6px;
+  background: #94191d;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s ease-in-out, transform 0.1s ease-in-out;
+}
+
+.btn-save-pincode:hover {
+  background: #7b1317;
+}
+
+.btn-save-pincode:active {
+  transform: scale(0.99);
+}
+
+.btn-save-pincode:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Feedback Message Banner */
+.feedback-banner {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.feedback-banner.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1.5px solid #a7f3d0;
+}
+
+.feedback-banner.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1.5px solid #fecaca;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

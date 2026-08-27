@@ -1,10 +1,8 @@
-// routes/deliveryRoutes.js
 const express = require('express');
 const router = express.Router();
 const DeliveryPincode = require('../models/DeliveryPincode');
 
-// 1. ADMIN API: Pincode & Delivery Charge Add/Update Karna
-router.post('/admin/set-pincode', async (req, res) => {
+const handleSetPincode = async (req, res) => {
   try {
     const { pincode, deliveryCharge, isServiceable } = req.body;
 
@@ -12,10 +10,9 @@ router.post('/admin/set-pincode', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Pincode aur Delivery Charge zaroori hai' });
     }
 
-    // Agar pincode pehle se hai toh update karega, nahi toh naya banayega (Upsert)
     const result = await DeliveryPincode.findOneAndUpdate(
-      { pincode },
-      { deliveryCharge, isServiceable: isServiceable !== undefined ? isServiceable : true },
+      { pincode: pincode.trim() },
+      { deliveryCharge: Number(deliveryCharge), isServiceable: isServiceable !== undefined ? isServiceable : true },
       { new: true, upsert: true }
     );
 
@@ -23,9 +20,13 @@ router.post('/admin/set-pincode', async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-});
+};
 
-// 2. USER API: Pincode se Delivery Charge Check Karna
+// Dono routes handle honge ab
+router.post('/', handleSetPincode);
+router.post('/admin/set-pincode', handleSetPincode);
+
+// User API
 router.post('/check-delivery-charge', async (req, res) => {
   try {
     const { pincode } = req.body;
