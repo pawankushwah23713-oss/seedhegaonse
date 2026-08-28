@@ -109,10 +109,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [upiRef, setUpiRef] = useState('');
 
-  // 📱 Responsive breakpoint tracking — since most of this drawer's layout
-  // uses inline styles (which CSS media queries in CartDrawer.css cannot
-  // override), we track viewport width in JS and switch key layout values
-  // (grid columns, paddings, wrapping) directly in the inline styles below.
+  // Responsive breakpoint tracking
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 860 : false
   );
@@ -177,15 +174,15 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         if (data.city) {
           setShippingAddress((prev) => ({ ...prev, city: data.city }));
         }
-        setPincodeStatusMsg(`✓ Standard Delivery: ₹${formatMoney(rate)} (${data.city || 'Serviceable'})`);
+        setPincodeStatusMsg(`✓ Standard Delivery: ₹${formatMoney(rate)} (${data.city || 'Serviceable Area'})`);
         setError('');
       } else {
         setPincodeDeliveryCharge(null);
-        setPincodeStatusMsg(`⚠️ ${data.message || 'Delivery not available on this pincode'}`);
+        setPincodeStatusMsg(`⚠️ ${data.message || 'Delivery is currently not available for this pincode.'}`);
       }
     } catch {
       setPincodeDeliveryCharge(null);
-      setPincodeStatusMsg('⚠️ Unable to verify pincode delivery rate');
+      setPincodeStatusMsg('⚠️ Unable to verify delivery charges for this pincode.');
     } finally {
       setIsPincodeLoading(false);
     }
@@ -336,15 +333,15 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
   const handleProceedToCheckout = () => {
     if (!shippingMode) {
-      alert('⚠️ Kripya pehle Delivery Option select karein (Mandatory)!');
+      alert('⚠️ Please select a delivery option first (Mandatory).');
       return;
     }
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
-      alert('⚠️ Kripya valid 6-digit Pincode daalein taaki delivery charges check ho sakein!');
+      alert('⚠️ Please enter a valid 6-digit Pincode to check delivery charges.');
       return;
     }
     if (shippingMode === 'founder' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {
-      alert('⚠️ Founder Delivery ke liye apna 6-digit Pincode enter karein!');
+      alert('⚠️ Please enter your 6-digit Pincode for Founder Delivery.');
       return;
     }
     const token = getAuthToken();
@@ -356,7 +353,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   };
 
   const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return setCouponMsg({ text: 'Enter coupon code', type: 'error' });
+    if (!couponCode.trim()) return setCouponMsg({ text: 'Please enter a coupon code.', type: 'error' });
     const upper = couponCode.trim().toUpperCase();
 
     for (const item of cartItems) {
@@ -366,7 +363,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         const discVal = parseNumericPrice(matched.discountValue);
         const finalDisc = matched.discountType === 'percentage' ? round2((effectiveCartTotal * discVal) / 100) : discVal;
         setAppliedCoupon({ code: matched.code, discount: finalDisc });
-        return setCouponMsg({ text: `🎉 Coupon ${matched.code} applied!`, type: 'success' });
+        return setCouponMsg({ text: `🎉 Coupon ${matched.code} applied successfully!`, type: 'success' });
       }
     }
 
@@ -377,12 +374,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         body: JSON.stringify({ code: couponCode, cartTotal: effectiveCartTotal })
       });
       const data = await res.json();
-      if (!res.ok) return setCouponMsg({ text: data.message || 'Invalid coupon', type: 'error' });
+      if (!res.ok) return setCouponMsg({ text: data.message || 'Invalid coupon code.', type: 'error' });
       const serverDisc = round2(parseNumericPrice(data.discount));
       setAppliedCoupon({ code: data.code, discount: serverDisc });
-      setCouponMsg({ text: data.message, type: 'success' });
+      setCouponMsg({ text: data.message || 'Coupon applied successfully!', type: 'success' });
     } catch {
-      setCouponMsg({ text: 'Verification error', type: 'error' });
+      setCouponMsg({ text: 'Unable to verify coupon. Please try again.', type: 'error' });
     }
   };
 
@@ -393,48 +390,48 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(shippingAddress.phone.trim())) {
-      setError('⚠️ Kripya 10-digit ka valid mobile number dalein (6-9 se shuru hona chahiye).');
+      setError('⚠️ Please enter a valid 10-digit mobile number (starting with 6-9).');
       return;
     }
 
     if (isHomeDeliveryType && !shippingAddress.landmark.trim()) {
-      setError('⚠️ Landmark / House / Floor details enter karna mandatory hai.');
+      setError('⚠️ Landmark / House / Floor details are required.');
       return;
     }
 
     const pinRegex = /^[1-9]\d{5}$/;
     if (isHomeDeliveryType && !pinRegex.test(shippingAddress.pincode.trim())) {
-      setError('⚠️ Kripya 6-digit ka valid Pincode dalein.');
+      setError('⚠️ Please enter a valid 6-digit Pincode.');
       return;
     }
 
     if (!sameAsShipping) {
       if (!phoneRegex.test(billingAddress.phone.trim())) {
-        setError('⚠️ Kripya valid 10-digit Billing Phone number dalein.');
+        setError('⚠️ Please enter a valid 10-digit Billing Phone number.');
         return;
       }
       if (!billingAddress.landmark.trim()) {
-        setError('⚠️ Billing Landmark details enter karna mandatory hai.');
+        setError('⚠️ Billing Landmark details are required.');
         return;
       }
       if (!pinRegex.test(billingAddress.pincode.trim())) {
-        setError('⚠️ Kripya valid 6-digit Billing Pincode dalein.');
+        setError('⚠️ Please enter a valid 6-digit Billing Pincode.');
         return;
       }
     }
 
     if (!shippingMode) {
-      setError('Shipping method select karna zaroori hai.');
+      setError('Please select a shipping method.');
       return;
     }
 
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
-      setError('Is pincode par delivery available nahi hai. Dusra pincode try karein.');
+      setError('Delivery is not available for this pincode. Please try another pincode.');
       return;
     }
 
     if (paymentMethod === 'UPI' && !upiRef.trim()) {
-      setError('⚠️ Kripya payment karne ke baad UPI transaction/reference ID dalein.');
+      setError('⚠️ Please enter the UPI transaction / reference ID after making the payment.');
       return;
     }
 
@@ -626,7 +623,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                   {item.name}
                                 </h4>
                                 <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                                  Kg : {item.variant || '0.450 KG'}
+                                  Weight : {item.variant || '0.450 KG'}
                                 </div>
                               </div>
                             </div>
@@ -804,7 +801,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         required
                       >
                         <option value="">⚠️ -- Select Shipping Option (Required) --</option>
-                        <option value="delivery">🚚 Home Delivery (Courier)</option>
+                        <option value="delivery">🚚 Standard Home Delivery (Courier)</option>
                         <option value="founder">🎖️ Delivery by Founder (VIP Hand Delivery - ₹5,000)</option>
                         <option value="pickup">🏬 Direct Store Pickup (Self Pickup - FREE)</option>
                       </select>
@@ -1181,7 +1178,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     type="text"
                     maxLength="6"
                     required
-                    placeholder="Enter 6 digit zip code"
+                    placeholder="Enter 6-digit zip code"
                     value={shippingAddress.pincode}
                     onChange={handlePincodeChange}
                     style={inputStyle}
@@ -1300,7 +1297,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         type="text"
                         maxLength="6"
                         required={!sameAsShipping}
-                        placeholder="Enter 6 digit zip code"
+                        placeholder="Enter 6-digit zip code"
                         value={billingAddress.pincode}
                         onChange={(e) => setBillingAddress({ ...billingAddress, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
                         style={inputStyle}
