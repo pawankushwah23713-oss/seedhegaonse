@@ -17,6 +17,12 @@ const Navbar = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileDropdown, setMobileDropdown] = useState(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+
+  // 🔍 SEARCH STATE
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchWrapRef = useRef(null);
+  const searchInputRef = useRef(null);
   
   // LocalStorage se turant live data read karna
   const getUserFromStorage = () => {
@@ -71,6 +77,24 @@ const Navbar = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // 4. 🔍 SEARCH BAR ke bahar click karne par auto-close
+  useEffect(() => {
+    const handleSearchClickOutside = (event) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(event.target)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleSearchClickOutside);
+    return () => document.removeEventListener('mousedown', handleSearchClickOutside);
+  }, []);
+
+  // 5. 🔍 Search khulte hi input par auto-focus
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
+
   // Helpers
   const toggleMobileSubmenu = (menuName) => {
     setMobileDropdown(mobileDropdown === menuName ? null : menuName);
@@ -88,6 +112,35 @@ const Navbar = ({
     } else {
       navigate('/wishlist');
     }
+  };
+
+  // ==========================================
+  // 🔍 SEARCH HANDLERS
+  // ==========================================
+  const handleSearchIconClick = () => {
+    setSearchOpen((prev) => !prev);
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    navigate(`/?search=${encodeURIComponent(trimmed)}`);
+    setSearchOpen(false);
+    setSearchQuery('');
+    closeMobileMenu();
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setSearchOpen(false);
+      setSearchQuery('');
+    }
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery('');
   };
 
   // ==========================================
@@ -214,6 +267,42 @@ const Navbar = ({
 
           {/* ACTION BUTTONS */}
           <div className="header-actions">
+
+            {/* 🔍 SEARCH TRIGGER + EXPANDABLE SEARCH BAR */}
+            <div className="search-wrap" ref={searchWrapRef}>
+              <button
+                className={`search-trigger ${searchOpen ? 'active-search' : ''}`}
+                onClick={handleSearchIconClick}
+                title="Search"
+                aria-label="Search"
+                type="button"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+
+              {searchOpen && (
+                <form className="search-panel fade-slide-down" onSubmit={handleSearchSubmit}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="search-panel-icon">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    className="search-panel-input"
+                    placeholder="Search sweets, cakes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                  />
+                  <button type="submit" className="search-panel-go" aria-label="Search">Go</button>
+                  <button type="button" className="search-panel-close" onClick={closeSearch} aria-label="Close search">✕</button>
+                </form>
+              )}
+            </div>
             
             {/* SIGN IN BUTTON (AGAR USER LOGIN NAHI HAI) */}
             {!isUserAuthenticated ? (
@@ -322,6 +411,24 @@ const Navbar = ({
         {/* MOBILE SLIDE-OUT MENU */}
         <div className={`mobile-nav-menu ${mobileMenuOpen ? 'show' : ''}`}>
           <ul className="mobile-menu-list">
+
+            {/* 🔍 Mobile Search Bar (top of mobile menu) */}
+            <li>
+              <form className="mobile-search-form" onSubmit={handleSearchSubmit}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mobile-search-icon">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  type="text"
+                  className="mobile-search-input"
+                  placeholder="Search sweets, cakes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <button type="submit" className="mobile-search-go" aria-label="Search">Go</button>
+              </form>
+            </li>
             
             {/* Mobile User Profile Card */}
             {isUserAuthenticated && (

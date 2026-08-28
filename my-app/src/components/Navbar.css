@@ -630,3 +630,155 @@
     gap: 8px;
   }
 }
+
+/* =================================================== */
+/* 🔍 SEARCH ICON + SEARCH BAR (NEW — added only)      */
+/* =================================================== */
+
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Icon button — same visual language as cart-trigger */
+.search-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-green);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.search-trigger:hover,
+.search-trigger.active-search {
+  background: #f0fdf4;
+  color: var(--primary-green-dark);
+}
+
+/* Desktop dropdown-style search panel (anchored under the icon) */
+.search-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: 30px;
+  padding: 6px 8px 6px 14px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12), 0 5px 15px rgba(0, 0, 0, 0.05);
+  width: 300px;
+  max-width: 80vw;
+  z-index: 1050;
+}
+
+.search-panel-icon {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.search-panel-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13.5px;
+  color: var(--text-dark);
+  background: transparent;
+  min-width: 0;
+}
+
+.search-panel-go {
+  background: var(--primary-green);
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 18px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.search-panel-go:hover {
+  background: var(--primary-green-dark);
+}
+
+.search-panel-close {
+  background: #f3f4f6;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #6b7280;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.search-panel-close:hover {
+  background: #e5e7eb;
+  color: var(--text-dark);
+}
+
+/* Mobile search bar (sits at the top of the mobile slide-out menu) */
+.mobile-search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1.5px solid var(--border-light);
+  border-radius: 24px;
+  padding: 8px 8px 8px 14px;
+  margin-bottom: 4px;
+}
+
+.mobile-search-icon {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.mobile-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--text-dark);
+  min-width: 0;
+}
+
+.mobile-search-go {
+  background: var(--primary-green);
+  color: #ffffff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* On narrow screens, keep the desktop search panel from overflowing the viewport */
+@media screen and (max-width: 576px) {
+  .search-panel {
+    position: fixed;
+    top: 96px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+  }
+}
