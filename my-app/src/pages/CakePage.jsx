@@ -2,18 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CakePage.css';
 
-// 🟢 Backend API Base URL (Cakes Endpoint)
+// 🟢 Backend API Base URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 
-// 🟢 Helper to check if a product is a Dummy item
+// Helper to check dummy product
 const isDummyProduct = (product) => {
   if (!product) return false;
   return Boolean(product.isDummy || product._id?.toString().startsWith('dummy'));
 };
+
+// 🟢 Out of Stock Helper
+const isOutOfStock = (product) => product?.inStock === false;
 
 // 🟢 Helper to get Default Cake Variants (500g, 1kg, 2kg / Bento)
 export const getProductVariants = (product) => {
@@ -22,15 +25,15 @@ export const getProductVariants = (product) => {
   }
   const isDummy = isDummyProduct(product);
   const basePrice = Number(product.price) || 0;
-  const hasDiscount = !isDummy && (Number(product.originalPrice) > basePrice || Number(product.discount) > 0);
+  const hasDiscount = !isDummy && (Number(product.originalPrice) > basePrice || Number(product.discountPercent) > 0);
   const baseMrp = Number(product.originalPrice) || basePrice;
-  const discountVal = isDummy ? 0 : (Number(product.discount) || 0);
+  const discountVal = isDummy ? 0 : (Number(product.discountPercent) || 0);
 
   if (product.category === 'bento') {
     return [
       {
         _id: 'v-bento-250',
-        label: '250g ',
+        label: '250g',
         weight: '250g',
         price: basePrice,
         originalPrice: hasDiscount ? baseMrp : null,
@@ -38,7 +41,7 @@ export const getProductVariants = (product) => {
       },
       {
         _id: 'v-bento-500',
-        label: '500g ',
+        label: '500g',
         weight: '500g',
         price: Math.round(basePrice * 1.6),
         originalPrice: hasDiscount ? Math.round(baseMrp * 1.6) : null,
@@ -50,7 +53,7 @@ export const getProductVariants = (product) => {
   return [
     {
       _id: 'v-500',
-      label: '500g ',
+      label: '500g (0.5 kg)',
       weight: '500g',
       price: basePrice,
       originalPrice: hasDiscount ? baseMrp : null,
@@ -58,7 +61,7 @@ export const getProductVariants = (product) => {
     },
     {
       _id: 'v-1000',
-      label: '1kg ',
+      label: '1kg (1.0 kg)',
       weight: '1kg',
       price: Math.round(basePrice * 1.85),
       originalPrice: hasDiscount ? Math.round(baseMrp * 1.85) : null,
@@ -66,7 +69,7 @@ export const getProductVariants = (product) => {
     },
     {
       _id: 'v-2000',
-      label: '2kg',
+      label: '2kg Party Size',
       weight: '2kg',
       price: Math.round(basePrice * 3.5),
       originalPrice: hasDiscount ? Math.round(baseMrp * 3.5) : null,
@@ -75,7 +78,7 @@ export const getProductVariants = (product) => {
   ];
 };
 
-// 🟢 Dummy Cake Products (Rich Artisan Bakery Selections)
+// 🟢 Dummy Cake Fallback Products
 const DUMMY_CAKES = [
   {
     _id: 'dummy-cake-1',
@@ -86,8 +89,7 @@ const DUMMY_CAKES = [
     description: 'Layers of moist dark chocolate sponge filled with rich, silky Belgian ganache and glazed with chocolate glaze.',
     price: 549,
     originalPrice: 549,
-    discount: 0,
-    offerText: '',
+    discountPercent: 0,
     image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=600&auto=format&fit=crop',
     inStock: true
   },
@@ -100,8 +102,7 @@ const DUMMY_CAKES = [
     description: 'Velvety crimson sponge paired with authentic Philadelphia style cream cheese frosting and fine red velvet crumbs.',
     price: 599,
     originalPrice: 599,
-    discount: 0,
-    offerText: '',
+    discountPercent: 0,
     image: 'https://images.unsplash.com/photo-1586788680434-30d324b2d46f?q=80&w=600&auto=format&fit=crop',
     inStock: true
   },
@@ -114,8 +115,7 @@ const DUMMY_CAKES = [
     description: 'Light vanilla sponge layered with freshly whipped cream and loaded with hand-cut kiwis, apples, oranges, and strawberries.',
     price: 520,
     originalPrice: 520,
-    discount: 0,
-    offerText: '',
+    discountPercent: 0,
     image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?q=80&w=600&auto=format&fit=crop',
     inStock: true
   },
@@ -128,8 +128,7 @@ const DUMMY_CAKES = [
     description: 'Traditional slow-baked rich cheesecake on a buttery graham cracker crust topped with thick wild blueberry compote.',
     price: 750,
     originalPrice: 750,
-    discount: 0,
-    offerText: '',
+    discountPercent: 0,
     image: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?q=80&w=600&auto=format&fit=crop',
     inStock: true
   },
@@ -142,8 +141,7 @@ const DUMMY_CAKES = [
     description: 'Golden sponge layered with home-cooked brown sugar butterscotch sauce and caramelized cashew praline crunch.',
     price: 479,
     originalPrice: 479,
-    discount: 0,
-    offerText: '',
+    discountPercent: 0,
     image: 'https://images.unsplash.com/photo-1542826438-bd32f43d626f?q=80&w=600&auto=format&fit=crop',
     inStock: true
   },
@@ -156,23 +154,8 @@ const DUMMY_CAKES = [
     description: 'Cute pocket-sized minimalist birthday cake decorated with pastel aesthetic buttercream design. Comes with candle & fork.',
     price: 349,
     originalPrice: 349,
-    discount: 0,
-    offerText: '',
+    discountPercent: 0,
     image: 'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?q=80&w=600&auto=format&fit=crop',
-    inStock: true
-  },
-  {
-    _id: 'dummy-cake-7',
-    isDummy: true,
-    name: 'Authentic Black Forest Gateau',
-    category: 'chocolate',
-    originRegion: 'Artisan Oven',
-    description: 'German classic with moist cocoa sponge soaked in cherry syrup, fluffy whipped cream, red sour cherries and shaved chocolate.',
-    price: 499,
-    originalPrice: 499,
-    discount: 0,
-    offerText: '',
-    image: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?q=80&w=600&auto=format&fit=crop',
     inStock: true
   }
 ];
@@ -202,7 +185,7 @@ const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
     return { price: price * qty, mrp: null, discountPercent: null, savings: 0 };
   }
   let mrp = Number(targetObj?.originalPrice) || 0;
-  const manualDiscount = Number(targetObj?.discount) || 0;
+  const manualDiscount = Number(targetObj?.discount || targetObj?.discountPercent) || 0;
   let discountPercent = 0;
 
   if (manualDiscount > 0) {
@@ -237,7 +220,7 @@ const loadWishlist = () => {
   }
 };
 
-// 🟢 Cake Card Image Slider (Automatic + Manual Click & Swipe)
+// 🟢 Cake Card Slider
 const CakeCardSlider = ({ images, alt }) => {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -309,7 +292,7 @@ const CakeCardSlider = ({ images, alt }) => {
   );
 };
 
-// 🟢 Cake Modal Image Slider (Automatic + Manual)
+// 🟢 Cake Modal Slider
 const CakeModalSlider = ({ images, alt, zoomStyle }) => {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -383,16 +366,59 @@ const CakeModalSlider = ({ images, alt, zoomStyle }) => {
 // 🟢 Individual Cake Card
 const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAddToCart }) => {
   const isDummy = isDummyProduct(product);
+  const outOfStock = isOutOfStock(product);
   const variants = getProductVariants(product);
   const [selectedVariant, setSelectedVariant] = useState(variants[0]);
 
   const pricing = calculatePricing(selectedVariant, 1, isDummy);
   const liked = isWishlisted(product._id);
 
+  const hasTimeline = product.discountPercent > 0 && (!product.discountValidUntil || new Date(product.discountValidUntil) > new Date());
+  const coupons = Array.isArray(product.couponsList) ? product.couponsList : [];
+  const giftList = Array.isArray(product.giftTiers) ? product.giftTiers : [];
+
   return (
-    <div className="ck-product-card" onClick={() => onOpenModal(product, selectedVariant)}>
-      <div className="ck-card-top-bar">
-        {!isDummy && pricing.discountPercent ? (
+    <div
+      className="ck-product-card"
+      style={{ position: 'relative', cursor: outOfStock ? 'not-allowed' : 'pointer' }}
+      onClick={() => {
+        if (outOfStock) return;
+        onOpenModal(product, selectedVariant);
+      }}
+    >
+      {/* OUT OF STOCK STAMP */}
+      {outOfStock && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '40%',
+            left: '50%',
+            transform: 'translate(-50%, -50%) rotate(-8deg)',
+            background: '#dc2626',
+            color: '#fff',
+            padding: '8px 18px',
+            borderRadius: '8px',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+            letterSpacing: '0.5px',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
+            zIndex: 5,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          ⛔ SOLD OUT
+        </div>
+      )}
+
+      <div className="ck-card-top-bar" style={{ position: 'relative', zIndex: 6 }}>
+        {outOfStock ? (
+          <span className="ck-badge-discount" style={{ background: '#dc2626', color: '#fff' }}>
+            SOLD OUT
+          </span>
+        ) : hasTimeline ? (
+          <span className="ck-badge-discount">⏳ {product.discountPercent}% OFF</span>
+        ) : !isDummy && pricing.discountPercent ? (
           <span className="ck-badge-discount">{pricing.discountPercent}% OFF</span>
         ) : (
           <span className="ck-badge-category-mini">🎂 {product.category}</span>
@@ -410,24 +436,38 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
         </button>
       </div>
 
-      <div className="ck-card-media-box">
+      <div
+        className="ck-card-media-box"
+        style={outOfStock ? { filter: 'blur(3px) grayscale(0.85)', opacity: 0.65 } : undefined}
+      >
         <CakeCardSlider
           images={[getImageUrl(product.image)]}
           alt={product.name}
         />
       </div>
 
-      <div className="ck-card-origin-strip">
-        <span>✨ 100% Freshly Baked Daily</span>
+      <div
+        className="ck-card-origin-strip"
+        style={outOfStock ? { filter: 'blur(1.5px)', opacity: 0.6 } : undefined}
+      >
+        <span>✨ 100% Freshly Baked Daily • {product.originRegion || 'Fresh Oven'}</span>
       </div>
 
       <div className="ck-card-body">
-        <h3 className="ck-card-title" title={product.name}>
+        <h3
+          className="ck-card-title"
+          title={product.name}
+          style={outOfStock ? { opacity: 0.55 } : undefined}
+        >
           {product.name}
         </h3>
 
         {/* VARIANT WEIGHT BUTTONS */}
-        <div className="ck-card-variants-container" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="ck-card-variants-container"
+          onClick={(e) => e.stopPropagation()}
+          style={outOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+        >
           <div className="ck-variant-chips-list">
             {variants.map((v, idx) => {
               const isActive = selectedVariant.label === v.label;
@@ -437,6 +477,7 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
                   type="button"
                   className={`ck-variant-pill-btn ${isActive ? 'ck-active' : ''}`}
                   onClick={() => setSelectedVariant(v)}
+                  disabled={outOfStock}
                 >
                   {v.label}
                 </button>
@@ -445,8 +486,29 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
           </div>
         </div>
 
+        {/* ACTIVE DYNAMIC OFFERS BADGES IN CARD */}
+        {(coupons.length > 0 || giftList.length > 0 || product.isFreeDelivery) && (
+          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', margin: '4px 0 8px' }}>
+            {coupons.slice(0, 1).map((cp, i) => (
+              <span key={i} style={{ background: '#ede9fe', color: '#5b21b6', fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                🎟️ {cp.code}
+              </span>
+            ))}
+            {giftList.slice(0, 1).map((g, i) => (
+              <span key={i} style={{ background: '#dbeafe', color: '#1e40af', fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                🎁 Free Gift
+              </span>
+            ))}
+            {product.isFreeDelivery && (
+              <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                🚚 Free Delivery
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="ck-card-footer">
-          <div className="ck-card-price-group">
+          <div className="ck-card-price-group" style={outOfStock ? { opacity: 0.5 } : undefined}>
             <div className="ck-price-row">
               <span className="ck-current-price">₹{pricing.price}</span>
               {!isDummy && pricing.mrp && <span className="ck-mrp-price">₹{pricing.mrp}</span>}
@@ -460,11 +522,13 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
             className="ck-btn-add-cart"
             onClick={(e) => {
               e.stopPropagation();
+              if (outOfStock) return;
               onAddToCart(product, 1, selectedVariant);
             }}
-            disabled={product.inStock === false}
+            disabled={outOfStock}
+            style={outOfStock ? { background: '#94a3b8', cursor: 'not-allowed', opacity: 0.9 } : undefined}
           >
-            {product.inStock === false ? 'Sold Out' : '+ ADD'}
+            {outOfStock ? 'Sold Out' : '+ ADD'}
           </button>
         </div>
       </div>
@@ -473,11 +537,13 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
 };
 
 const CakePage = ({ addToCart, addedToast }) => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [wishlist, setWishlist] = useState(loadWishlist);
+  const [authAlert, setAuthAlert] = useState('');
 
   // Modal State
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -508,6 +574,7 @@ const CakePage = ({ addToCart, addedToast }) => {
   };
 
   const handleOpenModal = (product, initialVariant = null) => {
+    if (isOutOfStock(product)) return;
     setSelectedProduct(product);
     const variants = getProductVariants(product);
     setSelectedModalVariant(initialVariant || variants[0]);
@@ -519,6 +586,14 @@ const CakePage = ({ addToCart, addedToast }) => {
     return () => { document.body.style.overflow = 'unset'; };
   }, [selectedProduct]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setSelectedProduct(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Load Cake Products
   useEffect(() => {
     const fetchCakes = async () => {
@@ -527,7 +602,9 @@ const CakePage = ({ addToCart, addedToast }) => {
         const res = await fetch(`${API_BASE}/cakes`);
         const data = await res.json();
         if (res.ok && Array.isArray(data) && data.length > 0) {
-          setProducts(data);
+          const apiIds = new Set(data.map((c) => c._id?.toString()));
+          const nonDupDummies = DUMMY_CAKES.filter((d) => !apiIds.has(d._id?.toString()));
+          setProducts([...data, ...nonDupDummies]);
         } else {
           setProducts(DUMMY_CAKES);
         }
@@ -581,7 +658,7 @@ const CakePage = ({ addToCart, addedToast }) => {
     },
     {
       id: 2,
-      image: "https://images.pexels.com/photos/1793037/pexels-photo-1793037.jpeg"
+      image: 'https://images.pexels.com/photos/1793037/pexels-photo-1793037.jpeg'
     }
   ];
 
@@ -601,8 +678,21 @@ const CakePage = ({ addToCart, addedToast }) => {
     return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
   });
 
-  // Direct Add To Cart (No Login Block)
+  // Sort: In Stock First, Out of Stock at bottom
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const aOut = isOutOfStock(a) ? 1 : 0;
+    const bOut = isOutOfStock(b) ? 1 : 0;
+    return aOut - bOut;
+  });
+
+  // Direct Add To Cart
   const handleCakeAddToCart = (p, qty = 1, variant = null) => {
+    if (isOutOfStock(p)) {
+      setAuthAlert(`"${p.name}" abhi Out of Stock hai`);
+      setTimeout(() => setAuthAlert(''), 2500);
+      return false;
+    }
+
     const activeVariant = variant || (p.variants && p.variants[0]) || {
       label: '500g (0.5 kg)',
       price: p.price
@@ -621,7 +711,11 @@ const CakePage = ({ addToCart, addedToast }) => {
         quantity: qty,
         totalPrice: variantPrice * qty,
         img: getImageUrl(p.image),
-        originRegion: p.originRegion || 'Fresh Bakehouse'
+        originRegion: p.originRegion || 'Fresh Bakehouse',
+        giftTiers: p.giftTiers || [],
+        bulkTiers: p.bulkTiers || [],
+        couponsList: p.couponsList || [],
+        isFreeDelivery: p.isFreeDelivery || false
       });
     }
     return true;
@@ -642,8 +736,13 @@ const CakePage = ({ addToCart, addedToast }) => {
         </svg>
       </a>
 
-      {/* TOAST */}
-      {addedToast && (
+      {authAlert && (
+        <div className="ck-cart-toast" style={{ background: '#dc2626' }}>
+          <span>⚠️ {authAlert}</span>
+        </div>
+      )}
+
+      {addedToast && !authAlert && (
         <div className="ck-cart-toast">
           ✓ <strong>{addedToast}</strong> added to cart
         </div>
@@ -652,6 +751,7 @@ const CakePage = ({ addToCart, addedToast }) => {
       {/* QUICK VIEW MODAL */}
       {selectedProduct && (() => {
         const isDummy = isDummyProduct(selectedProduct);
+        const modalOutOfStock = isOutOfStock(selectedProduct);
         const modalVariants = getProductVariants(selectedProduct);
         const currentActiveVariant = selectedModalVariant || modalVariants[0];
         const pricing = calculatePricing(currentActiveVariant, modalQty, isDummy);
@@ -661,7 +761,12 @@ const CakePage = ({ addToCart, addedToast }) => {
             <div className="ck-product-modal-card" onClick={(e) => e.stopPropagation()}>
               <button className="ck-modal-close-btn" onClick={() => setSelectedProduct(null)} aria-label="Close">✕</button>
 
-              <div className="ck-modal-image-col" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+              <div
+                className="ck-modal-image-col"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                style={modalOutOfStock ? { filter: 'blur(4px) grayscale(0.85)', opacity: 0.7 } : undefined}
+              >
                 <CakeModalSlider
                   images={[getImageUrl(selectedProduct.image)]}
                   alt={selectedProduct.name}
@@ -672,7 +777,12 @@ const CakePage = ({ addToCart, addedToast }) => {
               <div className="ck-modal-info-col">
                 <div>
                   <div className="ck-modal-tags-row">
-                    <span className="ck-badge-origin">⭐ Fresh Bakery Oven</span>
+                    {modalOutOfStock && (
+                      <span className="ck-badge-category" style={{ background: '#dc2626', color: '#fff' }}>
+                        ⛔ OUT OF STOCK
+                      </span>
+                    )}
+                    <span className="ck-badge-origin">⭐ {selectedProduct.originRegion || 'Fresh Oven'}</span>
                     {selectedProduct.category && (
                       <span className="ck-badge-category">{selectedProduct.category.toUpperCase()}</span>
                     )}
@@ -683,7 +793,10 @@ const CakePage = ({ addToCart, addedToast }) => {
                   {/* MODAL VARIANTS */}
                   <div className="ck-modal-variant-section">
                     <span className="ck-variant-section-title">Select Weight / Size:</span>
-                    <div className="ck-modal-variant-chips">
+                    <div
+                      className="ck-modal-variant-chips"
+                      style={modalOutOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                    >
                       {modalVariants.map((v, idx) => {
                         const isActive = currentActiveVariant?.label === v.label;
                         return (
@@ -692,6 +805,7 @@ const CakePage = ({ addToCart, addedToast }) => {
                             type="button"
                             className={`ck-modal-chip-btn ${isActive ? 'ck-active' : ''}`}
                             onClick={() => setSelectedModalVariant(v)}
+                            disabled={modalOutOfStock}
                           >
                             <span className="ck-chip-label">{v.label}</span>
                           </button>
@@ -732,21 +846,26 @@ const CakePage = ({ addToCart, addedToast }) => {
                     </svg>
                   </button>
 
-                  <div className="ck-stepper-box">
-                    <button type="button" className="ck-stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1}>−</button>
+                  <div
+                    className="ck-stepper-box"
+                    style={modalOutOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                  >
+                    <button type="button" className="ck-stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1 || modalOutOfStock}>−</button>
                     <span className="ck-stepper-val">{modalQty}</span>
-                    <button type="button" className="ck-stepper-btn" onClick={() => setModalQty((prev) => prev + 1)}>+</button>
+                    <button type="button" className="ck-stepper-btn" onClick={() => setModalQty((prev) => prev + 1)} disabled={modalOutOfStock}>+</button>
                   </div>
 
                   <button
                     className="ck-btn-modal-add"
                     onClick={() => {
+                      if (modalOutOfStock) return;
                       const added = handleCakeAddToCart(selectedProduct, modalQty, currentActiveVariant);
                       if (added) setSelectedProduct(null);
                     }}
-                    disabled={selectedProduct.inStock === false}
+                    disabled={modalOutOfStock}
+                    style={modalOutOfStock ? { background: '#94a3b8', cursor: 'not-allowed' } : undefined}
                   >
-                    {selectedProduct.inStock === false ? 'Out of Stock' : `Add to Cart • ₹${pricing.price}`}
+                    {modalOutOfStock ? '⛔ Out of Stock' : `Add to Cart • ₹${pricing.price}`}
                   </button>
                 </div>
               </div>
@@ -859,7 +978,7 @@ const CakePage = ({ addToCart, addedToast }) => {
           </div>
         ) : (
           <div className="ck-modern-product-grid">
-            {filteredProducts.map((cake) => (
+            {sortedProducts.map((cake) => (
               <CakeProductCard
                 key={cake._id}
                 product={cake}
@@ -889,6 +1008,7 @@ const CakePage = ({ addToCart, addedToast }) => {
                     src={getImageUrl(p.image)}
                     alt={p.name}
                     loading="lazy"
+                    style={isOutOfStock(p) ? { filter: 'blur(2px) grayscale(0.8)', opacity: 0.6 } : undefined}
                     onError={(e) => { e.target.src = FALLBACK_CAKE_IMG; }}
                   />
                   <span className="ck-gallery-slide-caption">{p.name}</span>

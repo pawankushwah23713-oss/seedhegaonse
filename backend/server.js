@@ -72,6 +72,8 @@ app.use('/api/wishlist', wishlistRoutes); // Wishlist Route
 app.use('/api/coupons', couponRoutes);
 app.use('/api/gifts', giftRoutes);
 app.use('/api/banners', bannerRoutes);
+// Cake Routes mount karne ke liye ye line add karein:
+app.use('/api/cakes', require('./routes/cakeRoutes'));
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/seedhe_gaon_se';

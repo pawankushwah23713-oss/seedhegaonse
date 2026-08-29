@@ -439,7 +439,7 @@
 }
 
 .signin-trigger:hover {
-  background: rgba(21, 128, 61, 0.05);
+  background: rgba(128, 99, 21, 0.05);
   border-color: var(--primary-green);
 }
 
