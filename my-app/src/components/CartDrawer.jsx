@@ -975,7 +975,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       {/* 🎟️ AVAILABLE COUPONS */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
-                          <div style={{ fontWeight: '800', color: '#6d28d9', fontSize: '0.82rem', marginBottom: '8px' }}>
+                          <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
                             🎟️ Available Coupons
                           </div>
 

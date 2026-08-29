@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import logoImg from '../assets/logo.png';
 import './Auth.css';
 
-// 🟢 Unified API URL (Local / Render dono ke sath auto-detect)
+// Unified API URL (Auto-detects Local and Render environments)
 const API_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) 
   ? (process.env.REACT_APP_API_URL.endsWith('/auth') ? process.env.REACT_APP_API_URL : `${process.env.REACT_APP_API_URL}/auth`)
   : (import.meta.env?.VITE_API_URL 
       ? (import.meta.env.VITE_API_URL.endsWith('/auth') ? import.meta.env.VITE_API_URL : `${import.meta.env.VITE_API_URL}/auth`)
-      : 'https://seedhegaonse-1.onrender.com/api/auth'); // Agar production par hain to yahan Render URL daalein
+      : 'https://seedhegaonse-1.onrender.com/api/auth'); // Production fallback API URL
 
 const Auth = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
@@ -82,7 +82,7 @@ const Auth = ({ onLoginSuccess }) => {
 
     try {
       if (isLogin) {
-        // 🟢 LOGIN API CALL (Sending both 'email' and 'identifier' for 100% backend compatibility)
+        // LOGIN API CALL (Sends both 'email' and 'identifier' for backend compatibility)
         const response = await fetch(`${API_URL}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -99,7 +99,7 @@ const Auth = ({ onLoginSuccess }) => {
           throw new Error(data.message || 'Login failed! Please check your credentials.');
         }
 
-        // 🟢 Store Token & User in LocalStorage safely for all components
+        // Store token and user data in localStorage for application-wide use
         if (data.token) {
           localStorage.setItem('token', data.token);
         }
@@ -120,7 +120,7 @@ const Auth = ({ onLoginSuccess }) => {
         }
 
       } else {
-        // 🟢 SIGNUP API CALL
+        // SIGNUP API CALL
         const response = await fetch(`${API_URL}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -187,15 +187,15 @@ const Auth = ({ onLoginSuccess }) => {
           <ul className="sga-brand-points">
             <li>
               <strong>Bilona Desi Ghee</strong>
-              Har mithai 100% shuddh ghee me taiyar
+              
             </li>
             <li>
               <strong>Zero Preservatives</strong>
-              Roz banti hai, roz nikalti hai
+              
             </li>
             <li>
               <strong>Same Day Delivery</strong>
-              Delhi NCR me usi din aapke ghar
+            
             </li>
           </ul>
 
@@ -234,9 +234,8 @@ const Auth = ({ onLoginSuccess }) => {
           </div>
 
           <h2 className="sga-title">
-            {isLogin ? 'Welcome Back' : 'Join Seedhe Gaon Se'}
+            {isLogin ? 'Welcome Back' : 'Seedhe Gaon Se'}
           </h2>
-         
 
           {error && (
             <div className="sga-alert sga-alert-error">

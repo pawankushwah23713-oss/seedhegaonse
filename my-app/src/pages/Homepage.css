@@ -7,7 +7,7 @@
   --text-muted: #64748b;
   --bg-card: #ffffff;
   --border-subtle: #f1f5f9;
-  --green-offer: #059669;
+  --green-offer: #965c05;
 }
 
 *, *::before, *::after {
@@ -220,7 +220,7 @@
   gap: 6px;
   font-size: 12.5px;
   font-weight: 700;
-  color: #065f46;
+  color: #146850;
   white-space: nowrap;
 }
 
@@ -578,7 +578,7 @@
 
 .sg-btn-add-cart {
   background: #f0fdf4;
-  color: #166534;
+  color: #705116;
   border: 1px solid #bbf7d0;
   padding: 6px 14px;
   border-radius: 10px;
@@ -591,10 +591,10 @@
 }
 
 .sg-btn-add-cart:hover:not(:disabled) {
-  background: #16a34a;
+  background: #a37d16;
   color: #ffffff;
-  border-color: #16a34a;
-  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.25);
+  border-color: #a37d16;
+  box-shadow: 0 4px 10px rgba(163, 137, 22, 0.25);
 }
 
 .sg-btn-add-cart:disabled {
