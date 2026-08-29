@@ -1156,39 +1156,8 @@ const Homepage = ({ addToCart, addedToast }) => {
       </section>
 
       <section id="products" className="sg-products-section sg-container sg-reveal">
-        <div className="sg-section-heading-wrap">
-          <div>
-            <span className="sg-sub-heading">Fresh & Authentic</span>
-            <h2 className="sg-main-heading">Village Special Sweets</h2>
-          </div>
-
-          <div className="sg-tab-filters">
-            <button className={`sg-tab-btn ${activeTab === 'all' ? 'sg-active' : ''}`} onClick={() => setActiveTab('all')}>
-              🍬 All Sweets ({products.length})
-            </button>
-            <button className={`sg-tab-btn ${activeTab === 'ladoo' ? 'sg-active' : ''}`} onClick={() => setActiveTab('ladoo')}>
-              🟡 Laddu
-            </button>
-            <button className={`sg-tab-btn ${activeTab === 'peda' ? 'sg-active' : ''}`} onClick={() => setActiveTab('peda')}>
-              🟤 Peda
-            </button>
-            <button className={`sg-tab-btn ${activeTab === 'petha' ? 'sg-active' : ''}`} onClick={() => setActiveTab('petha')}>
-              ⚪ Petha
-            </button>
-            <button className={`sg-tab-btn ${activeTab === 'halwa' ? 'sg-active' : ''}`} onClick={() => setActiveTab('halwa')}>
-              🥣 Halwa
-            </button>
-            <button className={`sg-tab-btn ${activeTab === 'barfi' ? 'sg-active' : ''}`} onClick={() => setActiveTab('barfi')}>
-              🔶 Barfi & Katli
-            </button>
-            <button className={`sg-tab-btn ${activeTab === 'special' ? 'sg-active' : ''}`} onClick={() => setActiveTab('special')}>
-              ⭐ Specials
-            </button>
-            <button className={`sg-tab-btn ${activeTab === 'wishlist' ? 'sg-active' : ''}`} onClick={() => setActiveTab('wishlist')}>
-              ❤️ Wishlist ({wishlist.length})
-            </button>
-          </div>
-        </div>
+      
+          
 
         {loading && products.length === 0 ? (
           <div className="sg-empty-loading-state">
