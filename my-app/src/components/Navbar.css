@@ -456,7 +456,7 @@
 }
 
 .primary-cart-button:hover {
-  background: var(--sgs-green-dark);
+  background: rgb(119, 20, 20);
 }
 
 .cart-badge-holder {
@@ -607,7 +607,7 @@
 .shelf-guarantee-badge {
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--sgs-green-dark);
+  color:rgb(160, 70, 34);
   white-space: nowrap;
 }
 
