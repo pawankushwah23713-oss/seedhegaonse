@@ -137,7 +137,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 🟢 Fetch BOTH Sweets & Cakes offers from API when cart opens
+  // 🟢 Fetch BOTH Sweets & Cakes offers from API when cart opens / items change
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -192,7 +192,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
     loadOffers();
     return () => { cancelled = true; };
-  }, [isOpen]);
+  }, [isOpen, cartItems.length]);
 
   // 🟢 Merge Cart Items with Sweets & Cakes Offers
   const enrichedCartItems = cartItems.map((item) => {
@@ -203,8 +203,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                    productOffers[`name:${cleanBaseName}`] || {};
 
     const pick = (local, remote) => {
-      const localArr = ensureArray(local);
-      return localArr.length > 0 ? localArr : ensureArray(remote);
+      const remoteArr = ensureArray(remote);
+      return remoteArr.length > 0 ? remoteArr : ensureArray(local);
     };
 
     return {
@@ -216,13 +216,15 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         item.quantityDiscounts || item.qtyDiscounts || item.packDiscounts,
         offers.quantityDiscounts
       ),
-      highValueThreshold: parseNumericPrice(item.highValueThreshold) > 0
-        ? item.highValueThreshold
-        : offers.highValueThreshold,
-      highValueDiscountPercent: parseNumericPrice(item.highValueDiscountPercent) > 0
-        ? item.highValueDiscountPercent
-        : offers.highValueDiscountPercent,
-      isFreeDelivery: isTrueFlag(item.isFreeDelivery) || isTrueFlag(offers.isFreeDelivery)
+      highValueThreshold: parseNumericPrice(offers.highValueThreshold) > 0
+        ? offers.highValueThreshold
+        : item.highValueThreshold,
+      highValueDiscountPercent: parseNumericPrice(offers.highValueDiscountPercent) > 0
+        ? offers.highValueDiscountPercent
+        : item.highValueDiscountPercent,
+      isFreeDelivery: offers.isFreeDelivery !== undefined
+        ? isTrueFlag(offers.isFreeDelivery)
+        : isTrueFlag(item.isFreeDelivery)
     };
   });
 
@@ -324,7 +326,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   }, 0);
   const effectiveCartTotal = round2(rawSubTotal);
 
-  // 📦 CALCULATE QUANTITY / PACK DISCOUNTS (Works on both Sweets & Cakes)
+  // 📦 CALCULATE QUANTITY / PACK DISCOUNTS
   let itemQtyDiscountsTotal = 0;
   const itemAppliedQtyDiscounts = {};
 
@@ -396,7 +398,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
   const bulkDiscount = round2(itemQtyDiscountsTotal + bulkSpendDiscount);
 
-  // Available Coupons List (Sweets + Cakes)
+  // Available Coupons List
   const availableCoupons = [];
   const seenCouponCodes = new Set();
   enrichedCartItems.forEach((item) => {
@@ -424,7 +426,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     });
   });
 
-  // Gift Tiers Roadmap (Sweets + Cakes)
+  // Gift Tiers Roadmap
   const giftTierRows = [];
   enrichedCartItems.forEach((item) => {
     const tiers = [];
@@ -765,8 +767,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.65fr 1fr', gap: isMobile ? '16px' : '24px', alignItems: 'start' }}>
 
-                {/* 👈 LEFT COLUMN */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* 👈 LEFT COLUMN: PRODUCT LIST FIRST, GIFTS ROADMAP DIRECTLY BELOW IT */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                   {/* CARD 1: PRODUCT LIST & SHOP NAME */}
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -779,10 +781,10 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     {/* Table Header */}
                     <div style={{ display: isSmallMobile ? 'none' : 'flex', justifyContent: 'space-between', padding: '10px 18px', background: '#f8fafc', fontSize: '0.84rem', fontWeight: '700', color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
                       <span>Product / Cake details</span>
-                      <span>Total price & Qty</span>
+                      <span>Qty & Line Total</span>
                     </div>
 
-                    {/* Product / Cake Rows */}
+                    {/* Product Rows with Price directly below (+ -) */}
                     <div style={{ padding: '12px 18px' }}>
                       {enrichedCartItems.map((item) => {
                         const unitPrice = parseNumericPrice(item.unitPrice || item.price);
@@ -791,74 +793,136 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         const activeQtyDisc = itemAppliedQtyDiscounts[item.id];
 
                         return (
-                          <div key={item.id} style={{ display: 'flex', flexWrap: isSmallMobile ? 'wrap' : 'nowrap', justifyContent: 'space-between', alignItems: isSmallMobile ? 'flex-start' : 'center', gap: isSmallMobile ? '10px' : '0', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
+                            
+                            {/* Product Info Left */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                               <img
                                 src={item.img || 'https://via.placeholder.com/60'}
                                 alt={item.name}
-                                style={{ width: isSmallMobile ? '48px' : '56px', height: isSmallMobile ? '48px' : '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                                style={{ width: isSmallMobile ? '52px' : '60px', height: isSmallMobile ? '52px' : '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', flexShrink: 0 }}
                               />
                               <div>
-                                <h4 style={{ margin: '0 0 4px', fontSize: isSmallMobile ? '0.82rem' : '0.88rem', fontWeight: '800', color: '#94191d', textTransform: 'uppercase' }}>
+                                <h4 style={{ margin: '0 0 4px', fontSize: isSmallMobile ? '0.85rem' : '0.9rem', fontWeight: '800', color: '#94191d', textTransform: 'uppercase' }}>
                                   {item.name}
                                 </h4>
                                 <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                                  Pack / Weight : {item.variant || 'Standard'}
+                                  Pack: {item.variant || 'Standard'} • ₹{formatMoney(unitPrice)}/pc
                                 </div>
                                 {activeQtyDisc && (
-                                  <div style={{ fontSize: '0.74rem', color: '#15803d', fontWeight: '700', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                    <span>🎉 {activeQtyDisc.percent}% Multi-Pack Discount Applied!</span>
+                                  <div style={{ fontSize: '0.74rem', color: '#15803d', fontWeight: '700', marginTop: '3px' }}>
+                                    🎉 {activeQtyDisc.percent}% Multi-Pack Discount Applied!
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: isSmallMobile ? '10px' : '16px', width: isSmallMobile ? '100%' : 'auto', justifyContent: isSmallMobile ? 'space-between' : 'flex-start', flexWrap: 'wrap' }}>
-                              <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.92rem', minWidth: '65px', textAlign: 'right' }}>
+                            {/* 🌟 RIGHT: (+ -) STEPPER ON TOP AND TOTAL PRICE RIGHT UNDERNEATH */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', flexShrink: 0 }}>
+                              
+                              {/* Top row: Stepper and Remove Button */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden', background: '#fff' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => changeQty(item.id, -1)}
+                                    style={{ width: '28px', height: '28px', background: '#f8fafc', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#475569', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  >
+                                    −
+                                  </button>
+                                  <span style={{ width: '32px', textAlign: 'center', fontSize: '0.88rem', fontWeight: '700', borderLeft: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0', lineHeight: '28px' }}>
+                                    {qty}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => changeQty(item.id, 1)}
+                                    style={{ width: '28px', height: '28px', background: '#f8fafc', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#475569', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => removeFromCart(item.id)}
+                                  style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '16px', cursor: 'pointer', padding: 0 }}
+                                  title="Remove item"
+                                >
+                                  ⓧ
+                                </button>
+                              </div>
+
+                              {/* ⬇️ Total Price exactly niche (+ -) ke */}
+                              <div style={{ fontWeight: '900', color: '#0f172a', fontSize: '0.96rem', textAlign: 'right', paddingRight: '2px' }}>
                                 ₹{formatMoney(lineTotal)}
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #cbd5e1', borderRadius: '4px', overflow: 'hidden' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => changeQty(item.id, -1)}
-                                  style={{ width: '26px', height: '26px', background: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#475569' }}
-                                >
-                                  −
-                                </button>
-                                <span style={{ width: '32px', textAlign: 'center', fontSize: '0.85rem', fontWeight: '600', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>
-                                  {qty}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => changeQty(item.id, 1)}
-                                  style={{ width: '26px', height: '26px', background: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#475569' }}
-                                >
-                                  +
-                                </button>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => removeFromCart(item.id)}
-                                style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '18px', cursor: 'pointer', padding: 0 }}
-                                title="Remove item"
-                              >
-                                ⓧ
-                              </button>
                             </div>
+
                           </div>
                         );
                       })}
                     </div>
                   </div>
 
+                  {/* 🎁 GIFTS ROADMAP DIRECTLY BELOW PRODUCT LIST */}
+                  {giftTierRows.length > 0 && (
+                    <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.88rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🎁</span> Free Gift Tiers & Roadmap
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {giftTierRows.map((gt) => (
+                          <div
+                            key={gt.key}
+                            style={{
+                              padding: '10px 12px',
+                              borderRadius: '8px',
+                              background: gt.isUnlocked ? '#f0fdf4' : '#ffffff',
+                              border: `1px solid ${gt.isUnlocked ? '#22c55e' : '#e2e8f0'}`,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '4px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.84rem', fontWeight: '700', color: gt.isUnlocked ? '#15803d' : '#b45309' }}>
+                                {gt.isUnlocked ? '🎁' : '🔒'} {gt.giftTitle}
+                              </span>
+                              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#334155' }}>
+                                ₹{formatMoney(gt.minSpend)}+
+                              </span>
+                            </div>
+
+                            <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                              {gt.productName} • Subtotal: ₹{formatMoney(gt.itemSubTotal)}
+                            </div>
+
+                            <div style={{ marginTop: '2px' }}>
+                              {gt.isUnlocked ? (
+                                <span style={{ background: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
+                                  🔓 UNLOCKED (FREE)
+                                </span>
+                              ) : (
+                                <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
+                                  {gt.remaining > 0 ? `🔒 LOCKED (Add ₹${formatMoney(gt.remaining)})` : '🔒 Upgraded to higher tier'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
 
-                {/* 👉 RIGHT COLUMN: ORDER SUMMARY */}
+                {/* 👉 RIGHT COLUMN: ORDER SUMMARY & TOTAL */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
 
+                    {/* Shipping Type Selected Pill */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderLeft: '4px solid #b91c1c', borderRadius: '6px', marginBottom: '16px' }}>
                       <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         🚚 Shipping Method:
@@ -894,8 +958,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         required
                       >
                         <option value="">⚠️ -- Select Shipping Option (Required) --</option>
-                        <option value="delivery">🚚 Home Delivery </option>
-                        <option value="founder">🎖️ Delivery by Founder </option>
+                        <option value="delivery">🚚 Home Delivery</option>
+                        <option value="founder">🎖️ Delivery by Founder</option>
                         <option value="pickup">🏬 Self Pickup - FREE</option>
                       </select>
                     </div>
@@ -938,7 +1002,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.88rem', color: '#334155' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', fontSize: '0.88rem', color: '#334155' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Sub total</span>
                         <strong>₹{formatMoney(effectiveCartTotal)}</strong>
@@ -971,13 +1035,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </span>
                       </div>
 
+                      {/* GST ROW WITH ACCURATE TOOLTIP */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div
-                          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}
                           onMouseEnter={() => setShowTaxInfo(true)}
                           onMouseLeave={() => setShowTaxInfo(false)}
                         >
-                          <span>GST</span>
+                          <span>GST (Tax)</span>
                           <button
                             type="button"
                             onClick={() => setShowTaxInfo(!showTaxInfo)}
@@ -1017,11 +1082,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                               }}
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ color: '#cbd5e1' }}>Product Tax (5% GST):</span>
+                                <span style={{ color: '#cbd5e1' }}>Product Tax (5%):</span>
                                 <strong>₹{formatMoney(productTax)}</strong>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ color: '#cbd5e1' }}>Shipping Tax (5% GST):</span>
+                                <span style={{ color: '#cbd5e1' }}>Shipping Tax (5%):</span>
                                 <strong>₹{formatMoney(shippingTax)}</strong>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #475569', paddingTop: '4px', marginTop: '4px', fontWeight: 'bold' }}>
@@ -1031,11 +1096,25 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                             </div>
                           )}
                         </div>
-
                         <strong>₹{formatMoney(totalTaxAmount)}</strong>
                       </div>
 
-                      {/* 🎟️ AVAILABLE COUPONS (Sweets & Cakes) */}
+                      {isGiftBoxSelected && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: '700' }}>
+                          <span>🎁 Gift Box Packaging</span>
+                          <span>+ ₹{formatMoney(GIFT_BOX_CHARGE)}</span>
+                        </div>
+                      )}
+
+                      {/* 🌟 GRAND TOTAL ROW RIGHT BESIDE GST / SUMMARY */}
+                      <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a' }}>Grand Total</span>
+                        <span style={{ fontSize: '1.4rem', fontWeight: '900', color: '#b91c1c' }}>
+                          ₹{formatMoney(grandTotal)}
+                        </span>
+                      </div>
+
+                      {/* 🎟️ AVAILABLE COUPONS */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1106,81 +1185,17 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </div>
                       )}
 
-                      {/* 🎁 GIFT TIERS ROADMAP (Sweets & Cakes) */}
-                      {giftTierRows.length > 0 && (
-                        <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
-                          <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.82rem', marginBottom: '8px' }}>
-                            🎁 Gift Tiers Roadmap
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {giftTierRows.map((gt) => (
-                              <div
-                                key={gt.key}
-                                style={{
-                                  padding: '9px 11px',
-                                  borderRadius: '8px',
-                                  background: gt.isUnlocked ? '#f0fdf4' : '#fffbeb',
-                                  border: `1px solid ${gt.isUnlocked ? '#22c55e' : '#f59e0b'}`
-                                }}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: '0.82rem', fontWeight: '700', color: gt.isUnlocked ? '#15803d' : '#b45309' }}>
-                                    {gt.isUnlocked ? '🎁' : '🔒'} {gt.giftTitle}
-                                  </span>
-                                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#334155' }}>
-                                    ₹{formatMoney(gt.minSpend)}+
-                                  </span>
-                                </div>
-
-                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>
-                                  {gt.productName} • Item subtotal ₹{formatMoney(gt.itemSubTotal)}
-                                </div>
-
-                                <div style={{ marginTop: '6px' }}>
-                                  {gt.isUnlocked ? (
-                                    <span style={{ background: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
-                                      🔓 UNLOCKED (FREE)
-                                    </span>
-                                  ) : (
-                                    <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                      {gt.remaining > 0 ? `🔒 LOCKED (Add ₹${formatMoney(gt.remaining)})` : '🔒 LOCKED (Upgraded to higher tier)'}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {offersLoading && availableCoupons.length === 0 && giftTierRows.length === 0 && (
+                      {offersLoading && availableCoupons.length === 0 && (
                         <div style={{ fontSize: '0.76rem', color: '#64748b', paddingTop: '6px' }}>
-                          Loading offers & gift tiers...
+                          Loading offers...
                         </div>
                       )}
-
-                      {isGiftBoxSelected && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: '700' }}>
-                          <span>🎁 Gift Box Packaging</span>
-                          <span>+ ₹{formatMoney(GIFT_BOX_CHARGE)}</span>
-                        </div>
-                      )}
-
-                      <div style={{ borderTop: '1px solid #e2e8f0', margin: '4px 0' }}></div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: '700', color: '#0f172a' }}>Total</span>
-                        <span style={{ fontSize: '1.35rem', fontWeight: '900', color: '#b91c1c' }}>
-                          ₹{formatMoney(grandTotal)}
-                        </span>
-                      </div>
                     </div>
 
                     <div style={{ marginTop: '16px' }}>
                       <input
                         type="text"
-                        placeholder="Coupon code"
+                        placeholder="Enter coupon code"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)}
                         style={{
