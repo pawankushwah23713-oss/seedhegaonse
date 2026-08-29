@@ -362,7 +362,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     });
   });
 
-  // 🎁 Admin ke gift tiers — lock/unlock ke saath
+  // 🎁 Admin ke gift tiers — Lock / Unlock logic (Highest active tier unlocks, others stay locked)
   const giftTierRows = [];
   enrichedCartItems.forEach((item) => {
     const tiers = [];
@@ -371,39 +371,54 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     if (rawTiers.length > 0) {
       rawTiers.forEach((gt) => {
         if (gt) {
-          tiers.push({
-            minSpend: parseNumericPrice(gt.minSpend || gt.minOrder || gt.threshold),
-            giftTitle: gt.giftTitle || gt.title || gt.name || 'Special Gift'
-          });
+          const rawMin = gt.minSpend ?? gt.minOrder ?? gt.threshold ?? gt.minAmount ?? gt.spend ?? gt.amount ?? gt.orderValue;
+          const minSpend = parseNumericPrice(rawMin);
+          const giftTitle = gt.giftTitle || gt.title || gt.name || gt.giftName || gt.gift || 'Special Gift';
+          if (minSpend > 0 || giftTitle) {
+            tiers.push({ minSpend, giftTitle });
+          }
         }
       });
-    } else if (parseNumericPrice(item.giftMinSpend) > 0 || item.giftTitle) {
+    } else if (parseNumericPrice(item.giftMinSpend || item.minOrder || item.giftThreshold) > 0 || item.giftTitle) {
       tiers.push({
-        // 🛠️ FIX: pehle yahan item.minSpend padha ja raha tha (hamesha 0 aata tha)
-        minSpend: parseNumericPrice(item.giftMinSpend),
+        minSpend: parseNumericPrice(item.giftMinSpend || item.minOrder || item.giftThreshold),
         giftTitle: item.giftTitle || 'Special Free Gift'
       });
     }
 
     if (tiers.length === 0) return;
 
-    const itemSubTotal = round2(
-      parseNumericPrice(item.unitPrice || item.price) * Number(item.qty || item.quantity || 1)
-    );
+    const itemQty = Number(item.qty || item.quantity || 1) || 1;
+    const itemUnitPrice = parseNumericPrice(item.unitPrice || item.price || item.sellingPrice || item.salePrice || 0);
+    const calculatedSubTotal = round2(itemUnitPrice * itemQty);
+    const itemSubTotal = calculatedSubTotal > 0 ? calculatedSubTotal : round2(parseNumericPrice(item.totalPrice) || effectiveCartTotal);
 
-    tiers
-      .sort((a, b) => a.minSpend - b.minSpend)
-      .forEach((gt, idx) => {
-        giftTierRows.push({
-          key: `${item.id}-tier-${idx}`,
-          productName: item.name,
-          giftTitle: gt.giftTitle,
-          minSpend: gt.minSpend,
-          itemSubTotal,
-          isUnlocked: itemSubTotal >= gt.minSpend,
-          remaining: round2(Math.max(0, gt.minSpend - itemSubTotal))
-        });
+    // Sort ascending by minSpend
+    const sortedTiers = tiers.sort((a, b) => a.minSpend - b.minSpend);
+
+    // Find highest unlocked tier (Sirf ek highest reached tier unlock hoga, baki lock rahenge)
+    const activeUnlockedTier = [...sortedTiers]
+      .reverse()
+      .find((t) => itemSubTotal >= t.minSpend && t.minSpend > 0);
+
+    sortedTiers.forEach((gt, idx) => {
+      const isThisUnlocked = Boolean(
+        activeUnlockedTier &&
+        activeUnlockedTier.minSpend === gt.minSpend &&
+        activeUnlockedTier.giftTitle === gt.giftTitle
+      );
+      const remainingAmount = round2(Math.max(0, gt.minSpend - itemSubTotal));
+
+      giftTierRows.push({
+        key: `${item.id || item.productId || idx}-tier-${idx}`,
+        productName: item.name,
+        giftTitle: gt.giftTitle,
+        minSpend: gt.minSpend,
+        itemSubTotal,
+        isUnlocked: isThisUnlocked,
+        remaining: remainingAmount
       });
+    });
   });
 
   const isFreeDelivery = enrichedCartItems.some((i) => isTrueFlag(i.isFreeDelivery));
@@ -985,7 +1000,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         <strong>₹{formatMoney(totalTaxAmount)}</strong>
                       </div>
 
-                      {/* 🎟️ GST KE NICHE: PRODUCT COUPONS (Lock / Unlock) */}
+                      {/* 🎟️ AVAILABLE COUPONS */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#6d28d9', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1056,7 +1071,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </div>
                       )}
 
-                      {/* 🎁 GST KE NICHE: GIFT TIERS ROADMAP (Lock / Unlock) */}
+                      {/* 🎁 GIFT TIERS ROADMAP (Single Active Unlocked, Others Locked) */}
                       {giftTierRows.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1094,7 +1109,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                     </span>
                                   ) : (
                                     <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                      🔒 LOCKED (Add ₹{formatMoney(gt.remaining)})
+                                      {gt.remaining > 0 ? `🔒 LOCKED (Add ₹${formatMoney(gt.remaining)})` : '🔒 LOCKED (Upgraded to higher tier)'}
                                     </span>
                                   )}
                                 </div>
