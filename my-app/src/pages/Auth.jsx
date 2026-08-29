@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import logoImg from '../assets/logo.png';
 import './Auth.css';
 
 // 🟢 Unified API URL (Local / Render dono ke sath auto-detect)
@@ -164,139 +165,231 @@ const Auth = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="auth-page-container">
-      <div className="auth-card fade-slide-down">
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={`auth-tab ${isLogin ? 'active' : ''}`}
-            onClick={() => handleTabSwitch(true)}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`auth-tab ${!isLogin ? 'active' : ''}`}
-            onClick={() => handleTabSwitch(false)}
-          >
-            Create Account
-          </button>
-        </div>
+    <div className="sga-auth-page">
+      <div className="sga-auth-shell">
 
-        <h2 className="auth-title">
-          {isLogin ? 'Welcome Back' : 'Join Seedhe Gaon Se'}
-        </h2>
-        <p className="auth-subtitle">
-          {isLogin
-            ? 'Sign in to access your orders and sweets cart'
-            : 'Get flat ₹50 OFF on your first authentic regional sweet order'}
-        </p>
-
-        {error && <div className="auth-alert error">{error}</div>}
-        {successMsg && <div className="auth-alert success">{successMsg}</div>}
-
-        <form onSubmit={handleSubmit} className="auth-form-body">
-          {!isLogin && (
-            <div className="auth-input-group">
-              <label>Full Name</label>
-              <input
-                type="text"
-                name="name"
-                placeholder="Ramesh Kumar"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
+        {/* ============ LEFT: BRAND PANEL ============ */}
+        <aside className="sga-brand-panel">
+          <div className="sga-brand-top">
+            <div className="sga-logo-seal">
+              <img src={logoImg} alt="Seedhe Gaon Se" />
             </div>
-          )}
-
-          <div className="auth-input-group">
-            <label>{isLogin ? 'Email Address or Mobile Number' : 'Email Address'}</label>
-            <input
-              type="text"
-              name="email"
-              placeholder={isLogin ? "you@example.com or 9876543210" : "you@example.com"}
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
+            <h1 className="sga-brand-name">Seedhe Gaon Se</h1>
+            <span className="sga-brand-tagline">Your Gateway to Pure Taste</span>
           </div>
 
-          {!isLogin && (
-            <div className="auth-input-group">
-              <label>Mobile Number</label>
-              <input
-                type="tel"
-                name="phone"
-                placeholder="9876543210"
-                value={formData.phone}
-                onChange={handleChange}
-                maxLength="10"
-                required
-              />
-            </div>
-          )}
+          <div className="sga-brand-rule">
+            <span></span>
+            <em>Since the village kitchen</em>
+            <span></span>
+          </div>
 
-          <div className="auth-input-group">
-            <label>Password</label>
-            <div className="password-input-wrapper">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-              <button
-                type="button"
-                className="toggle-password-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex="-1"
-              >
-                {showPassword ? '👁️' : '🙈'}
-              </button>
+          <ul className="sga-brand-points">
+            <li>
+              <strong>Bilona Desi Ghee</strong>
+              Har mithai 100% shuddh ghee me taiyar
+            </li>
+            <li>
+              <strong>Zero Preservatives</strong>
+              Roz banti hai, roz nikalti hai
+            </li>
+            <li>
+              <strong>Same Day Delivery</strong>
+              Delhi NCR me usi din aapke ghar
+            </li>
+          </ul>
+
+          <p className="sga-brand-footnote">
+            Direct from the gaon, packed with tradition.
+          </p>
+        </aside>
+
+        {/* ============ RIGHT: FORM PANEL ============ */}
+        <section className="sga-form-panel">
+
+          {/* Mobile-only compact brand header */}
+          <div className="sga-mobile-brand">
+            <img src={logoImg} alt="Seedhe Gaon Se" />
+            <div>
+              <span className="sga-mobile-brand-name">Seedhe Gaon Se</span>
+              <span className="sga-mobile-brand-tag">Your Gateway to Pure Taste</span>
             </div>
           </div>
 
-          {!isLogin && (
-            <div className="auth-input-group">
-              <label>Confirm Password</label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="confirmPassword"
-                placeholder="••••••••"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
+          <div className="sga-tabs">
+            <button
+              type="button"
+              className={`sga-tab ${isLogin ? 'sga-active' : ''}`}
+              onClick={() => handleTabSwitch(true)}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`sga-tab ${!isLogin ? 'sga-active' : ''}`}
+              onClick={() => handleTabSwitch(false)}
+            >
+              Create Account
+            </button>
+          </div>
+
+          <h2 className="sga-title">
+            {isLogin ? 'Welcome Back' : 'Join Seedhe Gaon Se'}
+          </h2>
+         
+
+          {error && (
+            <div className="sga-alert sga-alert-error">
+              <span className="sga-alert-icon">!</span>
+              {error}
+            </div>
+          )}
+          {successMsg && (
+            <div className="sga-alert sga-alert-success">
+              <span className="sga-alert-icon">✓</span>
+              {successMsg}
             </div>
           )}
 
-          <button type="submit" className="auth-primary-btn" disabled={loading}>
-            {loading ? (
-              <span className="btn-spinner">Processing...</span>
-            ) : isLogin ? (
-              'Sign In'
-            ) : (
-              'Create Account'
+          <form onSubmit={handleSubmit} className="sga-form">
+            {!isLogin && (
+              <div className="sga-field">
+                <label htmlFor="sga-name">Full Name</label>
+                <input
+                  id="sga-name"
+                  type="text"
+                  name="name"
+                  placeholder="Ramesh Kumar"
+                  value={formData.name}
+                  onChange={handleChange}
+                  autoComplete="name"
+                  required
+                />
+              </div>
             )}
-          </button>
-        </form>
 
-        <p className="auth-redirect-text">
-          {isLogin ? (
-            <>
-              Don't have an account?{' '}
-              <span onClick={() => handleTabSwitch(false)}>Create one</span>
-            </>
-          ) : (
-            <>
-              Already have an account?{' '}
-              <span onClick={() => handleTabSwitch(true)}>Sign in</span>
-            </>
-          )}
-        </p>
+            <div className="sga-field">
+              <label htmlFor="sga-email">{isLogin ? 'Email or Mobile Number' : 'Email Address'}</label>
+              <input
+                id="sga-email"
+                type="text"
+                name="email"
+                placeholder={isLogin ? 'you@example.com or 9876543210' : 'you@example.com'}
+                value={formData.email}
+                onChange={handleChange}
+                autoComplete={isLogin ? 'username' : 'email'}
+                required
+              />
+            </div>
+
+            {!isLogin && (
+              <div className="sga-field">
+                <label htmlFor="sga-phone">Mobile Number</label>
+                <div className="sga-phone-wrap">
+                  <span className="sga-phone-prefix">+91</span>
+                  <input
+                    id="sga-phone"
+                    type="tel"
+                    name="phone"
+                    placeholder="9876543210"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    maxLength="10"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="sga-field">
+              <label htmlFor="sga-password">Password</label>
+              <div className="sga-password-wrap">
+                <input
+                  id="sga-password"
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  required
+                />
+                <button
+                  type="button"
+                  className="sga-eye-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex="-1"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {!isLogin && (
+              <div className="sga-field">
+                <label htmlFor="sga-confirm">Confirm Password</label>
+                <input
+                  id="sga-confirm"
+                  type={showPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  placeholder="••••••••"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            )}
+
+            <button type="submit" className="sga-submit-btn" disabled={loading}>
+              {loading ? (
+                <>
+                  <span className="sga-spinner"></span>
+                  Processing...
+                </>
+              ) : isLogin ? (
+                'Sign In'
+              ) : (
+                'Create Account'
+              )}
+            </button>
+          </form>
+
+          <p className="sga-redirect">
+            {isLogin ? (
+              <>
+                Don&apos;t have an account?{' '}
+                <span onClick={() => handleTabSwitch(false)}>Create one</span>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <span onClick={() => handleTabSwitch(true)}>Sign in</span>
+              </>
+            )}
+          </p>
+
+          <div className="sga-secure-note">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Your details are encrypted and never shared
+          </div>
+        </section>
       </div>
     </div>
   );

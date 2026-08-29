@@ -22,6 +22,16 @@ const safeJsonParse = (val, fallback = []) => {
   }
 };
 
+// 🟢 Boolean parser (form-data se 'true'/'false' string aata hai)
+const parseBool = (val, fallback = false) => {
+  if (val === undefined || val === null || val === '') return fallback;
+  if (typeof val === 'boolean') return val;
+  const v = String(val).trim().toLowerCase();
+  if (['true', '1', 'yes', 'instock', 'in_stock'].includes(v)) return true;
+  if (['false', '0', 'no', 'outofstock', 'out_of_stock'].includes(v)) return false;
+  return fallback;
+};
+
 // 1. GET ALL PRODUCTS
 router.get('/', async (req, res) => {
   try {
@@ -88,21 +98,24 @@ router.post('/', protect, adminOnly, upload.single('image'), async (req, res) =>
       productCouponDiscount: parsedCouponsList.length > 0 ? Number(parsedCouponsList[0].discountValue || 0) : Number(b.productCouponDiscount || 0),
       productCouponType: parsedCouponsList.length > 0 ? parsedCouponsList[0].discountType : (b.productCouponType || 'flat'),
 
-      isFreeDelivery: b.isFreeDelivery === 'true' || b.isFreeDelivery === true
+      isFreeDelivery: parseBool(b.isFreeDelivery, false),
+
+      // 🟢 STOCK STATUS (default: In Stock)
+      inStock: parseBool(b.inStock, true)
     };
 
     // 🟢 Safe Save using new instance
     const newProduct = new Product(productData);
     await newProduct.save();
 
-    res.status(201).json({ message: '🎉 Product with all dynamic slabs saved successfully!', product: newProduct });
+    res.status(201).json({ message: '🎉 Product saved successfully!', product: newProduct });
   } catch (error) {
     console.error('Save product error:', error);
     res.status(500).json({ message: error.message || 'Server error saving product.' });
   }
 });
 
-// 4. UPDATE PRODUCT (Admin Edit)
+// 4. UPDATE PRODUCT (Admin Edit) — partial update safe hai
 router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -124,9 +137,12 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     if (b.price) product.price = Number(b.price);
     if (b.originalPrice !== undefined) product.originalPrice = Number(b.originalPrice) || 0;
 
-    // Timeline Discount
-    product.discountPercent = Number(b.discountPercent) || 0;
-    product.discountValidUntil = b.discountValidUntil ? new Date(b.discountValidUntil) : null;
+    // Timeline Discount — sirf tab update ho jab bheja gaya ho
+    // (isse sirf stock toggle karne par purana discount wipe nahi hoga)
+    if (b.discountPercent !== undefined) product.discountPercent = Number(b.discountPercent) || 0;
+    if (b.discountValidUntil !== undefined) {
+      product.discountValidUntil = b.discountValidUntil ? new Date(b.discountValidUntil) : null;
+    }
 
     // Update Dynamic Arrays
     if (b.bulkTiers !== undefined) product.bulkTiers = safeJsonParse(b.bulkTiers);
@@ -146,17 +162,38 @@ router.put('/:id', protect, adminOnly, upload.single('image'), async (req, res) 
     }
 
     if (b.isFreeDelivery !== undefined) {
-      product.isFreeDelivery = b.isFreeDelivery === 'true' || b.isFreeDelivery === true;
+      product.isFreeDelivery = parseBool(b.isFreeDelivery, product.isFreeDelivery);
     }
+
+    // 🟢 STOCK STATUS UPDATE
     if (b.inStock !== undefined) {
-      product.inStock = b.inStock === 'true' || b.inStock === true;
+      product.inStock = parseBool(b.inStock, product.inStock !== false);
     }
 
     const updated = await product.save();
-    res.status(200).json({ message: '🎉 Product updated with all slabs successfully!', product: updated });
+    res.status(200).json({ message: '🎉 Product updated successfully!', product: updated });
   } catch (error) {
     console.error('Update product error:', error);
     res.status(500).json({ message: error.message || 'Server error updating product.' });
+  }
+});
+
+// 4b. 🟢 QUICK STOCK TOGGLE (optional shortcut route)
+// PATCH /api/products/:id/stock   body: { inStock: true/false }
+router.patch('/:id/stock', protect, adminOnly, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found!' });
+
+    product.inStock = parseBool(req.body.inStock, !(product.inStock !== false));
+    await product.save();
+
+    res.status(200).json({
+      message: product.inStock ? '✅ Product marked IN STOCK' : '⛔ Product marked OUT OF STOCK',
+      product
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Stock update failed' });
   }
 });
 

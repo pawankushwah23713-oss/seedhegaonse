@@ -24,6 +24,9 @@ const isDummyProduct = (product) => {
   return Boolean(product.isDummy || product._id?.toString().startsWith('dummy'));
 };
 
+// 🟢 STOCK HELPER — inStock === false hone par hi Out of Stock
+const isOutOfStock = (product) => product?.inStock === false;
+
 // 🟢 Helper to get Default Variants (Lowest Weight Default & No Fake Discount on Dummy)
 export const getProductVariants = (product) => {
   if (Array.isArray(product.variants) && product.variants.length > 0) {
@@ -522,6 +525,7 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChan
 
 const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAddToCart }) => {
   const isDummy = isDummyProduct(product);
+  const outOfStock = isOutOfStock(product); // 🟢 STOCK CHECK
   const variants = getProductVariants(product);
   const defaultVar = variants[0];
   const [selectedVariant, setSelectedVariant] = useState(defaultVar);
@@ -530,9 +534,45 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
   const liked = isWishlisted(product._id);
 
   return (
-    <div className="sg-product-card" onClick={() => onOpenModal(product, selectedVariant)}>
-      <div className="sg-card-top-bar">
-        {!isDummy && pricing.discountPercent ? (
+    <div
+      className="sg-product-card"
+      style={{ position: 'relative', cursor: outOfStock ? 'not-allowed' : 'pointer' }}
+      onClick={() => {
+        if (outOfStock) return; // 🟢 Out of stock par modal nahi khulega
+        onOpenModal(product, selectedVariant);
+      }}
+    >
+      {/* 🟢 OUT OF STOCK STAMP */}
+      {outOfStock && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '40%',
+            left: '50%',
+            transform: 'translate(-50%, -50%) rotate(-8deg)',
+            background: '#dc2626',
+            color: '#fff',
+            padding: '8px 18px',
+            borderRadius: '8px',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+            letterSpacing: '0.5px',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
+            zIndex: 5,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          ⛔ OUT OF STOCK
+        </div>
+      )}
+
+      <div className="sg-card-top-bar" style={{ position: 'relative', zIndex: 6 }}>
+        {outOfStock ? (
+          <span className="sg-badge-discount" style={{ background: '#dc2626', color: '#fff' }}>
+            SOLD OUT
+          </span>
+        ) : !isDummy && pricing.discountPercent ? (
           <span className="sg-badge-discount">{pricing.discountPercent}% OFF</span>
         ) : product.originRegion ? (
           <span className="sg-badge-origin-mini">📍 {product.originRegion}</span>
@@ -552,23 +592,38 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
         </button>
       </div>
 
-      <div className="sg-card-media-box">
+      {/* 🟢 BLUR: sirf out of stock par */}
+      <div
+        className="sg-card-media-box"
+        style={outOfStock ? { filter: 'blur(3px) grayscale(0.85)', opacity: 0.65 } : undefined}
+      >
         <CardImageSlider
           images={[getImageUrl(product.image)]}
           alt={product.name}
         />
       </div>
 
-      <div className="sg-card-origin-strip">
+      <div
+        className="sg-card-origin-strip"
+        style={outOfStock ? { filter: 'blur(1.5px)', opacity: 0.6 } : undefined}
+      >
         <span>📍 Handcrafted in {product.originRegion || 'Authentic Village'}</span>
       </div>
 
       <div className="sg-card-body">
-        <h3 className="sg-card-title" title={product.name}>
+        <h3
+          className="sg-card-title"
+          title={product.name}
+          style={outOfStock ? { opacity: 0.55 } : undefined}
+        >
           {product.name}
         </h3>
 
-        <div className="sg-card-variants-container" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="sg-card-variants-container"
+          onClick={(e) => e.stopPropagation()}
+          style={outOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+        >
           <div className="sg-variant-chips-list">
             {variants.map((v, idx) => {
               const isActive = (selectedVariant._id && v._id) ? selectedVariant._id === v._id : selectedVariant.label === v.label;
@@ -578,6 +633,7 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
                   type="button"
                   className={`sg-variant-pill-btn ${isActive ? 'sg-active' : ''}`}
                   onClick={() => setSelectedVariant(v)}
+                  disabled={outOfStock}
                 >
                   {v.label || v.weight || 'Standard'}
                 </button>
@@ -587,7 +643,7 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
         </div>
 
         <div className="sg-card-footer">
-          <div className="sg-card-price-group">
+          <div className="sg-card-price-group" style={outOfStock ? { opacity: 0.5 } : undefined}>
             <div className="sg-price-row">
               <span className="sg-current-price">₹{pricing.price}</span>
               {!isDummy && pricing.mrp && <span className="sg-mrp-price">₹{pricing.mrp}</span>}
@@ -601,11 +657,13 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
             className="sg-btn-add-cart"
             onClick={(e) => {
               e.stopPropagation();
+              if (outOfStock) return; // 🟢 double safety
               onAddToCart(product, 1, selectedVariant);
             }}
-            disabled={product.inStock === false}
+            disabled={outOfStock}
+            style={outOfStock ? { background: '#94a3b8', cursor: 'not-allowed', opacity: 0.9 } : undefined}
           >
-            {product.inStock === false ? 'Sold Out' : '+ ADD'}
+            {outOfStock ? 'Out of Stock' : '+ ADD'}
           </button>
         </div>
       </div>
@@ -652,6 +710,7 @@ const Homepage = ({ addToCart, addedToast }) => {
   };
 
   const handleOpenModal = (product, initialVariant = null) => {
+    if (isOutOfStock(product)) return; // 🟢 Out of stock ka modal nahi khulega
     setSelectedProduct(product);
     const variants = getProductVariants(product);
     setSelectedModalVariant(initialVariant || variants[0]);
@@ -839,7 +898,21 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
+  // 🟢 In Stock products pehle, Out of Stock neeche
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const aOut = isOutOfStock(a) ? 1 : 0;
+    const bOut = isOutOfStock(b) ? 1 : 0;
+    return aOut - bOut;
+  });
+
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
+    // 🟢 Out of stock item kabhi cart me nahi jayega
+    if (isOutOfStock(p)) {
+      setAuthAlert(`"${p.name}" abhi Out of Stock hai`);
+      setTimeout(() => setAuthAlert(''), 2500);
+      return false;
+    }
+
     const activeVariant = variant || (p.variants && p.variants[0]) || {
       weight: '250g',
       label: '250g',
@@ -897,6 +970,7 @@ const Homepage = ({ addToCart, addedToast }) => {
 
       {selectedProduct && (() => {
         const isDummy = isDummyProduct(selectedProduct);
+        const modalOutOfStock = isOutOfStock(selectedProduct); // 🟢
         const modalVariants = getProductVariants(selectedProduct);
         const currentActiveVariant = selectedModalVariant || modalVariants[0];
         const pricing = calculatePricing(currentActiveVariant, modalQty, isDummy);
@@ -906,7 +980,12 @@ const Homepage = ({ addToCart, addedToast }) => {
             <div className="sg-product-modal-card" onClick={(e) => e.stopPropagation()}>
               <button className="sg-modal-close-btn" onClick={() => setSelectedProduct(null)} aria-label="Close">✕</button>
 
-              <div className="sg-modal-image-col" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+              <div
+                className="sg-modal-image-col"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                style={modalOutOfStock ? { filter: 'blur(4px) grayscale(0.85)', opacity: 0.7 } : undefined}
+              >
                 <ModalImageSlider
                   images={[getImageUrl(selectedProduct.image)]}
                   labels={[null]}
@@ -919,6 +998,11 @@ const Homepage = ({ addToCart, addedToast }) => {
               <div className="sg-modal-info-col">
                 <div>
                   <div className="sg-modal-tags-row">
+                    {modalOutOfStock && (
+                      <span className="sg-badge-category" style={{ background: '#dc2626', color: '#fff' }}>
+                        ⛔ OUT OF STOCK
+                      </span>
+                    )}
                     {selectedProduct.originRegion && (
                       <span className="sg-badge-origin">📍 {selectedProduct.originRegion} Special</span>
                     )}
@@ -931,7 +1015,10 @@ const Homepage = ({ addToCart, addedToast }) => {
 
                   <div className="sg-modal-variant-section">
                     <span className="sg-variant-section-title">Select Pack Size / Weight:</span>
-                    <div className="sg-modal-variant-chips">
+                    <div
+                      className="sg-modal-variant-chips"
+                      style={modalOutOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                    >
                       {modalVariants.map((v, idx) => {
                         const isActive = currentActiveVariant?.label === v.label || currentActiveVariant?.weight === v.weight;
                         return (
@@ -940,6 +1027,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                             type="button"
                             className={`sg-modal-chip-btn ${isActive ? 'sg-active' : ''}`}
                             onClick={() => setSelectedModalVariant(v)}
+                            disabled={modalOutOfStock}
                           >
                             <span className="sg-chip-label">{v.label || v.weight}</span>
                           </button>
@@ -981,21 +1069,26 @@ const Homepage = ({ addToCart, addedToast }) => {
                     </svg>
                   </button>
 
-                  <div className="sg-stepper-box">
-                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1}>−</button>
+                  <div
+                    className="sg-stepper-box"
+                    style={modalOutOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                  >
+                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1 || modalOutOfStock}>−</button>
                     <span className="sg-stepper-val">{modalQty}</span>
-                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => prev + 1)}>+</button>
+                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => prev + 1)} disabled={modalOutOfStock}>+</button>
                   </div>
 
                   <button
                     className="sg-btn-modal-add"
                     onClick={() => {
+                      if (modalOutOfStock) return;
                       const added = handleProductAddToCart(selectedProduct, modalQty, currentActiveVariant);
                       if (added) setSelectedProduct(null);
                     }}
-                    disabled={selectedProduct.inStock === false}
+                    disabled={modalOutOfStock}
+                    style={modalOutOfStock ? { background: '#94a3b8', cursor: 'not-allowed' } : undefined}
                   >
-                    {selectedProduct.inStock === false ? 'Out of Stock' : `Add ${modalQty} to Cart • ₹{pricing.price}`}
+                    {modalOutOfStock ? '⛔ Out of Stock' : `Add ${modalQty} to Cart • ₹${pricing.price}`}
                   </button>
                 </div>
               </div>
@@ -1102,7 +1195,7 @@ const Homepage = ({ addToCart, addedToast }) => {
             <div className="sg-spinner"></div>
             <h3>🍬 Loading authentic village sweets...</h3>
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : sortedProducts.length === 0 ? (
           <div className="sg-empty-category-card">
             <h3>{activeTab === 'wishlist' ? 'Your Wishlist is Empty!' : 'No sweets found in this category!'}</h3>
             <button className="sg-primary-btn" onClick={() => setActiveTab('all')} style={{ marginTop: '12px' }}>
@@ -1111,7 +1204,7 @@ const Homepage = ({ addToCart, addedToast }) => {
           </div>
         ) : (
           <div className="sg-modern-product-grid">
-            {filteredProducts.map((p) => (
+            {sortedProducts.map((p) => (
               <ProductCard
                 key={p._id}
                 product={p}
@@ -1140,6 +1233,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                     src={getImageUrl(p.image)}
                     alt={p.name}
                     loading="lazy"
+                    style={isOutOfStock(p) ? { filter: 'blur(2px) grayscale(0.8)', opacity: 0.6 } : undefined}
                     onError={(e) => {
                       e.target.src = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
                     }}

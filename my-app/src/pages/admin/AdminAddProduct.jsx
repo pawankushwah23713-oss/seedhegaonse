@@ -19,13 +19,11 @@ const defaultForm = {
   quantityDiscounts: [
     { minQty: '2', discountPercent: '10' }
   ],
-  bulkTiers: [
-    { minSpend: '12000', discountType: 'percentage', discountValue: '20' }
-  ],
   giftTiers: [
     { minSpend: '1500', giftTitle: 'Free 100g Desi Ghee Peda Box', giftImage: '' }
   ],
-  isFreeDelivery: false
+  isFreeDelivery: false,
+  inStock: true // 🟢 STOCK STATUS
 };
 
 const AdminAllInOneProducts = () => {
@@ -36,6 +34,7 @@ const AdminAllInOneProducts = () => {
 
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [stockBusyId, setStockBusyId] = useState(null);
   const [msg, setMsg] = useState({ text: '', type: '' });
 
   const token = localStorage.getItem('token');
@@ -60,6 +59,11 @@ const AdminAllInOneProducts = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  // 🟢 STOCK TOGGLE (form ke andar)
+  const setStockStatus = (value) => {
+    setFormData((prev) => ({ ...prev, inStock: value }));
   };
 
   // ➕ 1. Dynamic Coupons Handlers
@@ -94,23 +98,7 @@ const AdminAllInOneProducts = () => {
     setFormData((prev) => ({ ...prev, quantityDiscounts: prev.quantityDiscounts.filter((_, i) => i !== index) }));
   };
 
-  // ➕ 3. Dynamic Bulk Slabs Handlers
-  const handleBulkTierChange = (index, field, value) => {
-    const updated = [...formData.bulkTiers];
-    updated[index][field] = value;
-    setFormData((prev) => ({ ...prev, bulkTiers: updated }));
-  };
-  const addBulkTier = () => {
-    setFormData((prev) => ({
-      ...prev,
-      bulkTiers: [...prev.bulkTiers, { minSpend: '', discountType: 'percentage', discountValue: '' }]
-    }));
-  };
-  const removeBulkTier = (index) => {
-    setFormData((prev) => ({ ...prev, bulkTiers: prev.bulkTiers.filter((_, i) => i !== index) }));
-  };
-
-  // ➕ 4. Dynamic Gift Slabs Handlers
+  // ➕ 3. Dynamic Gift Slabs Handlers
   const handleGiftTierChange = (index, field, value) => {
     const updated = [...formData.giftTiers];
     updated[index][field] = value;
@@ -134,15 +122,9 @@ const AdminAllInOneProducts = () => {
     }
   };
 
-  // ✏️ Edit Product (Loads all slabs cleanly)
+  // ✏️ Edit Product
   const handleEditClick = (p) => {
     setEditingId(p._id);
-
-    let existingBulkTiers = Array.isArray(p.bulkTiers) && p.bulkTiers.length > 0
-      ? p.bulkTiers
-      : p.highValueThreshold > 0
-      ? [{ minSpend: String(p.highValueThreshold), discountType: 'percentage', discountValue: String(p.highValueDiscountPercent || 20) }]
-      : [{ minSpend: '12000', discountType: 'percentage', discountValue: '20' }];
 
     let existingGiftTiers = Array.isArray(p.giftTiers) && p.giftTiers.length > 0
       ? p.giftTiers
@@ -169,9 +151,9 @@ const AdminAllInOneProducts = () => {
       discountValidUntil: p.discountValidUntil ? p.discountValidUntil.slice(0, 16) : '',
       couponsList: existingCoupons,
       quantityDiscounts: existingQtyDiscounts,
-      bulkTiers: existingBulkTiers,
       giftTiers: existingGiftTiers,
-      isFreeDelivery: !!p.isFreeDelivery
+      isFreeDelivery: !!p.isFreeDelivery,
+      inStock: p.inStock !== false // 🟢 purana product bhi default In Stock
     });
 
     setImagePreview(p.image ? (p.image.startsWith('http') ? p.image : `${API_BASE.replace('/api', '')}${p.image}`) : null);
@@ -195,8 +177,11 @@ const AdminAllInOneProducts = () => {
     try {
       const data = new FormData();
       Object.keys(formData).forEach((key) => {
-        if (['bulkTiers', 'giftTiers', 'couponsList', 'quantityDiscounts'].includes(key)) {
+        if (['giftTiers', 'couponsList', 'quantityDiscounts'].includes(key)) {
           data.append(key, JSON.stringify(formData[key]));
+        } else if (key === 'inStock' || key === 'isFreeDelivery') {
+          // 🟢 Boolean ko hamesha 'true' / 'false' string bana kar bhejo
+          data.append(key, formData[key] ? 'true' : 'false');
         } else {
           data.append(key, formData[key]);
         }
@@ -232,6 +217,35 @@ const AdminAllInOneProducts = () => {
     }
   };
 
+  // 🟢 LIST ME SE 1-CLICK STOCK TOGGLE (In Stock <-> Out of Stock)
+  const handleQuickStockToggle = async (p) => {
+    const nextValue = p.inStock === false; // abhi out hai to true karo
+    setStockBusyId(p._id);
+    try {
+      const data = new FormData();
+      data.append('inStock', nextValue ? 'true' : 'false');
+
+      const res = await fetch(`${API_BASE}/products/${p._id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: data
+      });
+
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || 'Stock update failed');
+
+      setProducts((prev) => prev.map((item) => (item._id === p._id ? { ...item, inStock: nextValue } : item)));
+      setMsg({
+        text: nextValue ? `✅ "${p.name}" ab IN STOCK hai` : `⛔ "${p.name}" ab OUT OF STOCK hai`,
+        type: 'success'
+      });
+    } catch (err) {
+      setMsg({ text: err.message || 'Stock update failed', type: 'error' });
+    } finally {
+      setStockBusyId(null);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this product and all its offers?')) return;
     try {
@@ -256,7 +270,7 @@ const AdminAllInOneProducts = () => {
             {editingId ? '✏️ Edit Sweet & Dynamic Multi-Offer Rules' : '➕ Add Sweet & Unlimited Custom Offers'}
           </h1>
           <p style={{ margin: '5px 0 0', color: '#64748b' }}>
-            Create and manage multiple discounts, pack quantity offers, secret coupons, bulk slabs (₹12k+), and free gifts in one form!
+            Create and manage stock status, multiple discounts, pack quantity offers, secret coupons and free gifts in one form!
           </p>
         </div>
         {editingId && (
@@ -273,7 +287,7 @@ const AdminAllInOneProducts = () => {
       )}
 
       <form onSubmit={handleSubmit} style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
-        
+
         {/* 1. BASIC DETAILS */}
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', color: '#334155' }}>📦 1. Basic Sweet Details</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', marginTop: '12px' }}>
@@ -298,7 +312,65 @@ const AdminAllInOneProducts = () => {
           </div>
         </div>
 
-        {/* 2. PRICING */}
+        {/* 🟢 2. STOCK STATUS (NEW) */}
+        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: formData.inStock ? '#15803d' : '#b91c1c' }}>
+          🏷️ 2. Stock Status
+        </h3>
+        <div
+          style={{
+            marginTop: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            flexWrap: 'wrap',
+            background: formData.inStock ? '#f0fdf4' : '#fef2f2',
+            border: `1.5px solid ${formData.inStock ? '#bbf7d0' : '#fecaca'}`,
+            padding: '14px 16px',
+            borderRadius: '10px'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setStockStatus(true)}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '30px',
+              border: formData.inStock ? '2px solid #15803d' : '2px solid #e2e8f0',
+              background: formData.inStock ? '#15803d' : '#fff',
+              color: formData.inStock ? '#fff' : '#64748b',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            ✅ In Stock
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStockStatus(false)}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '30px',
+              border: !formData.inStock ? '2px solid #dc2626' : '2px solid #e2e8f0',
+              background: !formData.inStock ? '#dc2626' : '#fff',
+              color: !formData.inStock ? '#fff' : '#64748b',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            ⛔ Out of Stock
+          </button>
+
+          <span style={{ fontSize: '0.85rem', color: '#475569' }}>
+            {formData.inStock
+              ? 'Ye sweet website par normally dikhegi aur cart me add ho sakegi.'
+              : 'Ye sweet homepage par blur dikhegi aur "Out of Stock" ki wajah se cart me add nahi hogi.'}
+          </span>
+        </div>
+
+        {/* 3. PRICING */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', marginTop: '15px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Base Selling Price (₹) *</label>
@@ -314,9 +386,9 @@ const AdminAllInOneProducts = () => {
           </div>
         </div>
 
-        {/* 3. TIMELINE DISCOUNT */}
+        {/* 4. TIMELINE DISCOUNT */}
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#d97706' }}>
-          ⏳ 2. Limited Days Special Discount (Timeline Offer)
+          ⏳ 3. Limited Days Special Discount (Timeline Offer)
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', marginTop: '12px', background: '#fffbeb', padding: '15px', borderRadius: '8px' }}>
           <div>
@@ -329,9 +401,9 @@ const AdminAllInOneProducts = () => {
           </div>
         </div>
 
-        {/* 4. MULTIPLE COUPONS */}
+        {/* 5. MULTIPLE COUPONS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
-          <h3 style={{ margin: 0, color: '#7c3aed' }}>🎟️ 3. Product Secret Coupons (Add Multiple with +)</h3>
+          <h3 style={{ margin: 0, color: '#7c3aed' }}>🎟️ 4. Product Secret Coupons (Add Multiple with +)</h3>
           <button type="button" onClick={addCoupon} style={{ padding: '6px 14px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
             ➕ Add Another Coupon
           </button>
@@ -370,9 +442,9 @@ const AdminAllInOneProducts = () => {
           ))}
         </div>
 
-        {/* 5. MULTIPLE PACK DISCOUNTS */}
+        {/* 6. MULTIPLE PACK DISCOUNTS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
-          <h3 style={{ margin: 0, color: '#ea580c' }}>📦 4. Quantity / Pack Discounts (Buy 2+, Buy 5+ with +)</h3>
+          <h3 style={{ margin: 0, color: '#ea580c' }}>📦 5. Quantity / Pack Discounts (Buy 2+, Buy 5+ with +)</h3>
           <button type="button" onClick={addQtyDiscount} style={{ padding: '6px 14px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
             ➕ Add Qty Slab
           </button>
@@ -391,39 +463,6 @@ const AdminAllInOneProducts = () => {
               </div>
               {formData.quantityDiscounts.length > 1 && (
                 <button type="button" onClick={() => removeQtyDiscount(idx)} style={removeBtnStyle} title="Remove">✕</button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* 6. MULTIPLE BULK TIERS */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
-          <h3 style={{ margin: 0, color: '#059669' }}>💎 5. High-Value Bulk Spend Tiers (₹5k, ₹12k, ₹25k+ with +)</h3>
-          <button type="button" onClick={addBulkTier} style={{ padding: '6px 14px', background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-            ➕ Add More Bulk Tier
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-          {formData.bulkTiers.map((tier, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.5fr auto', gap: '12px', background: '#ecfdf5', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
-              <div>
-                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#047857' }}>Min Spend Threshold (₹) [Tier {idx + 1}]</label>
-                <input type="number" placeholder="e.g. 12000" value={tier.minSpend} onChange={(e) => handleBulkTierChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#047857' }}>Type</label>
-                <select value={tier.discountType || 'percentage'} onChange={(e) => handleBulkTierChange(idx, 'discountType', e.target.value)} style={inputStyle}>
-                  <option value="percentage">% Percentage</option>
-                  <option value="flat">Flat (₹)</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#047857' }}>Discount Value</label>
-                <input type="number" placeholder="e.g. 20" value={tier.discountValue || tier.discountPercent || ''} onChange={(e) => handleBulkTierChange(idx, 'discountValue', e.target.value)} style={inputStyle} />
-              </div>
-              {formData.bulkTiers.length > 1 && (
-                <button type="button" onClick={() => removeBulkTier(idx)} style={removeBtnStyle} title="Remove">✕</button>
               )}
             </div>
           ))}
@@ -475,7 +514,7 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {/* SUBMIT BUTTON */}
-        <div style={{ marginTop: '25px', display: 'flex', gap: '10px' }}>
+        <div style={{ marginTop: '25px', display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button type="submit" disabled={loading} style={{ padding: '12px 28px', background: editingId ? '#059669' : '#94191d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
             {loading ? 'Processing...' : editingId ? '💾 Update Sweet Product' : '🚀 Save & Publish Sweet'}
           </button>
@@ -484,6 +523,9 @@ const AdminAllInOneProducts = () => {
               Cancel
             </button>
           )}
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: formData.inStock ? '#15803d' : '#dc2626' }}>
+            {formData.inStock ? '✅ Saving as IN STOCK' : '⛔ Saving as OUT OF STOCK'}
+          </span>
         </div>
       </form>
 
@@ -493,16 +535,27 @@ const AdminAllInOneProducts = () => {
         <div style={{ display: 'grid', gap: '12px' }}>
           {products.map((p) => {
             const hasTimeline = p.discountPercent > 0 && (!p.discountValidUntil || new Date(p.discountValidUntil) > new Date());
-            const bulkList = Array.isArray(p.bulkTiers) ? p.bulkTiers : (p.highValueThreshold ? [{ minSpend: p.highValueThreshold, discountValue: p.highValueDiscountPercent }] : []);
             const giftList = Array.isArray(p.giftTiers) ? p.giftTiers : [];
             const coupons = Array.isArray(p.couponsList) ? p.couponsList : (p.productCouponCode ? [{ code: p.productCouponCode, discountValue: p.productCouponDiscount }] : []);
             const qtyList = Array.isArray(p.quantityDiscounts) ? p.quantityDiscounts : [];
             const imgSrc = p.image?.startsWith('http') ? p.image : `${API_BASE.replace('/api', '')}${p.image}`;
+            const outOfStock = p.inStock === false;
 
             return (
-              <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '16px 20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `5px solid ${editingId === p._id ? '#059669' : '#94191d'}` }}>
+              <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', background: outOfStock ? '#fff8f8' : '#fff', padding: '16px 20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `5px solid ${outOfStock ? '#dc2626' : editingId === p._id ? '#059669' : '#94191d'}` }}>
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                  <img src={imgSrc} alt={p.name} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover' }} />
+                  <img
+                    src={imgSrc}
+                    alt={p.name}
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '8px',
+                      objectFit: 'cover',
+                      filter: outOfStock ? 'blur(2px) grayscale(0.8)' : 'none',
+                      opacity: outOfStock ? 0.7 : 1
+                    }}
+                  />
                   <div>
                     <h3 style={{ margin: '0 0 4px', fontSize: '1.05rem', color: '#1e293b' }}>{p.name}</h3>
                     <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
@@ -510,6 +563,11 @@ const AdminAllInOneProducts = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      {/* 🟢 STOCK BADGE */}
+                      <span style={{ background: outOfStock ? '#fee2e2' : '#dcfce7', color: outOfStock ? '#b91c1c' : '#15803d', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                        {outOfStock ? '⛔ Out of Stock' : '✅ In Stock'}
+                      </span>
+
                       {hasTimeline && (
                         <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
                           ⏳ {p.discountPercent}% OFF
@@ -523,11 +581,6 @@ const AdminAllInOneProducts = () => {
                       {qtyList.map((q, i) => (
                         <span key={i} style={{ background: '#ffedd5', color: '#c2410c', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
                           📦 Buy {q.minQty}+ Packs = {q.discountPercent}% OFF
-                        </span>
-                      ))}
-                      {bulkList.map((b, i) => (
-                        <span key={i} style={{ background: '#dcfce7', color: '#166534', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          💎 ₹{Number(b.minSpend).toLocaleString('en-IN')}+ = {b.discountValue || b.discountPercent}% OFF
                         </span>
                       ))}
                       {giftList.map((g, i) => (
@@ -544,7 +597,27 @@ const AdminAllInOneProducts = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+                  {/* 🟢 1-CLICK STOCK TOGGLE */}
+                  <button
+                    onClick={() => handleQuickStockToggle(p)}
+                    disabled={stockBusyId === p._id}
+                    title={outOfStock ? 'Mark as In Stock' : 'Mark as Out of Stock'}
+                    style={{
+                      background: outOfStock ? '#15803d' : '#f59e0b',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      cursor: stockBusyId === p._id ? 'wait' : 'pointer',
+                      fontWeight: 'bold',
+                      opacity: stockBusyId === p._id ? 0.6 : 1,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {stockBusyId === p._id ? '...' : outOfStock ? '✅ In Stock karo' : '⛔ Out of Stock karo'}
+                  </button>
+
                   <button onClick={() => handleEditClick(p)} style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                     ✏️ Edit
                   </button>
