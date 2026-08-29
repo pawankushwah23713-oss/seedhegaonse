@@ -789,35 +789,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   </div>
 
                   {/* CARD 2: GIFT PACKAGING BOX CHECKBOX */}
-                  <div
-                    onClick={() => setIsGiftBoxSelected(!isGiftBoxSelected)}
-                    style={{
-                      background: '#fff',
-                      border: `1.5px solid ${isGiftBoxSelected ? '#b91c1c' : '#e2e8f0'}`,
-                      borderRadius: '10px',
-                      padding: '14px 18px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '12px',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isGiftBoxSelected}
-                      onChange={() => {}}
-                      style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#b91c1c', width: '18px', height: '18px' }}
-                    />
-                    <div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#94191d' }}>
-                        🎁 Pack in a Special Gift Box (+₹{formatMoney(GIFT_BOX_CHARGE)})
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
-                        Add premium gift box packaging to your order.
-                      </div>
-                    </div>
-                  </div>
+          
                 </div>
 
                 {/* 👉 RIGHT COLUMN: ORDER SUMMARY */}
