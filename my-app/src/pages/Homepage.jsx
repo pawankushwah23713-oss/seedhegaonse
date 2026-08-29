@@ -265,11 +265,8 @@ const loadWishlist = () => {
 };
 
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
-
-// 🟢 DRAG THRESHOLD (px) - decides how far user must swipe/drag to change slide
 const SWIPE_THRESHOLD = 40;
 
-// 🟢 Card Image Slider (Auto-scroll + REAL live-follow drag with mouse OR finger)
 const CardImageSlider = ({ images, alt }) => {
   const [index, setIndex] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -305,7 +302,6 @@ const CardImageSlider = ({ images, alt }) => {
     setDragOffset(0);
   };
 
-  // 🟢 Pointer Events = works for BOTH mouse drag (desktop "hath se scroll") AND touch swipe (mobile)
   const handlePointerDown = (e) => {
     if (slides.length <= 1) return;
     isDraggingRef.current = true;
@@ -332,7 +328,6 @@ const CardImageSlider = ({ images, alt }) => {
 
   const handlePointerCancel = () => finishDrag(dragOffset);
 
-  // Prevents the parent card's onClick (open modal) from firing right after a drag/swipe
   const handleClickCapture = (e) => {
     if (movedRef.current) {
       e.preventDefault();
@@ -401,7 +396,6 @@ const CardImageSlider = ({ images, alt }) => {
   );
 };
 
-// 🟢 Modal Image Slider (Auto-scroll + REAL live-follow drag with mouse OR finger, popup ke andar)
 const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChange }) => {
   const [index, setIndex] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -438,8 +432,6 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChan
     setDragOffset(0);
   };
 
-  // 🟢 Pointer Events = works for BOTH mouse drag (desktop "hath se scroll") AND touch swipe (mobile)
-  // Popup/quick-view ke andar bhi ab hath se (mouse drag) image slide ho sakti hai
   const handlePointerDown = (e) => {
     if (slides.length <= 1) return;
     isDraggingRef.current = true;
@@ -528,7 +520,6 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChan
   );
 };
 
-// 🟢 Individual Product Card Component
 const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAddToCart }) => {
   const isDummy = isDummyProduct(product);
   const variants = getProductVariants(product);
@@ -540,7 +531,6 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
 
   return (
     <div className="sg-product-card" onClick={() => onOpenModal(product, selectedVariant)}>
-      {/* TOP BADGE BAR */}
       <div className="sg-card-top-bar">
         {!isDummy && pricing.discountPercent ? (
           <span className="sg-badge-discount">{pricing.discountPercent}% OFF</span>
@@ -550,7 +540,6 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
           <span className="sg-badge-category-mini">{product.category}</span>
         )}
 
-        {/* LIKE BUTTON */}
         <button
           type="button"
           className={`sg-card-heart-btn ${liked ? 'sg-is-liked' : ''}`}
@@ -563,7 +552,6 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
         </button>
       </div>
 
-      {/* PRODUCT IMAGE + SLIDER (single image, no offer/gift image — matches CakePage style) */}
       <div className="sg-card-media-box">
         <CardImageSlider
           images={[getImageUrl(product.image)]}
@@ -571,18 +559,15 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
         />
       </div>
 
-      {/* ORIGIN STRIP (always shown, no offer/gift strip — matches CakePage style) */}
       <div className="sg-card-origin-strip">
         <span>📍 Handcrafted in {product.originRegion || 'Authentic Village'}</span>
       </div>
 
-      {/* DETAILS BODY */}
       <div className="sg-card-body">
         <h3 className="sg-card-title" title={product.name}>
           {product.name}
         </h3>
 
-        {/* VARIANTS DISPLAY */}
         <div className="sg-card-variants-container" onClick={(e) => e.stopPropagation()}>
           <div className="sg-variant-chips-list">
             {variants.map((v, idx) => {
@@ -601,7 +586,6 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
           </div>
         </div>
 
-        {/* PRICING & ACTION FOOTER */}
         <div className="sg-card-footer">
           <div className="sg-card-price-group">
             <div className="sg-price-row">
@@ -635,23 +619,18 @@ const Homepage = ({ addToCart, addedToast }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [openFaq, setOpenFaq] = useState(null);
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
 
-  // Modal & Quantity State
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedModalVariant, setSelectedModalVariant] = useState(null);
   const [modalQty, setModalQty] = useState(1);
 
-  // Ultra Zoom State
   const [zoomStyle, setZoomStyle] = useState({
     transformOrigin: 'center center',
     transform: 'scale(1)'
   });
 
-  // 🟢 Tracks whether user is currently drag-swiping the popup image with mouse/hand,
-  // so hover-zoom doesn't fight with the manual slide drag
   const [isImageDragging, setIsImageDragging] = useState(false);
 
   const handleMouseMove = (e) => {
@@ -694,13 +673,13 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Fetch Live Products & Merge with Dummy Products
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
         setLoading(true);
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
+        console.log(data);
 
         if (res.ok && Array.isArray(data) && data.length > 0) {
           const apiProductIds = new Set(data.map((p) => p._id?.toString()));
@@ -730,6 +709,7 @@ const Homepage = ({ addToCart, addedToast }) => {
           }
         });
         const data = await res.json();
+        console.log(data);
 
         if (res.ok && Array.isArray(data)) {
           const serverWishlistIds = data
@@ -754,7 +734,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));
   }, [wishlist]);
 
-  // Scroll Reveal Observer
   useEffect(() => {
     const revealElements = document.querySelectorAll('.sg-reveal');
     const observer = new IntersectionObserver(
@@ -834,7 +813,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
-  // Filter Logic
   const filteredProducts = products.filter((p) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'wishlist') return isWishlisted(p._id);
@@ -861,7 +839,6 @@ const Homepage = ({ addToCart, addedToast }) => {
     }
   });
 
-  // Add To Cart (Directly allowed even if not logged in)
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
     const activeVariant = variant || (p.variants && p.variants[0]) || {
       weight: '250g',
@@ -882,20 +859,17 @@ const Homepage = ({ addToCart, addedToast }) => {
       quantity: qty,
       totalPrice: variantPrice * qty,
       img: getImageUrl(p.image),
-      originRegion: p.originRegion
+      originRegion: p.originRegion,
+      giftTiers: p.giftTiers || [],
+      bulkTiers: p.bulkTiers || [],
+      couponsList: p.couponsList || [],
+      isFreeDelivery: p.isFreeDelivery || false
     });
     return true;
   };
 
-  const faqList = [
-    { q: 'How do you guarantee Same Day Delivery in Delhi NCR?', a: 'All orders placed before 4 PM in Delhi NCR are freshly prepared in the morning and dispatched via our express delivery partners.' },
-    { q: 'Are preservatives or artificial flavours added?', a: 'No! Absolutely 0 preservatives and 0 artificial flavours. We prepare sweets daily using 100% pure Desi Ghee.' },
-    { q: 'What is the shelf life of these traditional sweets?', a: 'Our sweets remain perfectly fresh for 7 to 10 days at room temperature, and up to 15 days if refrigerated.' }
-  ];
-
   return (
     <div className="sg-homepage-container">
-      {/* FLOATING WHATSAPP BUTTON */}
       <a
         href="https://wa.me/919315911105"
         className="sg-whatsapp-button sg-pulse-anim"
@@ -908,7 +882,6 @@ const Homepage = ({ addToCart, addedToast }) => {
         </svg>
       </a>
 
-      {/* AUTH REQUIRED ALERT */}
       {authAlert && (
         <div className="sg-cart-toast sg-fade-slide-up" style={{ background: '#dc2626' }}>
           <span>⚠️ {authAlert}</span>
@@ -916,14 +889,12 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       )}
 
-      {/* TOAST NOTIFICATION */}
       {addedToast && !authAlert && (
         <div className="sg-cart-toast sg-fade-slide-up">
           ✓ <strong>{addedToast}</strong> added to cart
         </div>
       )}
 
-      {/* PRODUCT DETAILS MODAL (QUICK VIEW) */}
       {selectedProduct && (() => {
         const isDummy = isDummyProduct(selectedProduct);
         const modalVariants = getProductVariants(selectedProduct);
@@ -935,7 +906,6 @@ const Homepage = ({ addToCart, addedToast }) => {
             <div className="sg-product-modal-card" onClick={(e) => e.stopPropagation()}>
               <button className="sg-modal-close-btn" onClick={() => setSelectedProduct(null)} aria-label="Close">✕</button>
 
-              {/* Left Column: Image with Zoom (single image, no offer/gift image) */}
               <div className="sg-modal-image-col" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
                 <ModalImageSlider
                   images={[getImageUrl(selectedProduct.image)]}
@@ -946,7 +916,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                 />
               </div>
 
-              {/* Right Column: Information & Actions */}
               <div className="sg-modal-info-col">
                 <div>
                   <div className="sg-modal-tags-row">
@@ -960,7 +929,6 @@ const Homepage = ({ addToCart, addedToast }) => {
 
                   <h3 className="sg-modal-title">{selectedProduct.name}</h3>
 
-                  {/* ALL VARIANTS DISPLAY IN MODAL */}
                   <div className="sg-modal-variant-section">
                     <span className="sg-variant-section-title">Select Pack Size / Weight:</span>
                     <div className="sg-modal-variant-chips">
@@ -980,7 +948,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                     </div>
                   </div>
 
-                  {/* Pricing Box */}
                   <div className="sg-modal-price-box">
                     <div className="sg-modal-price-numbers">
                       <span className="sg-modal-current-price">₹{pricing.price}</span>
@@ -994,8 +961,8 @@ const Homepage = ({ addToCart, addedToast }) => {
                   <p className="sg-modal-desc">
                     {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
                   </p>
-
                 </div>
+
                 <div className="sg-modal-trust-checklist">
                   <div className="sg-trust-check-item">✓ 100% Pure Desi Ghee</div>
                   <div className="sg-trust-check-item">✓ 0 Preservatives Added</div>
@@ -1003,7 +970,6 @@ const Homepage = ({ addToCart, addedToast }) => {
                   <div className="sg-trust-check-item">✓ Hygienically Packed</div>
                 </div>
 
-                {/* Modal Buttons: Heart + Stepper + Add to Cart in one row */}
                 <div className="sg-modal-actions-row">
                   <button
                     className="sg-btn-modal-wishlist"
@@ -1029,7 +995,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                     }}
                     disabled={selectedProduct.inStock === false}
                   >
-                    {selectedProduct.inStock === false ? 'Out of Stock' : `Add ${modalQty} to Cart • ₹${pricing.price}`}
+                    {selectedProduct.inStock === false ? 'Out of Stock' : `Add ${modalQty} to Cart • ₹{pricing.price}`}
                   </button>
                 </div>
               </div>
@@ -1038,7 +1004,6 @@ const Homepage = ({ addToCart, addedToast }) => {
         );
       })()}
 
-      {/* HERO SLIDER SECTION */}
       <section className="sg-hero-slider-section">
         {heroSlides.map((slide, index) => (
           <div
@@ -1061,7 +1026,6 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       </section>
 
-      {/* HERO KE BAAD: 4 USP FEATURE CARDS + TRUST HIGHLIGHTS */}
       <section className="sg-usp-banner-section sg-container sg-reveal">
         <div className="sg-usp-grid">
           <div className="sg-usp-card">
@@ -1098,7 +1062,6 @@ const Homepage = ({ addToCart, addedToast }) => {
         </div>
       </section>
 
-      {/* MAIN PRODUCTS SECTION */}
       <section id="products" className="sg-products-section sg-container sg-reveal">
         <div className="sg-section-heading-wrap">
           <div>
@@ -1106,7 +1069,6 @@ const Homepage = ({ addToCart, addedToast }) => {
             <h2 className="sg-main-heading">Village Special Sweets</h2>
           </div>
 
-          {/* FILTER TABS */}
           <div className="sg-tab-filters">
             <button className={`sg-tab-btn ${activeTab === 'all' ? 'sg-active' : ''}`} onClick={() => setActiveTab('all')}>
               🍬 All Sweets ({products.length})
@@ -1135,7 +1097,6 @@ const Homepage = ({ addToCart, addedToast }) => {
           </div>
         </div>
 
-        {/* PRODUCTS GRID */}
         {loading && products.length === 0 ? (
           <div className="sg-empty-loading-state">
             <div className="sg-spinner"></div>
@@ -1164,7 +1125,6 @@ const Homepage = ({ addToCart, addedToast }) => {
         )}
       </section>
 
-      {/* GALLERY SECTION */}
       {products.length > 0 && (
         <section className="sg-gallery-slider-section sg-reveal">
           <div className="sg-section-heading-wrap sg-text-center sg-container" style={{ marginBottom: '18px' }}>

@@ -16,6 +16,8 @@
   left: 0;
   right: 0;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   z-index: 10000;
   background: #ffffff;
 }
@@ -56,6 +58,8 @@
   background: var(--header-bg);
   border-bottom: 1px solid var(--border-light);
   position: relative;
+  max-width: 100%;
+  box-sizing: border-box;
   transition: all 0.3s ease;
 }
 
@@ -67,32 +71,40 @@
 
 .header-container {
   max-width: 1400px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 12px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
+  min-width: 0;
   gap: 15px;
 }
 
-/* LOGO */
+/* LOGO — ab shrink ho sakta hai (pehle flex-shrink:0 tha => phone par overflow) */
 .header-logo {
   display: flex;
   align-items: center;
   gap: 10px;
   text-decoration: none;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .logo-image {
   height: 52px;
   width: auto;
+  flex-shrink: 0;
   object-fit: contain;
 }
 
 .logo-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .logo-brand-title {
@@ -101,12 +113,20 @@
   color: var(--primary-green);
   line-height: 1.1;
   text-transform: uppercase;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .logo-brand-tagline {
   font-size: 10px;
   color: #6b7c75;
   font-weight: 500;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* DESKTOP NAVBAR */
@@ -200,6 +220,7 @@
 .header-actions {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 15px;
 }
 
@@ -229,6 +250,7 @@
 .avatar-circle {
   width: 28px;
   height: 28px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary-green), #16a34a);
   color: #ffffff;
@@ -255,6 +277,8 @@
   top: calc(100% + 12px);
   right: 0;
   width: 270px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid var(--border-light);
@@ -360,6 +384,7 @@
 
 .dropdown-links-list li button svg {
   color: #6b7280;
+  flex-shrink: 0;
   transition: color 0.2s ease;
 }
 
@@ -408,6 +433,8 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -422,6 +449,7 @@
   color: var(--primary-green);
   cursor: pointer;
   padding: 6px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
 }
@@ -449,6 +477,7 @@
   justify-content: space-between;
   width: 26px;
   height: 18px;
+  flex-shrink: 0;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -485,15 +514,21 @@
   transition: max-height 0.4s ease-in-out;
 }
 
+/* Menu ab andar se scroll hoga — neeche ke links cut nahi honge */
 .mobile-nav-menu.show {
-  max-height: 600px;
+  max-height: calc(100vh - 110px);
+  max-height: calc(100dvh - 110px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .mobile-menu-list {
   list-style: none;
   margin: 0;
   padding: 15px 20px;
+  padding-bottom: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -512,17 +547,24 @@
 .mobile-user-details {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .mobile-name {
   font-size: 14px;
   font-weight: 800;
   color: var(--primary-green-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobile-phone {
   font-size: 11px;
   color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobile-menu-list a {
@@ -531,7 +573,7 @@
   font-weight: 600;
   font-size: 15px;
   display: block;
-  padding: 4px 0;
+  padding: 6px 0;
 }
 
 .mobile-dropdown-header {
@@ -542,7 +584,7 @@
   font-size: 15px;
   color: var(--text-dark);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 6px 0;
 }
 
 .accordion-icon {
@@ -592,53 +634,14 @@
 }
 
 /* =================================================== */
-/* RESPONSIVE MEDIA QUERIES                            */
-/* =================================================== */
-@media screen and (max-width: 992px) {
-  .desktop-navbar {
-    display: none;
-  }
-  .mobile-hamburger-btn {
-    display: flex;
-  }
-  .mobile-nav-menu {
-    display: block;
-  }
-  .header-container {
-    padding: 10px 16px;
-  }
-}
-
-@media screen and (max-width: 576px) {
-  .announcement-bar {
-    font-size: 10px;
-    padding: 6px 8px;
-  }
-  .announcement-content .divider {
-    display: none;
-  }
-  .logo-image {
-    height: 34px;
-  }
-  .logo-brand-title {
-    font-size: 15px;
-  }
-  .logo-brand-tagline {
-    font-size: 8px;
-  }
-  .header-actions {
-    gap: 8px;
-  }
-}
-
-/* =================================================== */
-/* 🔍 SEARCH ICON + SEARCH BAR (NEW — added only)      */
+/* 🔍 SEARCH ICON + SEARCH BAR                          */
 /* =================================================== */
 
 .search-wrap {
   position: relative;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 /* Icon button — same visual language as cart-trigger */
@@ -676,6 +679,7 @@
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12), 0 5px 15px rgba(0, 0, 0, 0.05);
   width: 300px;
   max-width: 80vw;
+  box-sizing: border-box;
   z-index: 1050;
 }
 
@@ -771,14 +775,164 @@
   flex-shrink: 0;
 }
 
-/* On narrow screens, keep the desktop search panel from overflowing the viewport */
-@media screen and (max-width: 576px) {
+/* =================================================== */
+/* RESPONSIVE MEDIA QUERIES                            */
+/* =================================================== */
+
+/* TABLET + MOBILE */
+@media screen and (max-width: 992px) {
+  .desktop-navbar {
+    display: none;
+  }
+
+  .mobile-hamburger-btn {
+    display: flex;
+  }
+
+  .mobile-nav-menu {
+    display: block;
+  }
+
+  .header-container {
+    padding: 10px 14px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    gap: 10px;
+  }
+
+  .header-actions {
+    gap: 10px;
+  }
+
+  /* Thoda bada tap area (touch ke liye) */
+  .search-trigger,
+  .cart-trigger {
+    padding: 8px;
+  }
+
+  /* 🔍 Search panel ab poori header width me khulega, screen se bahar nahi */
+  .search-wrap {
+    position: static;
+  }
+
   .search-panel {
-    position: fixed;
-    top: 96px;
+    position: absolute;
+    top: calc(100% + 8px);
     left: 12px;
     right: 12px;
     width: auto;
     max-width: none;
+  }
+
+  /* iPhone par 16px se choti font wale input par focus karte hi
+     page auto-zoom ho jata hai — isliye 16px */
+  .search-panel-input,
+  .mobile-search-input {
+    font-size: 16px;
+  }
+
+  /* 👤 Account card viewport ke andar hi rahega */
+  .account-wrap {
+    position: static;
+  }
+
+  .account-dropdown-card {
+    top: calc(100% + 8px);
+    left: auto;
+    right: 12px;
+    width: min(280px, calc(100vw - 24px));
+  }
+}
+
+/* PHONES */
+@media screen and (max-width: 576px) {
+  .announcement-bar {
+    font-size: 10px;
+    line-height: 1.4;
+    padding: 6px 10px;
+  }
+
+  .announcement-content {
+    gap: 6px;
+  }
+
+  .announcement-content .divider {
+    display: none;
+  }
+
+  .header-container {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    gap: 8px;
+  }
+
+  .logo-image {
+    height: 36px;
+  }
+
+  .logo-brand-title {
+    font-size: 14px;
+  }
+
+  .logo-brand-tagline {
+    font-size: 8.5px;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .signin-trigger {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .cart-count {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+
+  .mobile-nav-menu.show {
+    max-height: calc(100vh - 100px);
+    max-height: calc(100dvh - 100px);
+  }
+}
+
+/* CHHOTE iPHONE (SE / mini) */
+@media screen and (max-width: 400px) {
+  /* "Sign In" ka text hat kar sirf icon — jagah bach jati hai */
+  .signin-text {
+    display: none;
+  }
+
+  .signin-trigger {
+    padding: 7px;
+    border-radius: 50%;
+  }
+
+  .search-panel {
+    left: 8px;
+    right: 8px;
+    padding: 6px 6px 6px 12px;
+  }
+
+  .search-panel-go,
+  .mobile-search-go {
+    padding: 6px 10px;
+  }
+}
+
+@media screen and (max-width: 360px) {
+  .logo-brand-tagline {
+    display: none;
+  }
+}
+
+/* LANDSCAPE (phone tedha karne par menu poora scroll ho) */
+@media screen and (max-width: 992px) and (orientation: landscape) {
+  .mobile-nav-menu.show {
+    max-height: calc(100vh - 80px);
+    max-height: calc(100dvh - 80px);
   }
 }
