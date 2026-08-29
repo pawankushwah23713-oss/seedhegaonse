@@ -48,7 +48,7 @@ const parseNumericPrice = (val) => {
   return parseFloat(String(val || 0).replace(/[₹,]/g, '').trim()) || 0;
 };
 
-// 🔑 Cart item ki id me se Mongo _id nikalta hai (e.g. "68ab12...-500g" => "68ab12...")
+// Extract MongoDB ObjectId from cart item ID
 const extractObjectId = (val) => {
   const match = String(val || '').match(/[0-9a-fA-F]{24}/);
   return match ? match[0] : null;
@@ -97,18 +97,18 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
-  // 🎁 Gift Packaging Box (+₹50)
+  // Gift Packaging Box (+₹50)
   const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
   const GIFT_BOX_CHARGE = 50.00;
   const FOUNDER_DELIVERY_CHARGE = 5000.00;
 
-  // ℹ️ Tax Info Popup Hover State
+  // Tax Info Popup Hover State
   const [showTaxInfo, setShowTaxInfo] = useState(false);
 
-  // 🚚 Shipping Mode
+  // Shipping Mode
   const [shippingMode, setShippingMode] = useState('');
 
-  // 🚚 Pincode Delivery Charge States
+  // Pincode Delivery Charge States
   const [pincodeDeliveryCharge, setPincodeDeliveryCharge] = useState(null);
   const [pincodeStatusMsg, setPincodeStatusMsg] = useState('');
   const [isPincodeLoading, setIsPincodeLoading] = useState(false);
@@ -116,7 +116,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [upiRef, setUpiRef] = useState('');
 
-  // 🎁🎟️ Admin ke gift tiers / coupons yahan store hote hain (product API se)
+  // Store product offers from API
   const [productOffers, setProductOffers] = useState({});
   const [offersLoading, setOffersLoading] = useState(false);
 
@@ -137,7 +137,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 🟢 Cart khulte hi admin ke saare product offers (giftTiers + couponsList) le aao
+  // Fetch product offers from API when cart opens
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -155,7 +155,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
             giftTiers: ensureArray(p.giftTiers),
             couponsList: ensureArray(p.couponsList),
             bulkTiers: ensureArray(p.bulkTiers),
-            quantityDiscounts: ensureArray(p.quantityDiscounts),
+            quantityDiscounts: ensureArray(p.quantityDiscounts || p.qtyDiscounts || p.packDiscounts || p.quantityTiers || p.packTiers),
             highValueThreshold: p.highValueThreshold,
             highValueDiscountPercent: p.highValueDiscountPercent,
             isFreeDelivery: p.isFreeDelivery
@@ -176,7 +176,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // 🔗 Cart item + admin offers ko merge karo (parent component me kuch change karne ki zarurat nahi)
+  // Merge Cart Items with Product Offers
   const enrichedCartItems = cartItems.map((item) => {
     const idKey = extractObjectId(item.productId) || extractObjectId(item.id) || String(item.productId || '');
     const offers = productOffers[idKey] || productOffers[`name:${nameKey(item.name)}`] || {};
@@ -191,7 +191,10 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       giftTiers: pick(item.giftTiers, offers.giftTiers),
       couponsList: pick(item.couponsList, offers.couponsList),
       bulkTiers: pick(item.bulkTiers, offers.bulkTiers),
-      quantityDiscounts: pick(item.quantityDiscounts, offers.quantityDiscounts),
+      quantityDiscounts: pick(
+        item.quantityDiscounts || item.qtyDiscounts || item.packDiscounts,
+        offers.quantityDiscounts
+      ),
       highValueThreshold: parseNumericPrice(item.highValueThreshold) > 0
         ? item.highValueThreshold
         : offers.highValueThreshold,
@@ -300,7 +303,43 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   }, 0);
   const effectiveCartTotal = round2(rawSubTotal);
 
-  let bulkDiscount = 0;
+  // 📦 CALCULATE QUANTITY / PACK DISCOUNTS (Buy 2+, Buy 5+ etc.)
+  let itemQtyDiscountsTotal = 0;
+  const itemAppliedQtyDiscounts = {};
+
+  enrichedCartItems.forEach((item) => {
+    const q = Number(item.qty || item.quantity || 1);
+    const uPrice = parseNumericPrice(item.unitPrice || item.price);
+    const itemSub = round2(uPrice * q);
+
+    const rawQtySlabs = ensureArray(item.quantityDiscounts || item.qtyDiscounts || item.packDiscounts || item.quantityTiers);
+    if (rawQtySlabs.length > 0) {
+      const validSlabs = rawQtySlabs
+        .map((qd) => ({
+          minQty: parseNumericPrice(qd.minQty ?? qd.minPacks ?? qd.minQuantity ?? qd.qty ?? qd.quantity ?? qd.packs ?? qd.min ?? 0),
+          discountVal: parseNumericPrice(qd.discountPercent ?? qd.discountPercentage ?? qd.discount ?? qd.discountValue ?? qd.percent ?? qd.extraDiscount ?? 0),
+          discountType: qd.discountType || 'percentage'
+        }))
+        .filter((s) => s.minQty > 0 && s.discountVal > 0)
+        .sort((a, b) => b.minQty - a.minQty); // Highest slab first
+
+      const activeSlab = validSlabs.find((s) => q >= s.minQty);
+      if (activeSlab) {
+        const disc = activeSlab.discountType === 'percentage'
+          ? round2((itemSub * activeSlab.discountVal) / 100)
+          : round2(activeSlab.discountVal * q);
+        itemQtyDiscountsTotal += disc;
+        itemAppliedQtyDiscounts[item.id] = {
+          percent: activeSlab.discountVal,
+          minQty: activeSlab.minQty,
+          discountAmount: disc
+        };
+      }
+    }
+  });
+
+  // Calculate Spend-based Bulk Tiers
+  let bulkSpendDiscount = 0;
   const allCartBulkTiers = [];
   enrichedCartItems.forEach((item) => {
     const rawTiers = ensureArray(item.bulkTiers);
@@ -330,11 +369,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       const calcDiscount = activeTier.discountType === 'flat'
         ? activeTier.discountValue
         : (effectiveCartTotal * activeTier.discountValue) / 100;
-      bulkDiscount = round2(calcDiscount);
+      bulkSpendDiscount = round2(calcDiscount);
     }
   }
 
-  // 🎟️ Admin ke saare product coupons (duplicate code hata kar) — lock/unlock ke saath
+  // Total discount on product = Quantity discounts + Bulk spend discounts
+  const bulkDiscount = round2(itemQtyDiscountsTotal + bulkSpendDiscount);
+
+  // Available Coupons List
   const availableCoupons = [];
   const seenCouponCodes = new Set();
   enrichedCartItems.forEach((item) => {
@@ -362,7 +404,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     });
   });
 
-  // 🎁 Admin ke gift tiers — Lock / Unlock logic (Highest active tier unlocks, others stay locked)
+  // Gift Tiers Roadmap (Single active unlocked tier)
   const giftTierRows = [];
   enrichedCartItems.forEach((item) => {
     const tiers = [];
@@ -393,10 +435,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     const calculatedSubTotal = round2(itemUnitPrice * itemQty);
     const itemSubTotal = calculatedSubTotal > 0 ? calculatedSubTotal : round2(parseNumericPrice(item.totalPrice) || effectiveCartTotal);
 
-    // Sort ascending by minSpend
     const sortedTiers = tiers.sort((a, b) => a.minSpend - b.minSpend);
 
-    // Find highest unlocked tier (Sirf ek highest reached tier unlock hoga, baki lock rahenge)
     const activeUnlockedTier = [...sortedTiers]
       .reverse()
       .find((t) => itemSubTotal >= t.minSpend && t.minSpend > 0);
@@ -466,7 +506,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     setStep('checkout');
   };
 
-  // overrideCode -> coupon card ke "Apply" button se aata hai
   const handleApplyCoupon = async (overrideCode) => {
     const rawCode = typeof overrideCode === 'string' ? overrideCode : couponCode;
     if (!rawCode.trim()) return setCouponMsg({ text: 'Please enter a coupon code.', type: 'error' });
@@ -729,6 +768,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         const unitPrice = parseNumericPrice(item.unitPrice || item.price);
                         const qty = Number(item.qty || item.quantity || 1);
                         const lineTotal = round2(unitPrice * qty);
+                        const activeQtyDisc = itemAppliedQtyDiscounts[item.id];
 
                         return (
                           <div key={item.id} style={{ display: 'flex', flexWrap: isSmallMobile ? 'wrap' : 'nowrap', justifyContent: 'space-between', alignItems: isSmallMobile ? 'flex-start' : 'center', gap: isSmallMobile ? '10px' : '0', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
@@ -745,6 +785,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                 <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
                                   Weight : {item.variant || '0.450 KG'}
                                 </div>
+                                {activeQtyDisc && (
+                                  <div style={{ fontSize: '0.74rem', color: '#15803d', fontWeight: '700', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <span>🎉 {activeQtyDisc.percent}% Pack Discount Applied!</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -788,8 +833,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     </div>
                   </div>
 
-                  {/* CARD 2: GIFT PACKAGING BOX CHECKBOX */}
-          
                 </div>
 
                 {/* 👉 RIGHT COLUMN: ORDER SUMMARY */}
@@ -831,7 +874,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         required
                       >
                         <option value="">⚠️ -- Select Shipping Option (Required) --</option>
-                        <option value="delivery">🚚  Home Delivery </option>
+                        <option value="delivery">🚚 Home Delivery </option>
                         <option value="founder">🎖️ Delivery by Founder </option>
                         <option value="pickup">🏬 Self Pickup - FREE</option>
                       </select>
@@ -839,7 +882,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
                     {shippingMode === 'founder' && (
                       <div style={{ background: '#fef3c7', border: '1px dashed #d97706', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
-                        🎖️ <strong>Founder  Delivery (₹5,000 Flat):</strong> Personally hand-delivered by our founder team!
+                        🎖️ <strong>Founder Delivery (₹5,000 Flat):</strong> Personally hand-delivered by our founder team!
                       </div>
                     )}
 
@@ -1603,7 +1646,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   )}
                   {placedOrderDetails.bulkDiscount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899', marginBottom: '4px' }}>
-                      <span>Bulk Discount:</span>
+                      <span>Discount on Product:</span>
                       <span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span>
                     </div>
                   )}
