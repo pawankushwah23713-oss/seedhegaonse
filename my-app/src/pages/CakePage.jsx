@@ -1011,40 +1011,8 @@ const CakePage = ({ addToCart, addedToast }) => {
 
       {/* MAIN PRODUCTS SECTION */}
       <section id="cakes" className="ck-products-section ck-container ck-reveal">
-        <div className="ck-section-heading-wrap">
-          <div>
-            <span className="ck-sub-heading">Fresh From The Oven</span>
-            <h2 className="ck-main-heading">Artisan Bakery Cakes</h2>
-          </div>
-
-          {/* FILTER TABS */}
-          <div className="ck-tab-filters">
-            <button className={`ck-tab-btn ${activeTab === 'all' ? 'ck-active' : ''}`} onClick={() => setActiveTab('all')}>
-              🎂 All Cakes ({products.length})
-            </button>
-            <button className={`ck-tab-btn ${activeTab === 'chocolate' ? 'ck-active' : ''}`} onClick={() => setActiveTab('chocolate')}>
-              🍫 Chocolate Truffle
-            </button>
-            <button className={`ck-tab-btn ${activeTab === 'redvelvet' ? 'ck-active' : ''}`} onClick={() => setActiveTab('redvelvet')}>
-              ❤️ Red Velvet
-            </button>
-            <button className={`ck-tab-btn ${activeTab === 'fruit' ? 'ck-active' : ''}`} onClick={() => setActiveTab('fruit')}>
-              🍓 Fresh Fruit
-            </button>
-            <button className={`ck-tab-btn ${activeTab === 'cheesecake' ? 'ck-active' : ''}`} onClick={() => setActiveTab('cheesecake')}>
-              🧀 Cheesecakes
-            </button>
-            <button className={`ck-tab-btn ${activeTab === 'bento' ? 'ck-active' : ''}`} onClick={() => setActiveTab('bento')}>
-              🎀 Bento & Mini
-            </button>
-            <button className={`ck-tab-btn ${activeTab === 'butterscotch' ? 'ck-active' : ''}`} onClick={() => setActiveTab('butterscotch')}>
-              🍯 Butterscotch
-            </button>
-            <button className={`ck-tab-btn ${activeTab === 'wishlist' ? 'ck-active' : ''}`} onClick={() => setActiveTab('wishlist')}>
-              ❤️ Wishlist ({wishlist.length})
-            </button>
-          </div>
-        </div>
+      
+          
 
         {/* PRODUCTS GRID */}
         {loading && products.length === 0 ? (

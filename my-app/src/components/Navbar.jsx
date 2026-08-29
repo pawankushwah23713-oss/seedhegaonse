@@ -3,6 +3,96 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import logoImg from '../assets/logo.png';
 import './Navbar.css';
 
+// 🟢 Shelf dropdown menus ka data (desktop hover + mobile tap dono isi se chalte hain)
+const SHELF_MENUS = {
+  sweets: {
+    title: '🍬 Sweets',
+    links: [
+      { to: '/', label: '🍬 All Sweets' },
+      { to: '/laddu', label: '🟡 Pure Desi Ghee Laddu' },
+      { to: '/peda', label: '🟤 Mathura Special Peda' },
+      { to: '/petha', label: '⚪ Agra Petha Varieties' },
+      { to: '/halwa', label: '🥣 Moong Dal Halwa' },
+      { to: '/barfi', label: '🔶 Kaju Barfi & Katli' },
+      { to: '/specials', label: '⭐ Special Festive Mithai' }
+    ]
+  },
+  cakes: {
+    title: '🎂 Cakes',
+    links: [
+      { to: '/cake', label: '🎂 All Fresh Cakes' },
+      { to: '/cakes/chocolate-truffle', label: '🍫 Dutch Truffle Cake' },
+      { to: '/cakes/red-velvet', label: '❤️ Royal Red Velvet' },
+      { to: '/cakes/fresh-fruit', label: '🍓 Fresh Exotic Fruit' },
+      { to: '/cakes/cheesecake', label: '🧀 Baked Cheesecakes' },
+      { to: '/cakes/bento-mini', label: '🎀 Bento & Mini Cakes' },
+      { to: '/cakes/butterscotch', label: '🍯 Butterscotch Crunch' }
+    ]
+  },
+  about: {
+    title: '📖 About Us',
+    links: [
+      { to: '/AboutUs', label: '📖 Our Village Story', anchor: true },
+      { to: '/why-us', label: '🌟 Why Choose Us', anchor: true }
+    ]
+  }
+};
+
+/* ==========================================================
+   🔍 SMART SEARCH ROUTING
+   User jo bhi likhe, uske keyword ke hisaab se sahi page khulega.
+   ⚠️ Order important hai: pehle zyada specific (cake sub-category),
+   uske baad general ('cake') — warna "truffle cake" bhi /cake par
+   chala jayega.
+   ========================================================== */
+const SEARCH_ROUTES = [
+  // 🎂 Cake sub-categories (sabse specific)
+  { path: '/cakes/chocolate-truffle', keywords: ['chocolate truffle', 'dutch truffle', 'truffle', 'chocolate', 'choco', 'dutch'] },
+  { path: '/cakes/red-velvet', keywords: ['red velvet', 'redvelvet', 'velvet'] },
+  { path: '/cakes/fresh-fruit', keywords: ['fresh fruit', 'fruit cake', 'fruit', 'pineapple', 'mango', 'strawberry', 'exotic'] },
+  { path: '/cakes/cheesecake', keywords: ['cheesecake', 'cheese cake', 'cheese', 'blueberry'] },
+  { path: '/cakes/bento-mini', keywords: ['bento', 'mini cake', 'mini', 'small cake'] },
+  { path: '/cakes/butterscotch', keywords: ['butterscotch', 'butter scotch', 'caramel', 'crunch'] },
+
+  // 🎂 General cakes
+  { path: '/cake', keywords: ['cake', 'cakes', 'bakery', 'bake', 'pastry', 'birthday', 'anniversary', 'photo cake', 'egg less', 'eggless'] },
+
+  // 🍬 Sweets categories
+  { path: '/laddu', keywords: ['laddu', 'ladoo', 'motichoor', 'motichur', 'besan', 'boondi'] },
+  { path: '/peda', keywords: ['peda', 'pedha', 'mathura', 'malai peda', 'khoya'] },
+  { path: '/petha', keywords: ['petha', 'angoori', 'agra'] },
+  { path: '/halwa', keywords: ['halwa', 'halva', 'moong', 'sohan', 'karachi', 'gajar'] },
+  { path: '/barfi', keywords: ['barfi', 'burfi', 'katli', 'kaju', 'milk cake', 'milkcake', 'kalakand'] },
+  { path: '/specials', keywords: ['special', 'ghewar', 'ghevar', 'rasgulla', 'gulab jamun', 'jamun', 'festive', 'rabdi', 'imarti'] },
+
+  // 🎁 Other pages
+  { path: '/bulk-gifting', keywords: ['bulk', 'gift', 'gifting', 'hamper', 'corporate', 'wholesale', 'shaadi', 'wedding', 'diwali box'] },
+  { path: '/my-orders', keywords: ['my order', 'my orders', 'order status', 'track order', 'order'] },
+  { path: '/wishlist', keywords: ['wishlist', 'wish list', 'favourite', 'favorite', 'saved'] },
+  { path: '/contact-us', keywords: ['contact', 'support', 'helpline', 'customer care', 'complaint', 'phone number'] },
+  { path: '/AboutUs', keywords: ['about us', 'about', 'our story', 'gaon story'] },
+  { path: '/why-us', keywords: ['why choose', 'why us', 'quality promise'] },
+  { path: '/shipping-policy', keywords: ['shipping', 'delivery charge', 'delivery policy', 'courier'] },
+  { path: '/return-refund', keywords: ['return', 'refund', 'replace'] },
+  { path: '/cancellation-policy', keywords: ['cancel', 'cancellation'] },
+  { path: '/privacy', keywords: ['privacy'] },
+  { path: '/terms', keywords: ['terms', 'condition'] },
+  { path: '/loyalty-rewards', keywords: ['coupon', 'reward', 'loyalty', 'promo', 'offer', 'discount'] },
+  { path: '/profile', keywords: ['profile', 'my account', 'account setting'] }
+];
+
+// Query ke hisaab se sahi route nikaalo, warna homepage par filter
+const resolveSearchRoute = (rawQuery) => {
+  const q = String(rawQuery || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!q) return null;
+
+  for (const route of SEARCH_ROUTES) {
+    const hit = route.keywords.some((kw) => q.includes(kw) || kw.includes(q));
+    if (hit) return route.path;
+  }
+  return null;
+};
+
 const Navbar = ({ 
   cartCount = 0, 
   onCartClick, 
@@ -18,29 +108,15 @@ const Navbar = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState(userAddress);
 
+  // 🟢 Mobile par shelf dropdown (Sweets / Cakes / About) tap se khulega
+  const [isMobileView, setIsMobileView] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  );
+  const [shelfMenu, setShelfMenu] = useState(null);
+
   const navigate = useNavigate();
   const location = useLocation();
   const accountRef = useRef(null);
-
-  // Quick category chips scroller data (uses live wishlistCount)
-  const QUICK_CATEGORIES = [
-    { id: 'all-sweets', name: `All Sweets (9)`, icon: '🍬', link: '/' },
-    { id: 'laddu', name: 'Laddu', icon: '🟡', link: '/#products' },
-    { id: 'peda', name: 'Peda', icon: '🟤', link: '/#products' },
-    { id: 'petha', name: 'Petha', icon: '⚪', link: '/#products' },
-    { id: 'halwa', name: 'Halwa', icon: '🥣', link: '/#products' },
-    { id: 'barfi-katli', name: 'Barfi & Katli', icon: '🔶', link: '/#products' },
-    { id: 'specials', name: 'Specials', icon: '⭐', link: '/#products' },
-    { id: 'wishlist-sweets', name: `Wishlist (${wishlistCount})`, icon: '❤️', link: '/wishlist' },
-    { id: 'all-cakes', name: `All Cakes (7)`, icon: '🎂', link: '/cake' },
-    { id: 'chocolate-truffle', name: 'Chocolate Truffle', icon: '🍫', link: '/cakes#cakes' },
-    { id: 'red-velvet', name: 'Red Velvet', icon: '❤️', link: '/cakes#cakes' },
-    { id: 'fresh-fruit', name: 'Fresh Fruit', icon: '🍓', link: '/cakes#cakes' },
-    { id: 'cheesecakes', name: 'Cheesecakes', icon: '🧀', link: '/cakes#cakes' },
-    { id: 'bento-mini', name: 'Bento & Mini', icon: '🎀', link: '/cakes#cakes' },
-    { id: 'butterscotch', name: 'Butterscotch', icon: '🍯', link: '/cakes#cakes' },
-    { id: 'wishlist-cakes', name: `Wishlist (${wishlistCount})`, icon: '❤️', link: '/wishlist' },
-  ];
 
   // LocalStorage Sync
   const getUserFromStorage = () => {
@@ -70,10 +146,23 @@ const Navbar = ({
     return () => window.removeEventListener('storage', syncUser);
   }, [location.pathname, isLoggedIn, userName]);
 
-  // Route change hone par drawer auto close
+  // 🟢 Screen size track (mobile par tap-dropdown, desktop par hover)
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobileView(mobile);
+      if (!mobile) setShelfMenu(null);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Route change hone par drawer / dropdown auto close
   useEffect(() => {
     setMobileMenuOpen(false);
     setAccountMenuOpen(false);
+    setShelfMenu(null);
   }, [location.pathname]);
 
   // Mobile menu open hone par background scroll lock
@@ -108,12 +197,41 @@ const Navbar = ({
     setMobileDropdown(null);
   };
 
+  // 🟢 Shelf ke dropdown items par click
+  // Mobile: navigate na karke neeche panel kholo. Desktop: normal link behaviour.
+  const handleShelfDropdownClick = (e, key) => {
+    if (isMobileView) {
+      e.preventDefault();
+      setShelfMenu((prev) => (prev === key ? null : key));
+    }
+  };
+
+  // 🔍 SMART SEARCH SUBMIT
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
-    navigate(`/?search=${encodeURIComponent(trimmed)}`);
+
+    const matchedPath = resolveSearchRoute(trimmed);
+    const q = encodeURIComponent(trimmed);
+
+    if (matchedPath) {
+      // Keyword match mila to seedha us page par (search param bhi saath jayega)
+      navigate(`${matchedPath}?search=${q}`);
+    } else {
+      // Kuch match nahi hua to homepage par filter ho jayega
+      navigate(`/?search=${q}`);
+    }
+
+    setSearchQuery('');
+    setShelfMenu(null);
     closeMobileMenu();
+
+    // Mobile keyboard band karne ke liye
+    if (e.target && typeof e.target.querySelector === 'function') {
+      const input = e.target.querySelector('input');
+      if (input) input.blur();
+    }
   };
 
   const handleLogoutAction = () => {
@@ -338,54 +456,59 @@ const Navbar = ({
             </li>
 
             {/* 🍬 SWEETS DROPDOWN */}
-            <li className="menu-nav-item has-dropdown">
-              <a href="/#products" className="menu-nav-link">
+            <li className={`menu-nav-item has-dropdown ${shelfMenu === 'sweets' ? 'is-open' : ''}`}>
+              <a
+                href="/#products"
+                className="menu-nav-link"
+                onClick={(e) => handleShelfDropdownClick(e, 'sweets')}
+              >
                 Sweets 
                 <svg className="dropdown-arrow-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </a>
               <ul className="dropdown-flyout">
-                <li><Link to="/">🍬 All Sweets</Link></li>
-                <li><Link to="/#products">🟡 Pure Desi Ghee Laddu</Link></li>
-                <li><Link to="/#products">🟤 Mathura Special Peda</Link></li>
-                <li><Link to="/#products">⚪ Agra Petha Varieties</Link></li>
-                <li><Link to="/#products">🥣 Moong Dal Halwa</Link></li>
-                <li><Link to="/#products">🔶 Kaju Barfi & Katli</Link></li>
-                <li><Link to="/#products">⭐ Special Festive Mithai</Link></li>
+                {SHELF_MENUS.sweets.links.map((l) => (
+                  <li key={l.to + l.label}><Link to={l.to}>{l.label}</Link></li>
+                ))}
               </ul>
             </li>
 
             {/* 🎂 CAKES DROPDOWN */}
-            <li className="menu-nav-item has-dropdown">
-              <Link to="/cake" className="menu-nav-link">
+            <li className={`menu-nav-item has-dropdown ${shelfMenu === 'cakes' ? 'is-open' : ''}`}>
+              <Link
+                to="/cake"
+                className="menu-nav-link"
+                onClick={(e) => handleShelfDropdownClick(e, 'cakes')}
+              >
                 Cakes 
                 <svg className="dropdown-arrow-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </Link>
               <ul className="dropdown-flyout">
-                <li><Link to="/cake">🎂 All Fresh Cakes</Link></li>
-                <li><Link to="/cakes#cakes">🍫 Dutch Truffle Cake</Link></li>
-                <li><Link to="/cakes#cakes">❤️ Royal Red Velvet</Link></li>
-                <li><Link to="/cakes#cakes">🍓 Fresh Exotic Fruit</Link></li>
-                <li><Link to="/cakes#cakes">🧀 Baked Cheesecakes</Link></li>
-                <li><Link to="/cakes#cakes">🎀 Bento & Mini Cakes</Link></li>
-                <li><Link to="/cakes#cakes">🍯 Butterscotch Crunch</Link></li>
+                {SHELF_MENUS.cakes.links.map((l) => (
+                  <li key={l.to + l.label}><Link to={l.to}>{l.label}</Link></li>
+                ))}
               </ul>
             </li>
 
             {/* 🏢 ABOUT US DROPDOWN */}
-            <li className="menu-nav-item has-dropdown">
-              <a href="#about-us" className="menu-nav-link">
+            <li className={`menu-nav-item has-dropdown ${shelfMenu === 'about' ? 'is-open' : ''}`}>
+              <a
+                href="#about-us"
+                className="menu-nav-link"
+                onClick={(e) => handleShelfDropdownClick(e, 'about')}
+              >
                 About Us 
                 <svg className="dropdown-arrow-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </a>
               <ul className="dropdown-flyout">
-                <li><a href="/AboutUs">📖 Our Village Story</a></li>
-                <li><a href="/why-us">🌟 Why Choose Us</a></li>
+                {SHELF_MENUS.about.links.map((l) => (
+                  <li key={l.to + l.label}><a href={l.to}>{l.label}</a></li>
+                ))}
               </ul>
             </li>
 
@@ -406,22 +529,36 @@ const Navbar = ({
         </div>
       </nav>
 
-      {/* 🏷️ 4. QUICK CATEGORY CHIPS SCROLLER (Blinkit Horizontal Scroll Strip) */}
-      <div className="category-scroll-wrapper">
-        <div className="category-scroll-track">
-          {QUICK_CATEGORIES.map((cat) => (
-            <Link 
-              key={cat.id} 
-              to={cat.link}
-              className="category-pill-item"
-              onClick={closeMobileMenu}
+      {/* 📲 3b. MOBILE SUB-MENU PANEL (Sweets / Cakes / About tap karne par) */}
+      {isMobileView && shelfMenu && SHELF_MENUS[shelfMenu] && (
+        <div className="mobile-subnav-panel">
+          <div className="mobile-subnav-head">
+            <span>{SHELF_MENUS[shelfMenu].title}</span>
+            <button
+              type="button"
+              className="mobile-subnav-close"
+              onClick={() => setShelfMenu(null)}
+              aria-label="Close menu"
             >
-              <span className="category-pill-icon">{cat.icon}</span>
-              <span className="category-pill-text">{cat.name}</span>
-            </Link>
-          ))}
+              ✕
+            </button>
+          </div>
+
+          <ul className="mobile-subnav-links">
+            {SHELF_MENUS[shelfMenu].links.map((l) =>
+              l.anchor ? (
+                <li key={l.to + l.label}>
+                  <a href={l.to} onClick={() => setShelfMenu(null)}>{l.label}</a>
+                </li>
+              ) : (
+                <li key={l.to + l.label}>
+                  <Link to={l.to} onClick={() => setShelfMenu(null)}>{l.label}</Link>
+                </li>
+              )
+            )}
+          </ul>
         </div>
-      </div>
+      )}
 
       {/* 📱 5. MOBILE OVERLAY + SLIDE-OUT DRAWER */}
       {mobileMenuOpen && (
@@ -465,7 +602,7 @@ const Navbar = ({
               {mobileDropdown === 'sweets' && (
                 <ul className="drawer-sub-links-tree">
                   <li><Link to="/" onClick={closeMobileMenu}>All Sweets</Link></li>
-                  <li><Link to="/#products" onClick={closeMobileMenu}>🟡 Laddu & Peda</Link></li>
+                  <li><Link to="/laddu" onClick={closeMobileMenu}>🟡 Laddu & Peda</Link></li>
                   <li><Link to="/#products" onClick={closeMobileMenu}>⚪ Agra Petha</Link></li>
                   <li><Link to="/#products" onClick={closeMobileMenu}>🥣 Moong Dal Halwa</Link></li>
                   <li><Link to="/#products" onClick={closeMobileMenu}>🔶 Kaju Katli</Link></li>

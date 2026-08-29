@@ -105,8 +105,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   // Tax Info Popup Hover State
   const [showTaxInfo, setShowTaxInfo] = useState(false);
 
-  // Shipping Mode
-  const [shippingMode, setShippingMode] = useState('');
+  // Shipping Mode persisted from localStorage so refresh doesn't lose it
+  const [shippingMode, setShippingMode] = useState(() => {
+    try {
+      return localStorage.getItem('cart_shipping_mode') || '';
+    } catch {
+      return '';
+    }
+  });
 
   // Pincode Delivery Charge States
   const [pincodeDeliveryCharge, setPincodeDeliveryCharge] = useState(null);
@@ -136,6 +142,17 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Persist shipping mode to localStorage
+  useEffect(() => {
+    try {
+      if (shippingMode) {
+        localStorage.setItem('cart_shipping_mode', shippingMode);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [shippingMode]);
 
   // 🟢 Fetch BOTH Sweets & Cakes offers from API when cart opens / items change
   useEffect(() => {
@@ -228,19 +245,39 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     };
   });
 
-  const savedUser = getSavedUser();
-  const [shippingAddress, setShippingAddress] = useState({
-    name: savedUser?.name || '',
-    phone: savedUser?.phone || savedUser?.mobile || '',
-    addressType: 'Permanent',
-    address: savedUser?.address || '',
-    landmark: savedUser?.landmark || '',
-    state: savedUser?.state || 'Uttar Pradesh',
-    city: savedUser?.city || '',
-    pincode: savedUser?.pincode || '',
-    country: 'India',
-    saveAddress: false
+  // Shipping Address with localStorage fallback so refresh keeps the data safe
+  const [shippingAddress, setShippingAddress] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cart_shipping_address');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    const savedUser = getSavedUser();
+    return {
+      name: savedUser?.name || '',
+      phone: savedUser?.phone || savedUser?.mobile || '',
+      addressType: 'Permanent',
+      address: savedUser?.address || '',
+      landmark: savedUser?.landmark || '',
+      state: savedUser?.state || 'Uttar Pradesh',
+      city: savedUser?.city || '',
+      pincode: savedUser?.pincode || '',
+      country: 'India',
+      saveAddress: false
+    };
   });
+
+  // Persist shippingAddress changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('cart_shipping_address', JSON.stringify(shippingAddress));
+    } catch (err) {
+      console.error(err);
+    }
+  }, [shippingAddress]);
 
   const [sameAsShipping, setSameAsShipping] = useState(true);
   const [billingAddress, setBillingAddress] = useState({
@@ -287,15 +324,16 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   };
 
+  // Automatically recalculate on mount / change if 6-digit pincode is saved
   useEffect(() => {
     if (shippingMode === 'delivery' && shippingAddress.pincode && shippingAddress.pincode.length === 6) {
       fetchDeliveryChargeByPincode(shippingAddress.pincode);
     }
-  }, [shippingMode]);
+  }, [shippingMode, shippingAddress.pincode]);
 
   const handlePincodeChange = (e) => {
     const newPin = e.target.value.replace(/\D/g, '').slice(0, 6);
-    setShippingAddress({ ...shippingAddress, pincode: newPin });
+    setShippingAddress((prev) => ({ ...prev, pincode: newPin }));
     if (newPin.length === 6 && shippingMode === 'delivery') {
       fetchDeliveryChargeByPincode(newPin);
     } else if (newPin.length !== 6) {
@@ -306,7 +344,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
   const handlePhoneChange = (e) => {
     const newPhone = e.target.value.replace(/\D/g, '').slice(0, 10);
-    setShippingAddress({ ...shippingAddress, phone: newPhone });
+    setShippingAddress((prev) => ({ ...prev, phone: newPhone }));
   };
 
   const handleClose = () => {
@@ -512,8 +550,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       alert('⚠️ Please select a delivery option first (Mandatory).');
       return;
     }
+    if (shippingMode === 'delivery' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {
+      alert('⚠️ Delivery Pincode is Mandatory. Please enter a valid 6-digit Pincode to check and calculate delivery charges.');
+      return;
+    }
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
-      alert('⚠️ Please enter a valid 6-digit Pincode to check delivery charges.');
+      alert('⚠️ Please enter a valid serviceable 6-digit Pincode to calculate delivery charges.');
       return;
     }
     if (shippingMode === 'founder' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {
@@ -971,31 +1013,31 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     )}
 
                     {isHomeDeliveryType && (
-                      <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                        <label style={{ fontSize: '0.78rem', fontWeight: '700', color: '#94191d', display: 'block', marginBottom: '4px' }}>
-                          Delivery Pincode *
+                      <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1.5px solid #b91c1c' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#b91c1c', display: 'block', marginBottom: '4px' }}>
+                          Delivery Pincode * <span style={{ color: '#dc2626', fontSize: '0.74rem' }}>(Mandatory for charge calculation)</span>
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. 201301"
+                          placeholder="e.g. 201301 (6 Digits)"
                           maxLength="6"
                           value={shippingAddress.pincode}
                           onChange={handlePincodeChange}
                           style={{
                             width: '100%',
-                            padding: '6px 10px',
+                            padding: '7px 10px',
                             borderRadius: '4px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '0.85rem',
-                            fontWeight: '600',
+                            border: '1.5px solid #cbd5e1',
+                            fontSize: '0.88rem',
+                            fontWeight: '700',
                             boxSizing: 'border-box'
                           }}
                         />
                         {shippingMode === 'delivery' && isPincodeLoading && (
-                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>Checking charges...</div>
+                          <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '3px' }}>⏳ Calculating delivery charges...</div>
                         )}
                         {shippingMode === 'delivery' && pincodeStatusMsg && !isPincodeLoading && (
-                          <div style={{ fontSize: '0.78rem', color: pincodeDeliveryCharge !== null ? '#059669' : '#dc2626', fontWeight: 'bold', marginTop: '3px' }}>
+                          <div style={{ fontSize: '0.78rem', color: pincodeDeliveryCharge !== null ? '#059669' : '#dc2626', fontWeight: 'bold', marginTop: '4px' }}>
                             {pincodeStatusMsg}
                           </div>
                         )}
@@ -1030,7 +1072,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                           ) : pincodeDeliveryCharge !== null ? (
                             `₹${formatMoney(shippingCharge)}`
                           ) : (
-                            <span style={{ color: '#d97706', fontSize: '0.8rem' }}>Enter Pincode</span>
+                            <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: '700' }}>⚠️ Enter 6-digit Pincode</span>
                           )}
                         </span>
                       </div>

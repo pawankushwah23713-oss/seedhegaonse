@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ProfileInfo from './pages/ProfileInfo';
 // Global Styles & Components
@@ -8,7 +8,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
 import { UserRoute, AdminRoute } from './components/ProtectedRoutes';
-
+import LadduPage from './pages/LadduPage';
 // Normal Pages
 import Homepage from './pages/Homepage';
 import Auth from './pages/Auth';
@@ -44,6 +44,34 @@ import AdminMarketingManager from './pages/admin/AdminMarketingManager';
 import  CheckoutPage from './pages/admin/Addpincharges'; // 🟢 NAYA COMPONENT
 import AdminPincodeManager from './pages/admin/Addpincharges'; // 🟢 NAYA COMPONENT
 import AdminAllInOneCakes from './pages/admin/AdminProducts';
+import PedaPage from './pages/PedaPage';
+import PethaPage from './pages/PethaPage';
+import HalwaPage from './pages/HalwaPage';
+import BarfiPage from './pages/BarfiPage';
+import SpecialsPage from './pages/SpecialsPage';
+
+import ChocolateTrufflePage from './pages/ChocolateTrufflePage';
+import RedVelvetPage from './pages/RedVelvetPage';
+import FreshFruitPage from './pages/FreshFruitPage';
+import CheesecakePage from './pages/CheesecakePage';
+import BentoCakePage from './pages/BentoCakePage';
+import ButterscotchPage from './pages/ButterscotchPage';
+
+// 🟢 Cart ko localStorage me save karne ki key
+const CART_STORAGE_KEY = 'sgs_cart_items';
+
+// 🟢 Page load par purana cart wapas load karo
+const loadCartFromStorage = () => {
+  try {
+    const saved = localStorage.getItem(CART_STORAGE_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error('Cart load error:', err);
+    return [];
+  }
+};
 
 // Inner Wrapper: Hide Navbar/Footer on Admin screen
 const AppContent = ({
@@ -114,8 +142,36 @@ const AppContent = ({
         />
 
 
+<Route path="/laddu" element={<LadduPage addToCart={addToCart} addedToast={addedToast} />} />
+<Route 
+  path="/peda" 
+  element={<PedaPage addToCart={addToCart} addedToast={addedToast} />} 
+/>
 
+<Route 
+  path="/petha" 
+  element={<PethaPage addToCart={addToCart} addedToast={addedToast} />} 
+/>
+<Route path="/halwa" element={<HalwaPage addToCart={addToCart} addedToast={addedToast} />} />
+<Route path="/barfi" element={<BarfiPage addToCart={addToCart} addedToast={addedToast} />} />
+<Route path="/specials" element={<SpecialsPage addToCart={addToCart} addedToast={addedToast} />} />
 
+ {/* 1. Main Home Cake Page */}
+   
+
+      {/* 2. Har Category ka Alag Dedicated Page aur Alag URL */}
+{/* 🎂 Main Cake Page */}
+        <Route path="/cakes" element={<CakePage addToCart={addToCart} addedToast={addedToast} />} />
+        <Route path="/cake" element={<CakePage addToCart={addToCart} addedToast={addedToast} />} />
+
+        {/* 🎂 Separate Category Cake Routes */}
+        <Route path="/cakes/chocolate-truffle" element={<ChocolateTrufflePage addToCart={addToCart} addedToast={addedToast} />} />
+        <Route path="/cakes/red-velvet" element={<RedVelvetPage addToCart={addToCart} addedToast={addedToast} />} />
+        <Route path="/cakes/fresh-fruit" element={<FreshFruitPage addToCart={addToCart} addedToast={addedToast} />} />
+        <Route path="/cakes/cheesecake" element={<CheesecakePage addToCart={addToCart} addedToast={addedToast} />} />
+        <Route path="/cakes/bento-mini" element={<BentoCakePage addToCart={addToCart} addedToast={addedToast} />} />
+        <Route path="/cakes/butterscotch" element={<ButterscotchPage addToCart={addToCart} addedToast={addedToast} />} />
+       
         <Route
           path="/best-selling"
           element={<BestSellingProducts />}
@@ -232,10 +288,29 @@ const AppContent = ({
 };
 
 function App() {
-  // Cart State
-  const [cartItems, setCartItems] = useState([]);
+  // 🟢 Cart State — refresh ke baad bhi localStorage se wapas load hoga
+  const [cartItems, setCartItems] = useState(loadCartFromStorage);
   const [cartOpen, setCartOpen] = useState(false);
   const [addedToast, setAddedToast] = useState(null);
+
+  // 🟢 Jab bhi cart badle, turant localStorage me save karo
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    } catch (err) {
+      console.error('Cart save error:', err);
+    }
+  }, [cartItems]);
+
+  // 🟢 Dusre tab me cart badla to yahan bhi sync ho jaye
+  useEffect(() => {
+    const syncCartAcrossTabs = (e) => {
+      if (e.key !== CART_STORAGE_KEY) return;
+      setCartItems(loadCartFromStorage());
+    };
+    window.addEventListener('storage', syncCartAcrossTabs);
+    return () => window.removeEventListener('storage', syncCartAcrossTabs);
+  }, []);
 
   // Persistent Auth State
   const [currentUser, setCurrentUser] = useState(() => {
@@ -263,6 +338,7 @@ function App() {
         ...prev,
         {
           id: product.id,
+          productId: product.productId,
           name: product.name,
           variant: product.variant,
           price: product.price,
