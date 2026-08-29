@@ -8,6 +8,7 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
+const WISHLIST_KEY = 'seedhegaonse_wishlist';
 
 // Helper to check dummy product
 const isDummyProduct = (product) => {
@@ -162,6 +163,24 @@ const DUMMY_CAKES = [
 
 const FALLBACK_CAKE_IMG = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=600&auto=format&fit=crop';
 
+const getAuthToken = () => {
+  try {
+    const directToken = localStorage.getItem('token') ||
+                        localStorage.getItem('userToken') ||
+                        localStorage.getItem('authToken');
+    if (directToken) return directToken;
+
+    const userObj = localStorage.getItem('user');
+    if (userObj) {
+      const parsed = JSON.parse(userObj);
+      return parsed.token || parsed.jwt || null;
+    }
+  } catch (err) {
+    console.error('Error reading auth token:', err);
+  }
+  return null;
+};
+
 const getImageUrl = (imagePath) => {
   if (!imagePath) return FALLBACK_CAKE_IMG;
   if (
@@ -206,10 +225,9 @@ const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
   };
 };
 
-const CAKE_WISHLIST_KEY = 'seedhegaonse_cake_wishlist';
 const loadWishlist = () => {
   try {
-    const saved = localStorage.getItem(CAKE_WISHLIST_KEY);
+    const saved = localStorage.getItem(WISHLIST_KEY);
     if (!saved) return [];
     const parsed = JSON.parse(saved);
     return Array.isArray(parsed)
@@ -386,7 +404,6 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
         onOpenModal(product, selectedVariant);
       }}
     >
-      {/* OUT OF STOCK STAMP */}
       {outOfStock && (
         <div
           style={{
@@ -462,7 +479,6 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
           {product.name}
         </h3>
 
-        {/* VARIANT WEIGHT BUTTONS */}
         <div
           className="ck-card-variants-container"
           onClick={(e) => e.stopPropagation()}
@@ -486,7 +502,6 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
           </div>
         </div>
 
-        {/* ACTIVE DYNAMIC OFFERS BADGES IN CARD */}
         {(coupons.length > 0 || giftList.length > 0 || product.isFreeDelivery) && (
           <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', margin: '4px 0 8px' }}>
             {coupons.slice(0, 1).map((cp, i) => (
@@ -545,12 +560,10 @@ const CakePage = ({ addToCart, addedToast }) => {
   const [wishlist, setWishlist] = useState(loadWishlist);
   const [authAlert, setAuthAlert] = useState('');
 
-  // Modal State
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedModalVariant, setSelectedModalVariant] = useState(null);
   const [modalQty, setModalQty] = useState(1);
 
-  // Zoom on Hover
   const [zoomStyle, setZoomStyle] = useState({
     transformOrigin: 'center center',
     transform: 'scale(1)'
@@ -594,7 +607,7 @@ const CakePage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Load Cake Products
+  // Load Cake Products & Sync Backend Wishlist
   useEffect(() => {
     const fetchCakes = async () => {
       try {
@@ -614,10 +627,44 @@ const CakePage = ({ addToCart, addedToast }) => {
         setLoading(false);
       }
     };
+
+    const fetchBackendWishlist = async () => {
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/wishlist`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const data = await res.json();
+
+        if (res.ok && Array.isArray(data)) {
+          const serverWishlistIds = data
+            .map((item) => (typeof item === 'object' && item !== null ? (item._id || item.id) : item))
+            .filter(Boolean)
+            .map((id) => id.toString());
+
+          const merged = Array.from(new Set([...loadWishlist(), ...serverWishlistIds]));
+          setWishlist(merged);
+          localStorage.setItem(WISHLIST_KEY, JSON.stringify(merged));
+        }
+      } catch (err) {
+        console.error('Backend wishlist sync error:', err);
+      }
+    };
+
     fetchCakes();
+    fetchBackendWishlist();
   }, []);
 
-  // Scroll Reveal Observer
+  useEffect(() => {
+    localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist));
+  }, [wishlist]);
+
   useEffect(() => {
     const revealElements = document.querySelectorAll('.ck-reveal');
     const observer = new IntersectionObserver(
@@ -632,22 +679,56 @@ const CakePage = ({ addToCart, addedToast }) => {
     return () => observer.disconnect();
   }, [products]);
 
+  // 🟢 Wishlist Check Helper
   const isWishlisted = (productId) => {
     if (!productId) return false;
-    return wishlist.includes(productId.toString());
+    const targetId = productId.toString();
+    return wishlist.some((id) => {
+      const cleanId = typeof id === 'object' && id !== null ? (id._id || id.id) : id;
+      return cleanId?.toString() === targetId;
+    });
   };
 
-  const toggleWishlist = (e, productId) => {
+  // 🟢 Shared Wishlist Toggle (Syncs localStorage + Backend)
+  const toggleWishlist = async (e, productId) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    const pId = productId.toString();
-    setWishlist((prev) => {
-      const updated = prev.includes(pId) ? prev.filter((id) => id !== pId) : [...prev, pId];
-      localStorage.setItem(CAKE_WISHLIST_KEY, JSON.stringify(updated));
+    if (!productId) return;
+
+    const pIdStr = productId.toString();
+
+    setWishlist((prevWishlist) => {
+      const cleanList = prevWishlist.map((id) =>
+        (typeof id === 'object' && id !== null ? (id._id || id.id) : id)?.toString()
+      ).filter(Boolean);
+
+      const isCurrentlyLiked = cleanList.includes(pIdStr);
+      const updated = isCurrentlyLiked
+        ? cleanList.filter((id) => id !== pIdStr)
+        : [...cleanList, pIdStr];
+
+      localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
       return updated;
     });
+
+    const token = getAuthToken();
+    const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(pIdStr);
+
+    if (token && isValidMongoId) {
+      try {
+        await fetch(`${API_BASE}/wishlist/toggle/${pIdStr}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (err) {
+        console.warn('Backend sync failed, saved locally:', err);
+      }
+    }
   };
 
   // Banner Slides
@@ -669,7 +750,6 @@ const CakePage = ({ addToCart, addedToast }) => {
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
-  // Tab Filtering
   const filteredProducts = products.filter((p) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'wishlist') return isWishlisted(p._id);
@@ -678,14 +758,12 @@ const CakePage = ({ addToCart, addedToast }) => {
     return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
   });
 
-  // Sort: In Stock First, Out of Stock at bottom
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     const aOut = isOutOfStock(a) ? 1 : 0;
     const bOut = isOutOfStock(b) ? 1 : 0;
     return aOut - bOut;
   });
 
-  // Direct Add To Cart
   const handleCakeAddToCart = (p, qty = 1, variant = null) => {
     if (isOutOfStock(p)) {
       setAuthAlert(`"${p.name}" abhi Out of Stock hai`);
@@ -723,7 +801,6 @@ const CakePage = ({ addToCart, addedToast }) => {
 
   return (
     <div className="ck-homepage-container">
-      {/* FLOATING WHATSAPP */}
       <a
         href="https://wa.me/919315911105"
         className="ck-whatsapp-button ck-pulse-anim"
@@ -790,7 +867,6 @@ const CakePage = ({ addToCart, addedToast }) => {
 
                   <h3 className="ck-modal-title">{selectedProduct.name}</h3>
 
-                  {/* MODAL VARIANTS */}
                   <div className="ck-modal-variant-section">
                     <span className="ck-variant-section-title">Select Weight / Size:</span>
                     <div
@@ -814,7 +890,6 @@ const CakePage = ({ addToCart, addedToast }) => {
                     </div>
                   </div>
 
-                  {/* PRICE */}
                   <div className="ck-modal-price-box">
                     <span className="ck-modal-current-price">₹{pricing.price}</span>
                     {!isDummy && pricing.mrp && <span className="ck-modal-mrp-price">₹{pricing.mrp}</span>}
@@ -1008,7 +1083,6 @@ const CakePage = ({ addToCart, addedToast }) => {
                     src={getImageUrl(p.image)}
                     alt={p.name}
                     loading="lazy"
-                    style={isOutOfStock(p) ? { filter: 'blur(2px) grayscale(0.8)', opacity: 0.6 } : undefined}
                     onError={(e) => { e.target.src = FALLBACK_CAKE_IMG; }}
                   />
                   <span className="ck-gallery-slide-caption">{p.name}</span>

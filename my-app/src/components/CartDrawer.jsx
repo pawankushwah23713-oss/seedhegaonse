@@ -116,7 +116,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [upiRef, setUpiRef] = useState('');
 
-  // Store product offers from API
+  // Store product & cake offers from API
   const [productOffers, setProductOffers] = useState({});
   const [offersLoading, setOffersLoading] = useState(false);
 
@@ -137,7 +137,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch product offers from API when cart opens
+  // 🟢 Fetch BOTH Sweets & Cakes offers from API when cart opens
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -145,28 +145,46 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     const loadOffers = async () => {
       setOffersLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/products`);
-        const data = await res.json();
-        if (cancelled || !Array.isArray(data)) return;
+        const [resProducts, resCakes] = await Promise.allSettled([
+          fetch(`${API_BASE}/products`),
+          fetch(`${API_BASE}/cakes`)
+        ]);
 
         const map = {};
-        data.forEach((p) => {
-          const entry = {
-            giftTiers: ensureArray(p.giftTiers),
-            couponsList: ensureArray(p.couponsList),
-            bulkTiers: ensureArray(p.bulkTiers),
-            quantityDiscounts: ensureArray(p.quantityDiscounts || p.qtyDiscounts || p.packDiscounts || p.quantityTiers || p.packTiers),
-            highValueThreshold: p.highValueThreshold,
-            highValueDiscountPercent: p.highValueDiscountPercent,
-            isFreeDelivery: p.isFreeDelivery
-          };
-          if (p._id) map[String(p._id)] = entry;
-          if (p.name) map[`name:${nameKey(p.name)}`] = entry;
-        });
 
-        setProductOffers(map);
+        const processList = async (res) => {
+          if (res.status === 'fulfilled' && res.value.ok) {
+            const data = await res.value.json();
+            if (Array.isArray(data)) {
+              data.forEach((p) => {
+                const entry = {
+                  giftTiers: ensureArray(p.giftTiers),
+                  couponsList: ensureArray(p.couponsList),
+                  bulkTiers: ensureArray(p.bulkTiers),
+                  quantityDiscounts: ensureArray(
+                    p.quantityDiscounts || p.qtyDiscounts || p.packDiscounts || p.quantityTiers || p.packTiers
+                  ),
+                  highValueThreshold: p.highValueThreshold,
+                  highValueDiscountPercent: p.highValueDiscountPercent,
+                  isFreeDelivery: p.isFreeDelivery
+                };
+                if (p._id) map[String(p._id)] = entry;
+                if (p.name) {
+                  map[`name:${nameKey(p.name)}`] = entry;
+                  const cleanName = nameKey(String(p.name).replace(/\s*\([^)]*\)\s*$/, ''));
+                  map[`name:${cleanName}`] = entry;
+                }
+              });
+            }
+          }
+        };
+
+        await processList(resProducts);
+        await processList(resCakes);
+
+        if (!cancelled) setProductOffers(map);
       } catch (err) {
-        console.error('Unable to load product offers:', err);
+        console.error('Unable to load product/cake offers:', err);
       } finally {
         if (!cancelled) setOffersLoading(false);
       }
@@ -176,10 +194,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // Merge Cart Items with Product Offers
+  // 🟢 Merge Cart Items with Sweets & Cakes Offers
   const enrichedCartItems = cartItems.map((item) => {
     const idKey = extractObjectId(item.productId) || extractObjectId(item.id) || String(item.productId || '');
-    const offers = productOffers[idKey] || productOffers[`name:${nameKey(item.name)}`] || {};
+    const cleanBaseName = nameKey(String(item.name || '').replace(/\s*\([^)]*\)\s*$/, ''));
+    const offers = productOffers[idKey] ||
+                   productOffers[`name:${nameKey(item.name)}`] ||
+                   productOffers[`name:${cleanBaseName}`] || {};
 
     const pick = (local, remote) => {
       const localArr = ensureArray(local);
@@ -303,7 +324,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   }, 0);
   const effectiveCartTotal = round2(rawSubTotal);
 
-  // 📦 CALCULATE QUANTITY / PACK DISCOUNTS (Buy 2+, Buy 5+ etc.)
+  // 📦 CALCULATE QUANTITY / PACK DISCOUNTS (Works on both Sweets & Cakes)
   let itemQtyDiscountsTotal = 0;
   const itemAppliedQtyDiscounts = {};
 
@@ -321,7 +342,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
           discountType: qd.discountType || 'percentage'
         }))
         .filter((s) => s.minQty > 0 && s.discountVal > 0)
-        .sort((a, b) => b.minQty - a.minQty); // Highest slab first
+        .sort((a, b) => b.minQty - a.minQty);
 
       const activeSlab = validSlabs.find((s) => q >= s.minQty);
       if (activeSlab) {
@@ -373,10 +394,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   }
 
-  // Total discount on product = Quantity discounts + Bulk spend discounts
   const bulkDiscount = round2(itemQtyDiscountsTotal + bulkSpendDiscount);
 
-  // Available Coupons List
+  // Available Coupons List (Sweets + Cakes)
   const availableCoupons = [];
   const seenCouponCodes = new Set();
   enrichedCartItems.forEach((item) => {
@@ -404,7 +424,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     });
   });
 
-  // Gift Tiers Roadmap (Single active unlocked tier)
+  // Gift Tiers Roadmap (Sweets + Cakes)
   const giftTierRows = [];
   enrichedCartItems.forEach((item) => {
     const tiers = [];
@@ -625,7 +645,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         return {
           id: String(item.id || item.productId || `item-${idx}`),
           productId: item.productId || item.id || undefined,
-          name: String(item.name || 'Sweet Item'),
+          name: String(item.name || 'Store Item'),
           variant: String(item.variant || 'Standard'),
           price: numPrice,
           unitPrice: numPrice,
@@ -739,7 +759,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 <div style={{ fontSize: '48px', marginBottom: '10px' }}>🛒</div>
                 <h3 style={{ color: '#334155' }}>Your cart is empty!</h3>
                 <button className="btn-continue-shopping" onClick={handleClose} style={{ marginTop: '14px', background: '#94191d', color: '#fff', padding: '10px 24px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Explore Sweets
+                  Explore Sweets & Cakes
                 </button>
               </div>
             ) : (
@@ -758,11 +778,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
                     {/* Table Header */}
                     <div style={{ display: isSmallMobile ? 'none' : 'flex', justifyContent: 'space-between', padding: '10px 18px', background: '#f8fafc', fontSize: '0.84rem', fontWeight: '700', color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
-                      <span>Product details</span>
+                      <span>Product / Cake details</span>
                       <span>Total price & Qty</span>
                     </div>
 
-                    {/* Product Rows */}
+                    {/* Product / Cake Rows */}
                     <div style={{ padding: '12px 18px' }}>
                       {enrichedCartItems.map((item) => {
                         const unitPrice = parseNumericPrice(item.unitPrice || item.price);
@@ -783,11 +803,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                   {item.name}
                                 </h4>
                                 <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                                  Weight : {item.variant || '0.450 KG'}
+                                  Pack / Weight : {item.variant || 'Standard'}
                                 </div>
                                 {activeQtyDisc && (
                                   <div style={{ fontSize: '0.74rem', color: '#15803d', fontWeight: '700', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                    <span>🎉 {activeQtyDisc.percent}% Pack Discount Applied!</span>
+                                    <span>🎉 {activeQtyDisc.percent}% Multi-Pack Discount Applied!</span>
                                   </div>
                                 )}
                               </div>
@@ -930,7 +950,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}>
-                        <span>Discount on product</span>
+                        <span>Discount on product / cakes</span>
                         <span>- ₹{formatMoney(bulkDiscount)}</span>
                       </div>
 
@@ -1015,7 +1035,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         <strong>₹{formatMoney(totalTaxAmount)}</strong>
                       </div>
 
-                      {/* 🎟️ AVAILABLE COUPONS */}
+                      {/* 🎟️ AVAILABLE COUPONS (Sweets & Cakes) */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1075,7 +1095,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                       </button>
                                     ) : (
                                       <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                        🔒 LOCKED (Add ₹{formatMoney(c.remaining)})
+                                        🔒 LOCKED (Add ₹${formatMoney(c.remaining)})
                                       </span>
                                     )}
                                   </div>
@@ -1086,7 +1106,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </div>
                       )}
 
-                      {/* 🎁 GIFT TIERS ROADMAP (Single Active Unlocked, Others Locked) */}
+                      {/* 🎁 GIFT TIERS ROADMAP (Sweets & Cakes) */}
                       {giftTierRows.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1646,7 +1666,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   )}
                   {placedOrderDetails.bulkDiscount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899', marginBottom: '4px' }}>
-                      <span>Discount on Product:</span>
+                      <span>Discount on Product / Cakes:</span>
                       <span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span>
                     </div>
                   )}

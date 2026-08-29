@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Wishlist.css';
 
-// 🟢 Import Local Dummy Images
+// 🟢 Import Local Dummy Images for Sweets
 import dummy1 from '../assets/dumy1.png';
 import dummy2 from '../assets/dumy2.png';
 import dummy3 from '../assets/dumy3.png';
@@ -18,9 +18,10 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 const WISHLIST_KEY = 'seedhegaonse_wishlist';
+const CAKE_WISHLIST_KEY = 'seedhegaonse_cake_wishlist';
 
-// 🟢 DUMMY PRODUCTS LIST
-const DUMMY_PRODUCTS = [
+// 🟢 DUMMY SWEETS LIST
+const DUMMY_SWEETS = [
   {
     _id: 'dummy-1',
     name: 'Pure Desi Ghee Motichoor Ladoo',
@@ -83,17 +84,81 @@ const DUMMY_PRODUCTS = [
   },
   {
     _id: 'dummy-7',
-    name: 'Hisar ki malai',
+    name: 'Hisar ki Special Malai Peda',
     price: 540,
-    category: 'barfi',
-    originRegion: 'Alwar',
-    description: 'Rich, caramelized brown grainy milk fudge prepared from fresh whole buffalo milk.',
+    category: 'peda',
+    originRegion: 'Hisar',
+    description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s dairy heartland.',
     image: dummy7,
     inStock: true
   }
 ];
 
-// 🟢 Helper to get Token
+// 🟢 DUMMY CAKES LIST
+const DUMMY_CAKES = [
+  {
+    _id: 'dummy-cake-1',
+    name: 'Belgian Dark Chocolate Truffle Cake',
+    category: 'chocolate',
+    originRegion: 'Fresh Bakehouse',
+    description: 'Layers of moist dark chocolate sponge filled with rich, silky Belgian ganache.',
+    price: 549,
+    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=600&auto=format&fit=crop',
+    inStock: true
+  },
+  {
+    _id: 'dummy-cake-2',
+    name: 'Classic Red Velvet Cream Cheese Cake',
+    category: 'redvelvet',
+    originRegion: 'Master Chef Special',
+    description: 'Velvety crimson sponge paired with authentic Philadelphia style cream cheese frosting.',
+    price: 599,
+    image: 'https://images.unsplash.com/photo-1586788680434-30d324b2d46f?q=80&w=600&auto=format&fit=crop',
+    inStock: true
+  },
+  {
+    _id: 'dummy-cake-3',
+    name: 'Exotic Fresh Seasonal Fruit Cake',
+    category: 'fruit',
+    originRegion: 'Farm Fresh',
+    description: 'Light vanilla sponge layered with freshly whipped cream and hand-cut fresh fruits.',
+    price: 520,
+    image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?q=80&w=600&auto=format&fit=crop',
+    inStock: true
+  },
+  {
+    _id: 'dummy-cake-4',
+    name: 'New York Baked Blueberry Cheesecake',
+    category: 'cheesecake',
+    originRegion: 'Gourmet Selection',
+    description: 'Traditional slow-baked rich cheesecake on a buttery cracker crust with blueberry compote.',
+    price: 750,
+    image: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?q=80&w=600&auto=format&fit=crop',
+    inStock: true
+  },
+  {
+    _id: 'dummy-cake-5',
+    name: 'Crunchy Caramel Butterscotch Cake',
+    category: 'butterscotch',
+    originRegion: 'Daily Fresh Oven',
+    description: 'Golden sponge layered with home-cooked butterscotch sauce and cashew praline crunch.',
+    price: 479,
+    image: 'https://images.unsplash.com/photo-1542826438-bd32f43d626f?q=80&w=600&auto=format&fit=crop',
+    inStock: true
+  },
+  {
+    _id: 'dummy-cake-6',
+    name: 'Pastel Korean Heart Bento Cake',
+    category: 'bento',
+    originRegion: 'Trending Korean Design',
+    description: 'Cute pocket-sized minimalist birthday cake decorated with pastel buttercream design.',
+    price: 349,
+    image: 'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?q=80&w=600&auto=format&fit=crop',
+    inStock: true
+  }
+];
+
+// Helper to get Token
 const getAuthToken = () => {
   try {
     const directToken = localStorage.getItem('token') || 
@@ -112,7 +177,7 @@ const getAuthToken = () => {
   return null;
 };
 
-// 🟢 Backend & Local Image Formatter with Fallback
+// Backend & Local Image Formatter
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
     return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
@@ -139,31 +204,37 @@ const Wishlist = ({ addToCart, addedToast }) => {
   const [error, setError] = useState('');
   const [localToast, setLocalToast] = useState('');
 
-  // 1. FETCH WISHLIST (Combines Local Storage Dummy Items + Backend Items)
+  // 1. FETCH WISHLIST (Sweets + Cakes + Dummies + Backend API)
   const fetchWishlist = async () => {
     try {
       setLoading(true);
       setError('');
 
-      // Load saved wishlist IDs from localStorage
+      // 🟢 Read both main key and legacy cake key
       let localIds = [];
-      try {
-        const saved = localStorage.getItem(WISHLIST_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          localIds = Array.isArray(parsed)
-            ? parsed.map((item) => (typeof item === 'object' && item !== null ? (item._id || item.id) : item).toString())
-            : [];
+      const readKey = (k) => {
+        try {
+          const saved = localStorage.getItem(k);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed)
+              ? parsed.map((item) => (typeof item === 'object' && item !== null ? (item._id || item.id) : item).toString())
+              : [];
+          }
+        } catch (e) {
+          return [];
         }
-      } catch (e) {
-        console.error('Error reading local wishlist:', e);
-      }
+        return [];
+      };
 
-      // Filter local dummy products that match wishlist IDs
-      const localDummyMatches = DUMMY_PRODUCTS.filter((d) => localIds.includes(d._id.toString()));
+      localIds = Array.from(new Set([...readKey(WISHLIST_KEY), ...readKey(CAKE_WISHLIST_KEY)]));
 
-      const token = getAuthToken();
+      // Match Dummy Sweets & Dummy Cakes
+      const allDummies = [...DUMMY_SWEETS, ...DUMMY_CAKES];
+      const localDummyMatches = allDummies.filter((d) => localIds.includes(d._id.toString()));
+
       let serverItems = [];
+      const token = getAuthToken();
 
       if (token) {
         try {
@@ -184,11 +255,33 @@ const Wishlist = ({ addToCart, addedToast }) => {
         }
       }
 
-      // Merge backend items and dummy items (deduplicated by _id)
+      // Fetch live products & cakes to resolve any remaining wishlisted IDs
+      let liveProductsAndCakes = [];
+      try {
+        const [prodRes, cakeRes] = await Promise.allSettled([
+          fetch(`${API_BASE}/products`),
+          fetch(`${API_BASE}/cakes`)
+        ]);
+
+        if (prodRes.status === 'fulfilled' && prodRes.value.ok) {
+          const pData = await prodRes.value.json();
+          if (Array.isArray(pData)) liveProductsAndCakes.push(...pData);
+        }
+        if (cakeRes.status === 'fulfilled' && cakeRes.value.ok) {
+          const cData = await cakeRes.value.json();
+          if (Array.isArray(cData)) liveProductsAndCakes.push(...cData);
+        }
+      } catch (err) {
+        console.warn('Live items fetch error:', err);
+      }
+
+      const liveMatched = liveProductsAndCakes.filter((p) => localIds.includes(p._id?.toString()));
+
+      // Merge backend items, live items, and dummy items (deduplicated)
       const combinedMap = new Map();
-      [...localDummyMatches, ...serverItems].forEach((item) => {
+      [...serverItems, ...liveMatched, ...localDummyMatches].forEach((item) => {
         const id = (item._id || item.id)?.toString();
-        if (id && !combinedMap.has(id)) {
+        if (id && !combinedMap.has(id) && localIds.includes(id)) {
           combinedMap.set(id, item);
         }
       });
@@ -197,7 +290,7 @@ const Wishlist = ({ addToCart, addedToast }) => {
       setWishlistItems(finalItems);
     } catch (err) {
       console.error('Fetch Wishlist Error:', err);
-      setError('Unable to load saved sweets.');
+      setError('Unable to load saved items.');
     } finally {
       setLoading(false);
     }
@@ -207,7 +300,7 @@ const Wishlist = ({ addToCart, addedToast }) => {
     fetchWishlist();
   }, []);
 
-  // 2. REMOVE ITEM FROM WISHLIST (Syncs Local Storage + Backend)
+  // 2. REMOVE ITEM FROM WISHLIST
   const handleRemove = async (e, productId) => {
     e.stopPropagation();
     if (!productId) return;
@@ -215,24 +308,26 @@ const Wishlist = ({ addToCart, addedToast }) => {
     const pIdStr = productId.toString();
     const prevItems = [...wishlistItems];
 
-    // Update UI State
     setWishlistItems((prev) => prev.filter((item) => (item._id || item.id)?.toString() !== pIdStr));
 
-    // Update LocalStorage
-    try {
-      const saved = localStorage.getItem(WISHLIST_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const updated = parsed.filter(
-          (id) => (typeof id === 'object' && id !== null ? (id._id || id.id) : id)?.toString() !== pIdStr
-        );
-        localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
-      }
-    } catch (err) {
-      console.error('LocalStorage update error:', err);
-    }
+    // Update LocalStorage for both keys
+    const updateLocalKey = (k) => {
+      try {
+        const saved = localStorage.getItem(k);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const updated = parsed.filter(
+            (id) => (typeof id === 'object' && id !== null ? (id._id || id.id) : id)?.toString() !== pIdStr
+          );
+          localStorage.setItem(k, JSON.stringify(updated));
+        }
+      } catch (err) {}
+    };
 
-    // Backend Sync if logged in and valid MongoDB ID
+    updateLocalKey(WISHLIST_KEY);
+    updateLocalKey(CAKE_WISHLIST_KEY);
+
+    // Backend Sync if logged in
     const token = getAuthToken();
     const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(pIdStr);
 
@@ -256,16 +351,20 @@ const Wishlist = ({ addToCart, addedToast }) => {
     }
   };
 
-  // 🟢 3. ADD TO CART FUNCTION
+  // 3. ADD TO CART FUNCTION
   const handleProductAddToCart = (p) => {
     const formattedItem = {
       id: p._id || p.id,
       _id: p._id || p.id,
+      productId: p._id || p.id,
       name: p.name,
+      variant: p.category ? `${p.category.toUpperCase()}` : 'Standard',
       price: typeof p.price === 'string' && p.price.startsWith('₹') ? p.price : `₹${p.price}`,
+      unitPrice: Number(p.price) || 0,
+      totalPrice: Number(p.price) || 0,
       img: getImageUrl(p.image),
       image: getImageUrl(p.image),
-      originRegion: p.originRegion,
+      originRegion: p.originRegion || 'Authentic Special',
       quantity: 1
     };
 
@@ -302,7 +401,6 @@ const Wishlist = ({ addToCart, addedToast }) => {
 
   return (
     <div className="wishlist-page-container">
-      {/* TOAST NOTIFICATION */}
       {activeToastMessage && (
         <div className="cart-toast fade-slide-up" style={{
           position: 'fixed',
@@ -321,26 +419,30 @@ const Wishlist = ({ addToCart, addedToast }) => {
       )}
 
       <div className="wishlist-header">
-        <h1 className="wishlist-title">My Saved Sweets</h1>
+        <h1 className="wishlist-title">My Saved Sweets & Cakes</h1>
         <p className="wishlist-subtitle">
-          Your favorite handcrafted regional sweets saved for quick ordering
+          Your favorite handcrafted regional sweets and fresh artisan cakes saved for quick ordering
         </p>
       </div>
 
-      {/* ERROR / LOADING / EMPTY / GRID */}
       {loading ? (
         <div className="wishlist-loading-state">
           <div className="wishlist-spinner"></div>
-          <p>Loading your saved sweets...</p>
+          <p>Loading your saved items...</p>
         </div>
       ) : wishlistItems.length === 0 ? (
         <div className="wishlist-empty-card">
           <span className="empty-icon">❤</span>
           <h3>Your Wishlist is Empty</h3>
-          <p>Explore authentic village sweets and tap the heart icon to save them here.</p>
-          <button className="wishlist-btn-primary" onClick={() => navigate('/')}>
-            Explore Sweets
-          </button>
+          <p>Explore authentic sweets & fresh bakery cakes, tap the heart icon to save them here.</p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '12px' }}>
+            <button className="wishlist-btn-primary" onClick={() => navigate('/')}>
+              Explore Sweets
+            </button>
+            <button className="wishlist-btn-primary" onClick={() => navigate('/cakes')} style={{ background: '#e11d48' }}>
+              Explore Cakes
+            </button>
+          </div>
         </div>
       ) : (
         <div className="wishlist-grid">
@@ -351,7 +453,6 @@ const Wishlist = ({ addToCart, addedToast }) => {
                   <span className="wishlist-badge">📍 {p.originRegion}</span>
                 )}
 
-                {/* Remove Cross Button */}
                 <button
                   className="wishlist-remove-btn"
                   onClick={(e) => handleRemove(e, p._id || p.id)}
@@ -375,7 +476,7 @@ const Wishlist = ({ addToCart, addedToast }) => {
 
               <div className="wishlist-info">
                 <div className="wishlist-rating">
-                  ★★★★★ <span>(100% Pure Desi Ghee)</span>
+                  ★★★★★ <span>({p.category === 'bento' || p.category === 'chocolate' || p.category === 'redvelvet' ? 'Fresh Daily Baked' : '100% Pure Desi Ghee'})</span>
                 </div>
 
                 <h3 className="wishlist-product-name" title={p.name}>
@@ -388,11 +489,10 @@ const Wishlist = ({ addToCart, addedToast }) => {
                   </p>
                 )}
 
-                {/* FOOTER & ADD TO CART BUTTON */}
                 <div className="wishlist-footer">
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span className="wishlist-price">₹{p.price}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Per Box / Kg</span>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Starting Price</span>
                   </div>
 
                   <button
@@ -401,7 +501,8 @@ const Wishlist = ({ addToCart, addedToast }) => {
                     disabled={p.inStock === false}
                     style={{
                       opacity: p.inStock === false ? 0.6 : 1,
-                      cursor: p.inStock === false ? 'not-allowed' : 'pointer'
+                      cursor: p.inStock === false ? 'not-allowed' : 'pointer',
+                      background: p.category ? '#e11d48' : '#94191d'
                     }}
                   >
                     {p.inStock === false ? 'Out of Stock' : '+ Add'}
