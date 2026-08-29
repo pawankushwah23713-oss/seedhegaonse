@@ -32,6 +32,35 @@ const parseBool = (val, fallback = false) => {
   return fallback;
 };
 
+// 🟢 Normalizers for bulk offers
+const normalizeCoupons = (list) =>
+  safeJsonParse(list)
+    .map((c) => ({
+      code: String(c.code || '').trim().toUpperCase(),
+      discountType: c.discountType === 'percentage' ? 'percentage' : 'flat',
+      discountValue: Number(c.discountValue) || 0,
+      minSpend: Number(c.minSpend) || 0,
+      validUntil: c.validUntil ? new Date(c.validUntil) : null
+    }))
+    .filter((c) => c.code && c.discountValue > 0);
+
+const normalizeQtyDiscounts = (list) =>
+  safeJsonParse(list)
+    .map((q) => ({
+      minQty: Number(q.minQty) || 0,
+      discountPercent: Number(q.discountPercent) || 0
+    }))
+    .filter((q) => q.minQty > 0 && q.discountPercent > 0);
+
+const normalizeGiftTiers = (list) =>
+  safeJsonParse(list)
+    .map((g) => ({
+      minSpend: Number(g.minSpend) || 0,
+      giftTitle: String(g.giftTitle || '').trim(),
+      giftImage: g.giftImage || ''
+    }))
+    .filter((g) => g.giftTitle);
+
 // 1. GET ALL PRODUCTS
 router.get('/', async (req, res) => {
   try {
@@ -39,6 +68,141 @@ router.get('/', async (req, res) => {
     res.status(200).json(products);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch sweets: ' + error.message });
+  }
+});
+
+/* =========================================================================
+   🌐 BULK OFFERS — SAARE PRODUCTS PAR EK SAATH OFFER LAGAO
+   POST /api/products/bulk-offers
+   NOTE: ye route '/:id' wale routes se PEHLE hona chahiye.
+
+   Body (JSON):
+   {
+     category: 'all' | 'ladoo' | 'peda' | ...,
+     mode: 'replace' | 'append' | 'remove',
+     applyDiscount: true, discountPercent: 15, discountValidUntil: '2026-09-30T23:59',
+     applyCoupons: true, couponsList: [{ code, discountType, discountValue, minSpend, validUntil }],
+     applyQtyDiscounts: true, quantityDiscounts: [{ minQty, discountPercent }],
+     applyGifts: true, giftTiers: [{ minSpend, giftTitle, giftImage }],
+     applyFreeDelivery: true, isFreeDelivery: true
+   }
+   ========================================================================= */
+router.post('/bulk-offers', protect, adminOnly, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const mode = ['replace', 'append', 'remove'].includes(b.mode) ? b.mode : 'replace';
+
+    const applyDiscount = parseBool(b.applyDiscount, false);
+    const applyCoupons = parseBool(b.applyCoupons, false);
+    const applyQtyDiscounts = parseBool(b.applyQtyDiscounts, false);
+    const applyGifts = parseBool(b.applyGifts, false);
+    const applyFreeDelivery = parseBool(b.applyFreeDelivery, false);
+
+    if (!applyDiscount && !applyCoupons && !applyQtyDiscounts && !applyGifts && !applyFreeDelivery) {
+      return res.status(400).json({ message: 'Kam se kam ek offer type select karein.' });
+    }
+
+    // Category filter
+    const filter = {};
+    if (b.category && b.category !== 'all') filter.category = b.category;
+
+    const products = await Product.find(filter);
+    if (products.length === 0) {
+      return res.status(404).json({ message: 'Is filter par koi product nahi mila.' });
+    }
+
+    const newCoupons = applyCoupons ? normalizeCoupons(b.couponsList) : [];
+    const newQty = applyQtyDiscounts ? normalizeQtyDiscounts(b.quantityDiscounts) : [];
+    const newGifts = applyGifts ? normalizeGiftTiers(b.giftTiers) : [];
+
+    let updatedCount = 0;
+
+    for (const product of products) {
+      // ---------- ⏳ TIMELINE DISCOUNT ----------
+      if (applyDiscount) {
+        if (mode === 'remove') {
+          product.discountPercent = 0;
+          product.discountValidUntil = null;
+        } else {
+          product.discountPercent = Number(b.discountPercent) || 0;
+          product.discountValidUntil = b.discountValidUntil ? new Date(b.discountValidUntil) : null;
+        }
+      }
+
+      // ---------- 🎟️ COUPONS ----------
+      if (applyCoupons) {
+        if (mode === 'remove') {
+          product.couponsList = [];
+          product.productCouponCode = '';
+          product.productCouponDiscount = 0;
+          product.productCouponType = 'flat';
+        } else if (mode === 'append') {
+          const existing = Array.isArray(product.couponsList) ? product.couponsList.map((c) => c.toObject?.() || c) : [];
+          const existingCodes = new Set(existing.map((c) => String(c.code || '').toUpperCase()));
+          const merged = [...existing, ...newCoupons.filter((c) => !existingCodes.has(c.code))];
+          product.couponsList = merged;
+        } else {
+          product.couponsList = newCoupons;
+        }
+      }
+
+      // ---------- 📦 QUANTITY / PACK DISCOUNTS ----------
+      if (applyQtyDiscounts) {
+        if (mode === 'remove') {
+          product.quantityDiscounts = [];
+        } else if (mode === 'append') {
+          const existing = Array.isArray(product.quantityDiscounts) ? product.quantityDiscounts.map((q) => q.toObject?.() || q) : [];
+          const existingQtys = new Set(existing.map((q) => Number(q.minQty)));
+          product.quantityDiscounts = [...existing, ...newQty.filter((q) => !existingQtys.has(q.minQty))];
+        } else {
+          product.quantityDiscounts = newQty;
+        }
+      }
+
+      // ---------- 🎁 FREE GIFTS ----------
+      if (applyGifts) {
+        if (mode === 'remove') {
+          product.giftTiers = [];
+        } else if (mode === 'append') {
+          const existing = Array.isArray(product.giftTiers) ? product.giftTiers.map((g) => g.toObject?.() || g) : [];
+          const existingKeys = new Set(existing.map((g) => `${Number(g.minSpend)}|${String(g.giftTitle || '').toLowerCase()}`));
+          product.giftTiers = [
+            ...existing,
+            ...newGifts.filter((g) => !existingKeys.has(`${g.minSpend}|${g.giftTitle.toLowerCase()}`))
+          ];
+        } else {
+          product.giftTiers = newGifts;
+        }
+      }
+
+      // ---------- 🚚 FREE DELIVERY ----------
+      if (applyFreeDelivery) {
+        product.isFreeDelivery = mode === 'remove' ? false : parseBool(b.isFreeDelivery, true);
+      }
+
+      // Backward-compatible single coupon fields
+      if (applyCoupons && mode !== 'remove' && product.couponsList && product.couponsList.length > 0) {
+        product.productCouponCode = product.couponsList[0].code || '';
+        product.productCouponDiscount = Number(product.couponsList[0].discountValue || 0);
+        product.productCouponType = product.couponsList[0].discountType || 'flat';
+      }
+
+      await product.save();
+      updatedCount++;
+    }
+
+    const scope = b.category && b.category !== 'all' ? `"${b.category}" category` : 'saare products';
+    const actionWord = mode === 'remove' ? 'hataye gaye' : mode === 'append' ? 'add kiye gaye' : 'set kiye gaye';
+
+    res.status(200).json({
+      message: `🎉 ${updatedCount} products par offers ${actionWord} (${scope}).`,
+      updatedCount,
+      mode,
+      category: b.category || 'all'
+    });
+  } catch (error) {
+    console.error('Bulk offers error:', error);
+    res.status(500).json({ message: error.message || 'Bulk offer apply karne me error aaya.' });
   }
 });
 

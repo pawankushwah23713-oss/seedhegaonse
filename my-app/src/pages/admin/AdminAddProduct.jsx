@@ -4,6 +4,15 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
+const CATEGORIES = [
+  { value: 'ladoo', label: 'Ladoo' },
+  { value: 'peda', label: 'Peda' },
+  { value: 'petha', label: 'Petha' },
+  { value: 'halwa', label: 'Halwa' },
+  { value: 'barfi', label: 'Barfi & Katli' },
+  { value: 'special', label: 'Regional Special' }
+];
+
 const defaultForm = {
   name: '',
   originRegion: '',
@@ -26,6 +35,23 @@ const defaultForm = {
   inStock: true // 🟢 STOCK STATUS
 };
 
+// 🌐 BULK OFFER PANEL KA DEFAULT STATE
+const defaultBulkOffer = {
+  category: 'all',
+  mode: 'replace', // replace | append | remove
+  applyDiscount: false,
+  discountPercent: '',
+  discountValidUntil: '',
+  applyCoupons: false,
+  couponsList: [{ code: 'SGS50', discountType: 'flat', discountValue: '50', minSpend: '500', validUntil: '' }],
+  applyQtyDiscounts: false,
+  quantityDiscounts: [{ minQty: '2', discountPercent: '10' }],
+  applyGifts: false,
+  giftTiers: [{ minSpend: '1500', giftTitle: 'Free 100g Desi Ghee Peda Box', giftImage: '' }],
+  applyFreeDelivery: false,
+  isFreeDelivery: true
+};
+
 const AdminAllInOneProducts = () => {
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState(defaultForm);
@@ -36,6 +62,11 @@ const AdminAllInOneProducts = () => {
   const [loading, setLoading] = useState(false);
   const [stockBusyId, setStockBusyId] = useState(null);
   const [msg, setMsg] = useState({ text: '', type: '' });
+
+  // 🌐 BULK OFFER STATE
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+  const [bulkOffer, setBulkOffer] = useState(defaultBulkOffer);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const token = localStorage.getItem('token');
 
@@ -112,6 +143,82 @@ const AdminAllInOneProducts = () => {
   };
   const removeGiftTier = (index) => {
     setFormData((prev) => ({ ...prev, giftTiers: prev.giftTiers.filter((_, i) => i !== index) }));
+  };
+
+  // ==========================================
+  // 🌐 BULK OFFER HANDLERS (sab products ke liye)
+  // ==========================================
+  const setBulkField = (field, value) => {
+    setBulkOffer((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBulkArrayChange = (listName, index, field, value) => {
+    setBulkOffer((prev) => {
+      const updated = prev[listName].map((row, i) =>
+        i === index ? { ...row, [field]: field === 'code' ? value.toUpperCase() : value } : row
+      );
+      return { ...prev, [listName]: updated };
+    });
+  };
+
+  const addBulkArrayRow = (listName, emptyRow) => {
+    setBulkOffer((prev) => ({ ...prev, [listName]: [...prev[listName], emptyRow] }));
+  };
+
+  const removeBulkArrayRow = (listName, index) => {
+    setBulkOffer((prev) => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
+  };
+
+  // Kitne products affect honge
+  const affectedCount = bulkOffer.category === 'all'
+    ? products.length
+    : products.filter((p) => p.category === bulkOffer.category).length;
+
+  const handleBulkApply = async () => {
+    const anySelected =
+      bulkOffer.applyDiscount ||
+      bulkOffer.applyCoupons ||
+      bulkOffer.applyQtyDiscounts ||
+      bulkOffer.applyGifts ||
+      bulkOffer.applyFreeDelivery;
+
+    if (!anySelected) {
+      setMsg({ text: '⚠️ Kam se kam ek offer type ka checkbox tick karein.', type: 'error' });
+      return;
+    }
+
+    const scopeText = bulkOffer.category === 'all' ? 'SAARE' : `"${bulkOffer.category}" category ke`;
+    const modeText =
+      bulkOffer.mode === 'remove' ? 'HATA' : bulkOffer.mode === 'append' ? 'ADD KAR' : 'REPLACE KAR';
+
+    if (!window.confirm(`Ye offers ${scopeText} ${affectedCount} products par ${modeText} diye jayenge. Confirm?`)) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setMsg({ text: '', type: '' });
+
+    try {
+      const res = await fetch(`${API_BASE}/products/bulk-offers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(bulkOffer)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Bulk offer apply failed');
+
+      setMsg({ text: data.message || '🎉 Bulk offers applied!', type: 'success' });
+      fetchProducts();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setMsg({ text: err.message || 'Bulk offer apply karne me error aaya.', type: 'error' });
+    } finally {
+      setBulkLoading(false);
+    }
   };
 
   const handleImageChange = (e) => {
@@ -262,6 +369,8 @@ const AdminAllInOneProducts = () => {
     }
   };
 
+  const isRemoveMode = bulkOffer.mode === 'remove';
+
   return (
     <div style={{ maxWidth: '1100px', margin: '20px auto', padding: '20px', fontFamily: 'Segoe UI, sans-serif' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -286,6 +395,259 @@ const AdminAllInOneProducts = () => {
         </div>
       )}
 
+      {/* ==================================================== */}
+      {/* 🌐 BULK OFFERS — SAB PRODUCTS PAR EK SAATH            */}
+      {/* ==================================================== */}
+      <div style={{ background: '#fff', border: '2px solid #94191d', borderRadius: '12px', marginBottom: '30px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(148,25,29,0.10)' }}>
+        <div
+          onClick={() => setBulkPanelOpen(!bulkPanelOpen)}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '16px 20px', background: '#94191d', color: '#fff', cursor: 'pointer' }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>🌐 Bulk Offers — Sab Products Par Ek Saath</h2>
+            <p style={{ margin: '4px 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
+              Ek hi baar me sabhi (ya kisi ek category ke) sweets par discount, coupons, pack offers, free gifts aur free delivery lagayein.
+            </p>
+          </div>
+          <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>{bulkPanelOpen ? '▲' : '▼'}</span>
+        </div>
+
+        {bulkPanelOpen && (
+          <div style={{ padding: '20px' }}>
+
+            {/* SCOPE + MODE */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', background: '#fdf5f5', padding: '15px', borderRadius: '8px', border: '1px solid #f3d5d5' }}>
+              <div>
+                <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#94191d' }}>Kis par lagana hai?</label>
+                <select value={bulkOffer.category} onChange={(e) => setBulkField('category', e.target.value)} style={inputStyle}>
+                  <option value="all">🍬 All Products (Saare Sweets)</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label} only</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#94191d' }}>Mode</label>
+                <select value={bulkOffer.mode} onChange={(e) => setBulkField('mode', e.target.value)} style={inputStyle}>
+                  <option value="replace">♻️ Replace — purane offers hata kar naye lagao</option>
+                  <option value="append">➕ Add — purane offers ke saath jodo</option>
+                  <option value="remove">🗑️ Remove — selected offers hata do</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                <div style={{ background: '#94191d', color: '#fff', padding: '10px 12px', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  {affectedCount} products affect honge
+                </div>
+              </div>
+            </div>
+
+            {isRemoveMode && (
+              <div style={{ marginTop: '12px', background: '#fef2f2', border: '1px dashed #dc2626', color: '#b91c1c', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600' }}>
+                🗑️ Remove mode: neeche jo bhi checkbox tick karenge, us type ke offers in products se hata diye jayenge. Values matter nahi karti.
+              </div>
+            )}
+
+            {/* ⏳ BULK TIMELINE DISCOUNT */}
+            <div style={{ marginTop: '20px', border: '1px solid #fde68a', borderRadius: '8px', overflow: 'hidden' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', padding: '12px 15px', cursor: 'pointer', fontWeight: '700', color: '#b45309' }}>
+                <input type="checkbox" checked={bulkOffer.applyDiscount} onChange={(e) => setBulkField('applyDiscount', e.target.checked)} style={checkboxStyle} />
+                ⏳ Discount (%) sab par lagao
+              </label>
+
+              {bulkOffer.applyDiscount && !isRemoveMode && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', padding: '15px' }}>
+                  <div>
+                    <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#b45309' }}>Discount (%)</label>
+                    <input type="number" min="0" max="100" placeholder="e.g. 15" value={bulkOffer.discountPercent} onChange={(e) => setBulkField('discountPercent', e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#b45309' }}>Valid Until (khali chhodenge to no expiry)</label>
+                    <input type="datetime-local" value={bulkOffer.discountValidUntil} onChange={(e) => setBulkField('discountValidUntil', e.target.value)} style={inputStyle} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 🎟️ BULK COUPONS */}
+            <div style={{ marginTop: '15px', border: '1px solid #ddd6fe', borderRadius: '8px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '12px 15px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#6d28d9' }}>
+                  <input type="checkbox" checked={bulkOffer.applyCoupons} onChange={(e) => setBulkField('applyCoupons', e.target.checked)} style={checkboxStyle} />
+                  🎟️ Coupons sab par lagao
+                </label>
+                {bulkOffer.applyCoupons && !isRemoveMode && (
+                  <button type="button" onClick={() => addBulkArrayRow('couponsList', { code: '', discountType: 'flat', discountValue: '', minSpend: '0', validUntil: '' })} style={{ ...smallBtnStyle, background: '#7c3aed' }}>
+                    ➕ Add Coupon
+                  </button>
+                )}
+              </div>
+
+              {bulkOffer.applyCoupons && !isRemoveMode && (
+                <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {bulkOffer.couponsList.map((c, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.5fr auto', gap: '10px', alignItems: 'center' }}>
+                      <div>
+                        <label style={miniLabel('#6d28d9')}>Code</label>
+                        <input type="text" placeholder="SGS50" value={c.code} onChange={(e) => handleBulkArrayChange('couponsList', idx, 'code', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={miniLabel('#6d28d9')}>Type</label>
+                        <select value={c.discountType} onChange={(e) => handleBulkArrayChange('couponsList', idx, 'discountType', e.target.value)} style={inputStyle}>
+                          <option value="flat">Flat (₹)</option>
+                          <option value="percentage">% Percent</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={miniLabel('#6d28d9')}>Value</label>
+                        <input type="number" placeholder="50" value={c.discountValue} onChange={(e) => handleBulkArrayChange('couponsList', idx, 'discountValue', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={miniLabel('#6d28d9')}>Min Spend</label>
+                        <input type="number" placeholder="500" value={c.minSpend} onChange={(e) => handleBulkArrayChange('couponsList', idx, 'minSpend', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={miniLabel('#6d28d9')}>Expiry</label>
+                        <input type="datetime-local" value={c.validUntil} onChange={(e) => handleBulkArrayChange('couponsList', idx, 'validUntil', e.target.value)} style={inputStyle} />
+                      </div>
+                      {bulkOffer.couponsList.length > 1 && (
+                        <button type="button" onClick={() => removeBulkArrayRow('couponsList', idx)} style={removeBtnStyle}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 📦 BULK QUANTITY DISCOUNTS */}
+            <div style={{ marginTop: '15px', border: '1px solid #fed7aa', borderRadius: '8px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff7ed', padding: '12px 15px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#c2410c' }}>
+                  <input type="checkbox" checked={bulkOffer.applyQtyDiscounts} onChange={(e) => setBulkField('applyQtyDiscounts', e.target.checked)} style={checkboxStyle} />
+                  📦 Quantity / Pack Discounts sab par lagao
+                </label>
+                {bulkOffer.applyQtyDiscounts && !isRemoveMode && (
+                  <button type="button" onClick={() => addBulkArrayRow('quantityDiscounts', { minQty: '', discountPercent: '' })} style={{ ...smallBtnStyle, background: '#ea580c' }}>
+                    ➕ Add Slab
+                  </button>
+                )}
+              </div>
+
+              {bulkOffer.applyQtyDiscounts && !isRemoveMode && (
+                <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {bulkOffer.quantityDiscounts.map((q, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr auto', gap: '12px', alignItems: 'center' }}>
+                      <div>
+                        <label style={miniLabel('#c2410c')}>Min Packs / Qty</label>
+                        <input type="number" placeholder="e.g. 2" value={q.minQty} onChange={(e) => handleBulkArrayChange('quantityDiscounts', idx, 'minQty', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={miniLabel('#c2410c')}>Extra Discount (%)</label>
+                        <input type="number" placeholder="e.g. 10" value={q.discountPercent} onChange={(e) => handleBulkArrayChange('quantityDiscounts', idx, 'discountPercent', e.target.value)} style={inputStyle} />
+                      </div>
+                      {bulkOffer.quantityDiscounts.length > 1 && (
+                        <button type="button" onClick={() => removeBulkArrayRow('quantityDiscounts', idx)} style={removeBtnStyle}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 🎁 BULK GIFTS */}
+            <div style={{ marginTop: '15px', border: '1px solid #bfdbfe', borderRadius: '8px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '12px 15px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#1e40af' }}>
+                  <input type="checkbox" checked={bulkOffer.applyGifts} onChange={(e) => setBulkField('applyGifts', e.target.checked)} style={checkboxStyle} />
+                  🎁 Free Gifts sab par lagao
+                </label>
+                {bulkOffer.applyGifts && !isRemoveMode && (
+                  <button type="button" onClick={() => addBulkArrayRow('giftTiers', { minSpend: '', giftTitle: '', giftImage: '' })} style={{ ...smallBtnStyle, background: '#2563eb' }}>
+                    ➕ Add Gift Tier
+                  </button>
+                )}
+              </div>
+
+              {bulkOffer.applyGifts && !isRemoveMode && (
+                <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {bulkOffer.giftTiers.map((g, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr auto', gap: '12px', alignItems: 'center' }}>
+                      <div>
+                        <label style={miniLabel('#1e40af')}>Min Spend (₹)</label>
+                        <input type="number" placeholder="e.g. 1500" value={g.minSpend} onChange={(e) => handleBulkArrayChange('giftTiers', idx, 'minSpend', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={miniLabel('#1e40af')}>Free Gift Title</label>
+                        <input type="text" placeholder="e.g. Free 100g Mathura Peda Box" value={g.giftTitle} onChange={(e) => handleBulkArrayChange('giftTiers', idx, 'giftTitle', e.target.value)} style={inputStyle} />
+                      </div>
+                      {bulkOffer.giftTiers.length > 1 && (
+                        <button type="button" onClick={() => removeBulkArrayRow('giftTiers', idx)} style={removeBtnStyle}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 🚚 BULK FREE DELIVERY */}
+            <div style={{ marginTop: '15px', border: '1px solid #bbf7d0', borderRadius: '8px', overflow: 'hidden' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', padding: '12px 15px', cursor: 'pointer', fontWeight: '700', color: '#047857' }}>
+                <input type="checkbox" checked={bulkOffer.applyFreeDelivery} onChange={(e) => setBulkField('applyFreeDelivery', e.target.checked)} style={checkboxStyle} />
+                🚚 Free Delivery sab par {isRemoveMode ? 'hatao' : 'lagao'}
+              </label>
+
+              {bulkOffer.applyFreeDelivery && !isRemoveMode && (
+                <div style={{ padding: '12px 15px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#334155', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={bulkOffer.isFreeDelivery} onChange={(e) => setBulkField('isFreeDelivery', e.target.checked)} style={checkboxStyle} />
+                    Free Delivery ON rakho (uncheck karenge to OFF ho jayegi)
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* APPLY BUTTONS */}
+            <div style={{ marginTop: '22px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleBulkApply}
+                disabled={bulkLoading}
+                style={{
+                  padding: '12px 28px',
+                  background: isRemoveMode ? '#dc2626' : '#94191d',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  fontSize: '0.95rem',
+                  cursor: bulkLoading ? 'wait' : 'pointer',
+                  opacity: bulkLoading ? 0.7 : 1
+                }}
+              >
+                {bulkLoading
+                  ? 'Applying...'
+                  : isRemoveMode
+                  ? `🗑️ Remove from ${affectedCount} Products`
+                  : `🚀 Apply to ${affectedCount} Products`}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBulkOffer(defaultBulkOffer)}
+                style={{ padding: '12px 20px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Reset Panel
+              </button>
+
+              <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                Ye offers har product me save honge, isliye homepage aur cart me automatically dikhenge.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <form onSubmit={handleSubmit} style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
 
         {/* 1. BASIC DETAILS */}
@@ -302,17 +664,14 @@ const AdminAllInOneProducts = () => {
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Category *</label>
             <select name="category" value={formData.category} onChange={handleChange} style={inputStyle}>
-              <option value="ladoo">Ladoo</option>
-              <option value="peda">Peda</option>
-              <option value="petha">Petha</option>
-              <option value="halwa">Halwa</option>
-              <option value="barfi">Barfi & Katli</option>
-              <option value="special">Regional Special</option>
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
             </select>
           </div>
         </div>
 
-        {/* 🟢 2. STOCK STATUS (NEW) */}
+        {/* 🟢 2. STOCK STATUS */}
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: formData.inStock ? '#15803d' : '#b91c1c' }}>
           🏷️ 2. Stock Status
         </h3>
@@ -404,7 +763,7 @@ const AdminAllInOneProducts = () => {
         {/* 5. MULTIPLE COUPONS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
           <h3 style={{ margin: 0, color: '#7c3aed' }}>🎟️ 4. Product Secret Coupons (Add Multiple with +)</h3>
-          <button type="button" onClick={addCoupon} style={{ padding: '6px 14px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+          <button type="button" onClick={addCoupon} style={{ ...smallBtnStyle, background: '#7c3aed' }}>
             ➕ Add Another Coupon
           </button>
         </div>
@@ -413,26 +772,26 @@ const AdminAllInOneProducts = () => {
           {formData.couponsList.map((c, idx) => (
             <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.5fr auto', gap: '10px', background: '#f5f3ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Coupon Code</label>
+                <label style={miniLabel('#6d28d9')}>Coupon Code</label>
                 <input type="text" placeholder="e.g. LADDU50" value={c.code} onChange={(e) => handleCouponChange(idx, 'code', e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Type</label>
+                <label style={miniLabel('#6d28d9')}>Type</label>
                 <select value={c.discountType} onChange={(e) => handleCouponChange(idx, 'discountType', e.target.value)} style={inputStyle}>
                   <option value="flat">Flat (₹)</option>
                   <option value="percentage">% Percent</option>
                 </select>
               </div>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Value</label>
+                <label style={miniLabel('#6d28d9')}>Value</label>
                 <input type="number" placeholder="50" value={c.discountValue} onChange={(e) => handleCouponChange(idx, 'discountValue', e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Min Spend (₹)</label>
+                <label style={miniLabel('#6d28d9')}>Min Spend (₹)</label>
                 <input type="number" placeholder="500" value={c.minSpend} onChange={(e) => handleCouponChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Expiry Date</label>
+                <label style={miniLabel('#6d28d9')}>Expiry Date</label>
                 <input type="datetime-local" value={c.validUntil} onChange={(e) => handleCouponChange(idx, 'validUntil', e.target.value)} style={inputStyle} />
               </div>
               {formData.couponsList.length > 1 && (
@@ -445,7 +804,7 @@ const AdminAllInOneProducts = () => {
         {/* 6. MULTIPLE PACK DISCOUNTS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
           <h3 style={{ margin: 0, color: '#ea580c' }}>📦 5. Quantity / Pack Discounts (Buy 2+, Buy 5+ with +)</h3>
-          <button type="button" onClick={addQtyDiscount} style={{ padding: '6px 14px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+          <button type="button" onClick={addQtyDiscount} style={{ ...smallBtnStyle, background: '#ea580c' }}>
             ➕ Add Qty Slab
           </button>
         </div>
@@ -454,11 +813,11 @@ const AdminAllInOneProducts = () => {
           {formData.quantityDiscounts.map((q, idx) => (
             <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr auto', gap: '12px', background: '#fff7ed', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#c2410c' }}>Min Packs / Qty (e.g. 2, 5)</label>
+                <label style={miniLabel('#c2410c')}>Min Packs / Qty (e.g. 2, 5)</label>
                 <input type="number" placeholder="e.g. 2" value={q.minQty} onChange={(e) => handleQtyDiscountChange(idx, 'minQty', e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#c2410c' }}>Extra Discount (% OFF)</label>
+                <label style={miniLabel('#c2410c')}>Extra Discount (% OFF)</label>
                 <input type="number" placeholder="e.g. 10" value={q.discountPercent} onChange={(e) => handleQtyDiscountChange(idx, 'discountPercent', e.target.value)} style={inputStyle} />
               </div>
               {formData.quantityDiscounts.length > 1 && (
@@ -471,7 +830,7 @@ const AdminAllInOneProducts = () => {
         {/* 7. MULTIPLE FREE GIFTS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
           <h3 style={{ margin: 0, color: '#2563eb' }}>🎁 6. Free Gifts on Spending Roadmap (Add Multiple with +)</h3>
-          <button type="button" onClick={addGiftTier} style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+          <button type="button" onClick={addGiftTier} style={{ ...smallBtnStyle, background: '#2563eb' }}>
             ➕ Add More Gift Tier
           </button>
         </div>
@@ -480,11 +839,11 @@ const AdminAllInOneProducts = () => {
           {formData.giftTiers.map((tier, idx) => (
             <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr auto', gap: '12px', background: '#eff6ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#1e40af' }}>Min Spend to Unlock Gift (₹)</label>
+                <label style={miniLabel('#1e40af')}>Min Spend to Unlock Gift (₹)</label>
                 <input type="number" placeholder="e.g. 1500" value={tier.minSpend} onChange={(e) => handleGiftTierChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#1e40af' }}>Free Gift Name / Title</label>
+                <label style={miniLabel('#1e40af')}>Free Gift Name / Title</label>
                 <input type="text" placeholder="e.g. Free 100g Mathura Peda Box" value={tier.giftTitle} onChange={(e) => handleGiftTierChange(idx, 'giftTitle', e.target.value)} style={inputStyle} />
               </div>
               {formData.giftTiers.length > 1 && (
@@ -497,7 +856,7 @@ const AdminAllInOneProducts = () => {
         {/* 8. FREE DELIVERY */}
         <div style={{ marginTop: '18px', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: '#047857', cursor: 'pointer' }}>
-            <input type="checkbox" name="isFreeDelivery" checked={formData.isFreeDelivery} onChange={handleChange} style={{ width: '18px', height: '18px' }} />
+            <input type="checkbox" name="isFreeDelivery" checked={formData.isFreeDelivery} onChange={handleChange} style={checkboxStyle} />
             🚚 Provide 100% FREE Delivery directly on this Sweet
           </label>
         </div>
@@ -656,5 +1015,28 @@ const removeBtnStyle = {
   alignSelf: 'flex-end',
   marginBottom: '2px'
 };
+
+const smallBtnStyle = {
+  padding: '6px 14px',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+  fontSize: '0.85rem'
+};
+
+const checkboxStyle = {
+  width: '18px',
+  height: '18px',
+  cursor: 'pointer',
+  accentColor: '#94191d'
+};
+
+const miniLabel = (color) => ({
+  fontWeight: '600',
+  fontSize: '0.8rem',
+  color
+});
 
 export default AdminAllInOneProducts;
