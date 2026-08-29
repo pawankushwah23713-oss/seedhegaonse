@@ -859,15 +859,15 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         required
                       >
                         <option value="">⚠️ -- Select Shipping Option (Required) --</option>
-                        <option value="delivery">🚚 Standard Home Delivery (Courier)</option>
-                        <option value="founder">🎖️ Delivery by Founder (VIP Hand Delivery - ₹5,000)</option>
-                        <option value="pickup">🏬 Direct Store Pickup (Self Pickup - FREE)</option>
+                        <option value="delivery">🚚  Home Delivery </option>
+                        <option value="founder">🎖️ Delivery by Founder </option>
+                        <option value="pickup">🏬 Self Pickup - FREE</option>
                       </select>
                     </div>
 
                     {shippingMode === 'founder' && (
                       <div style={{ background: '#fef3c7', border: '1px dashed #d97706', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
-                        🎖️ <strong>Founder VIP Delivery (₹5,000 Flat):</strong> Personally hand-delivered by our founder team!
+                        🎖️ <strong>Founder  Delivery (₹5,000 Flat):</strong> Personally hand-delivered by our founder team!
                       </div>
                     )}
 
