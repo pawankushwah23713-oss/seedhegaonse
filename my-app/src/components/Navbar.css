@@ -146,24 +146,60 @@
   flex-shrink: 1;
   padding-left: 10px;
   border-left: 1.5px solid rgba(175, 172, 166, 0.08);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .delivery-time-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
-.speed-tag {
-  background: #857e7e;
-  color: white;
-  font-size: 10px;
-  font-weight: 900;
-  padding: 2px 6px;
-  border-radius: 4px;
+/* ❤️ WISHLIST QUICK BUTTON (pehle yahan "⚡ 15 MINS" tag tha) */
+.wishlist-quick-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: none;
+  color: #94191d;
+  cursor: pointer;
   flex-shrink: 0;
+  padding: 0;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.wishlist-quick-btn:hover {
+  background: #ffffff;
+  transform: scale(1.08);
+}
+
+.wishlist-quick-btn:active {
+  transform: scale(0.95);
+}
+
+.wishlist-quick-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 900;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #94191d;
+  box-sizing: border-box;
 }
 
 .delivery-city {
@@ -1106,9 +1142,9 @@
     padding-left: 6px;
   }
 
-  .speed-tag {
-    font-size: 9px;
-    padding: 1px 4px;
+  .wishlist-quick-btn {
+    width: 26px;
+    height: 26px;
   }
 
   .delivery-city {
@@ -1184,8 +1220,9 @@
 
 /* 📱 Ultra Narrow / Folded Screens (<= 280px) */
 @media screen and (max-width: 280px) {
-  .quick-delivery-widget {
-    display: none; /* Not enough room; location still reachable from drawer */
+  /* Sirf location text hata rahe hain — wishlist heart visible rahega */
+  .location-pill-btn {
+    display: none;
   }
   .brand-heading {
     font-size: 12px;
