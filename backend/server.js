@@ -17,6 +17,7 @@ const giftRoutes = require('./routes/giftRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes'); 
 const app = express();
+const couponWalletRoutes = require('./routes/Couponwallet.routes');
 const server = http.createServer(app); // 🟢 Create HTTP server
 
 // 🟢 Socket.io with CORS Setup
@@ -74,6 +75,8 @@ app.use('/api/gifts', giftRoutes);
 app.use('/api/banners', bannerRoutes);
 // Cake Routes mount karne ke liye ye line add karein:
 app.use('/api/cakes', require('./routes/cakeRoutes'));
+
+app.use('/api/coupons/my-coupons', couponWalletRoutes);
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/seedhe_gaon_se';

@@ -97,6 +97,51 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
+  // 🎫 Saved / "Got" Coupons — logged-in users: saved to their profile on the
+  // backend (persists across devices). Guests: falls back to localStorage.
+  const [savedCoupons, setSavedCoupons] = useState(() => {
+    try {
+      const cached = localStorage.getItem('sgs_saved_coupons');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // For guests only, keep mirroring to localStorage. Logged-in users are
+  // synced straight to/from the backend instead (see effect below).
+  useEffect(() => {
+    if (getAuthToken()) return;
+    try {
+      localStorage.setItem('sgs_saved_coupons', JSON.stringify(savedCoupons));
+    } catch (err) {
+      console.error(err);
+    }
+  }, [savedCoupons]);
+
+  // Fetch the logged-in user's saved coupon wallet from the backend when the cart opens
+  useEffect(() => {
+    if (!isOpen) return;
+    const token = getAuthToken();
+    if (!token) return; // guest: keep using localStorage state as-is
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/coupons/my-coupons`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok && Array.isArray(data.savedCoupons)) {
+          setSavedCoupons(data.savedCoupons);
+        }
+      } catch (err) {
+        console.error('Unable to load saved coupons from profile:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
   // 🎁 Gift Packaging Box + 🧾 Tax — values admin panel se aati hain
   const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
   const [storeSettings, setStoreSettings] = useState({
@@ -666,6 +711,66 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     setAppliedCoupon(null);
     setCouponCode('');
     setCouponMsg({ text: '', type: '' });
+  };
+
+  // 🎫 Save ("Get") a coupon so it can be used later, anytime, from any cart.
+  // Logged-in: saved to the user's profile on the backend. Guest: localStorage only.
+  const handleGetCoupon = async (c) => {
+    const newEntry = {
+      code: c.code,
+      discountType: c.discountType,
+      discountValue: c.discountValue,
+      minSpend: c.minSpend,
+      validUntil: c.validUntil ? c.validUntil.toISOString() : null,
+      productName: c.productName
+    };
+
+    const token = getAuthToken();
+    if (!token) {
+      setSavedCoupons((prev) => (prev.some((sc) => sc.code === c.code) ? prev : [...prev, newEntry]));
+      setCouponMsg({ text: `✅ ${c.code} saved! Use it anytime from "My Coupons".`, type: 'success' });
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/coupons/my-coupons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newEntry)
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.savedCoupons)) {
+        setSavedCoupons(data.savedCoupons);
+        setCouponMsg({ text: `✅ ${c.code} saved to your profile! Use it anytime from "My Coupons".`, type: 'success' });
+      } else {
+        setCouponMsg({ text: data.message || 'Unable to save this coupon right now.', type: 'error' });
+      }
+    } catch {
+      setCouponMsg({ text: 'Unable to save this coupon right now. Please try again.', type: 'error' });
+    }
+  };
+
+  const handleRemoveSavedCoupon = async (code) => {
+    const token = getAuthToken();
+    if (!token) {
+      setSavedCoupons((prev) => prev.filter((sc) => sc.code !== code));
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/coupons/my-coupons/${encodeURIComponent(code)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.savedCoupons)) {
+        setSavedCoupons(data.savedCoupons);
+      } else {
+        setSavedCoupons((prev) => prev.filter((sc) => sc.code !== code));
+      }
+    } catch {
+      setSavedCoupons((prev) => prev.filter((sc) => sc.code !== code));
+    }
   };
 
   const handlePlaceOrder = async (e) => {
@@ -1240,6 +1345,81 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </span>
                       </div>
 
+                      {/* 🎫 MY SAVED COUPONS — got earlier, usable anytime later */}
+                      {savedCoupons.length > 0 && (
+                        <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
+                          <div style={{ fontWeight: '800', color: '#4338ca', fontSize: '0.82rem', marginBottom: '8px' }}>
+                            🎫 My Coupons
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {savedCoupons.map((sc) => {
+                              const isApplied = appliedCoupon?.code === sc.code;
+                              const validUntilDate = sc.validUntil ? new Date(sc.validUntil) : null;
+                              const isExpired = validUntilDate && !isNaN(validUntilDate.getTime()) && validUntilDate < new Date();
+
+                              return (
+                                <div
+                                  key={sc.code}
+                                  style={{
+                                    padding: '9px 11px',
+                                    borderRadius: '8px',
+                                    background: isApplied ? '#f0fdf4' : '#eef2ff',
+                                    border: `1px dashed ${isApplied ? '#22c55e' : '#818cf8'}`,
+                                    opacity: isExpired ? 0.65 : 1
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.84rem', fontWeight: '800', color: '#4338ca', letterSpacing: '0.4px' }}>
+                                      🎫 {sc.code}
+                                    </span>
+                                    <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#334155' }}>
+                                      {sc.discountType === 'percentage' ? `${sc.discountValue}% OFF` : `₹${formatMoney(sc.discountValue)} OFF`}
+                                    </span>
+                                  </div>
+
+                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>
+                                    {parseNumericPrice(sc.minSpend) > 0 ? `Min spend ₹${formatMoney(sc.minSpend)}` : 'No minimum spend'}
+                                    {validUntilDate && !isNaN(validUntilDate.getTime()) ? ` • Till ${validUntilDate.toLocaleDateString('en-IN')}` : ''}
+                                  </div>
+
+                                  <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    {isApplied ? (
+                                      <button
+                                        type="button"
+                                        onClick={handleRemoveCoupon}
+                                        style={{ background: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '5px 10px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                                      >
+                                        ✓ APPLIED — Remove
+                                      </button>
+                                    ) : isExpired ? (
+                                      <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fecaca' }}>
+                                        ⌛ EXPIRED
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApplyCoupon(sc.code)}
+                                        style={{ background: '#4338ca', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '5px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                                      >
+                                        USE NOW
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSavedCoupon(sc.code)}
+                                      style={{ background: '#fff', color: '#94a3b8', fontSize: '10px', fontWeight: '800', padding: '5px 10px', borderRadius: '4px', border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       {/* 🎟️ AVAILABLE COUPONS */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
@@ -1277,7 +1457,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                     {c.validUntil ? ` • Till ${c.validUntil.toLocaleDateString('en-IN')}` : ''}
                                   </div>
 
-                                  <div style={{ marginTop: '6px' }}>
+                                  <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                                     {isApplied ? (
                                       <button
                                         type="button"
@@ -1302,6 +1482,23 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                       <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
                                         🔒 LOCKED (Add ₹{formatMoney(c.remaining)})
                                       </span>
+                                    )}
+
+                                    {!c.isExpired && (
+                                      savedCoupons.some((sc) => sc.code === c.code) ? (
+                                        <span style={{ background: '#e0e7ff', color: '#4338ca', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #c7d2fe' }}>
+                                          🎫 SAVED
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleGetCoupon(c)}
+                                          style={{ background: '#fff', color: '#7c3aed', fontSize: '10px', fontWeight: '800', padding: '5px 10px', borderRadius: '4px', border: '1px solid #7c3aed', cursor: 'pointer' }}
+                                          title="Save this coupon to use anytime later"
+                                        >
+                                          🎫 GET
+                                        </button>
+                                      )
                                     )}
                                   </div>
                                 </div>
