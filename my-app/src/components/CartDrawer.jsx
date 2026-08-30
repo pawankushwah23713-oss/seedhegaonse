@@ -97,8 +97,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
-  // 🎫 Saved / "Got" Coupons — logged-in users: saved to their profile on the
-  // backend (persists across devices). Guests: falls back to localStorage.
+  // 🎫 User ke saved coupons (Backend Database se load honge)
   const [savedCoupons, setSavedCoupons] = useState(() => {
     try {
       const cached = localStorage.getItem('sgs_saved_coupons');
@@ -108,22 +107,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   });
 
-  // For guests only, keep mirroring to localStorage. Logged-in users are
-  // synced straight to/from the backend instead (see effect below).
-  useEffect(() => {
-    if (getAuthToken()) return;
-    try {
-      localStorage.setItem('sgs_saved_coupons', JSON.stringify(savedCoupons));
-    } catch (err) {
-      console.error(err);
-    }
-  }, [savedCoupons]);
-
   // Fetch the logged-in user's saved coupon wallet from the backend when the cart opens
   useEffect(() => {
     if (!isOpen) return;
     const token = getAuthToken();
-    if (!token) return; // guest: keep using localStorage state as-is
+    if (!token) return;
 
     let cancelled = false;
     (async () => {
@@ -134,6 +122,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         const data = await res.json();
         if (!cancelled && res.ok && Array.isArray(data.savedCoupons)) {
           setSavedCoupons(data.savedCoupons);
+          try {
+            localStorage.setItem('sgs_saved_coupons', JSON.stringify(data.savedCoupons));
+          } catch {}
         }
       } catch (err) {
         console.error('Unable to load saved coupons from profile:', err);
@@ -330,13 +321,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     };
   });
 
-  // Shipping Address with localStorage fallback so refresh keeps the data safe
+  // Shipping Address with localStorage fallback
   const [shippingAddress, setShippingAddress] = useState(() => {
     try {
       const cached = localStorage.getItem('cart_shipping_address');
-      if (cached) {
-        return JSON.parse(cached);
-      }
+      if (cached) return JSON.parse(cached);
     } catch (e) {
       console.error(e);
     }
@@ -355,7 +344,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     };
   });
 
-  // Persist shippingAddress changes to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('cart_shipping_address', JSON.stringify(shippingAddress));
@@ -409,7 +397,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   };
 
-  // Automatically recalculate on mount / change if 6-digit pincode is saved
   useEffect(() => {
     if (shippingMode === 'delivery' && shippingAddress.pincode && shippingAddress.pincode.length === 6) {
       fetchDeliveryChargeByPincode(shippingAddress.pincode);
@@ -621,12 +608,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const couponDiscount = round2(appliedCoupon ? parseNumericPrice(appliedCoupon.discount) : 0);
   const taxableProductAmount = round2(Math.max(0, effectiveCartTotal - couponDiscount - bulkDiscount));
 
-  // 🧾 Tax admin ke set kiye percent par (default 5%)
+  // 🧾 Tax calculation
   const productTax = round2((taxableProductAmount * PRODUCT_TAX_PERCENT) / 100);
   const shippingTax = (shippingCharge > 0) ? round2((shippingCharge * SHIPPING_TAX_PERCENT) / 100) : 0;
   const totalTaxAmount = round2(productTax + shippingTax);
 
-  // 🎁 Gift box tabhi chalega jab admin ne enable kiya ho aur price > 0 ho
+  // 🎁 Gift box
   const giftBoxAvailable = storeSettings.giftBoxEnabled && GIFT_BOX_CHARGE > 0;
   const giftBoxAmount = (giftBoxAvailable && isGiftBoxSelected) ? GIFT_BOX_CHARGE : 0;
 
@@ -659,12 +646,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     setStep('checkout');
   };
 
+  // 🟢 APPLY COUPON: Checks Product list, Saved Wallet Coupons & Server
   const handleApplyCoupon = async (overrideCode) => {
     const rawCode = typeof overrideCode === 'string' ? overrideCode : couponCode;
     if (!rawCode.trim()) return setCouponMsg({ text: 'Please enter a coupon code.', type: 'error' });
     const upper = rawCode.trim().toUpperCase();
     setCouponCode(upper);
 
+    // 1. Check in Product Offers
     for (const item of enrichedCartItems) {
       const coupons = ensureArray(item.couponsList);
       const matched = coupons.find((c) => String(c.code || '').toUpperCase() === upper);
@@ -691,6 +680,29 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       }
     }
 
+    // 2. Check in User's Saved Wallet Coupons
+    const savedMatched = savedCoupons.find((sc) => String(sc.code || '').toUpperCase() === upper);
+    if (savedMatched) {
+      const minSpend = parseNumericPrice(savedMatched.minSpend);
+      if (effectiveCartTotal < minSpend) {
+        return setCouponMsg({
+          text: `🔒 Add ₹${formatMoney(round2(minSpend - effectiveCartTotal))} more to use ${upper} (min spend ₹${formatMoney(minSpend)}).`,
+          type: 'error'
+        });
+      }
+      const validUntil = savedMatched.validUntil ? new Date(savedMatched.validUntil) : null;
+      if (validUntil && !isNaN(validUntil.getTime()) && validUntil < new Date()) {
+        return setCouponMsg({ text: `⌛ Coupon ${upper} has expired.`, type: 'error' });
+      }
+      const discVal = parseNumericPrice(savedMatched.discountValue);
+      const finalDisc = savedMatched.discountType === 'percentage'
+        ? round2((effectiveCartTotal * discVal) / 100)
+        : discVal;
+      setAppliedCoupon({ code: upper, discount: finalDisc });
+      return setCouponMsg({ text: `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
+    }
+
+    // 3. Fallback: Verify on backend
     try {
       const res = await fetch(`${API_BASE}/coupons/verify`, {
         method: 'POST',
@@ -711,43 +723,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     setAppliedCoupon(null);
     setCouponCode('');
     setCouponMsg({ text: '', type: '' });
-  };
-
-  // 🎫 Save ("Get") a coupon so it can be used later, anytime, from any cart.
-  // Logged-in: saved to the user's profile on the backend. Guest: localStorage only.
-  const handleGetCoupon = async (c) => {
-    const newEntry = {
-      code: c.code,
-      discountType: c.discountType,
-      discountValue: c.discountValue,
-      minSpend: c.minSpend,
-      validUntil: c.validUntil ? c.validUntil.toISOString() : null,
-      productName: c.productName
-    };
-
-    const token = getAuthToken();
-    if (!token) {
-      setSavedCoupons((prev) => (prev.some((sc) => sc.code === c.code) ? prev : [...prev, newEntry]));
-      setCouponMsg({ text: `✅ ${c.code} saved! Use it anytime from "My Coupons".`, type: 'success' });
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/coupons/my-coupons`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(newEntry)
-      });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data.savedCoupons)) {
-        setSavedCoupons(data.savedCoupons);
-        setCouponMsg({ text: `✅ ${c.code} saved to your profile! Use it anytime from "My Coupons".`, type: 'success' });
-      } else {
-        setCouponMsg({ text: data.message || 'Unable to save this coupon right now.', type: 'error' });
-      }
-    } catch {
-      setCouponMsg({ text: 'Unable to save this coupon right now. Please try again.', type: 'error' });
-    }
   };
 
   const handleRemoveSavedCoupon = async (code) => {
@@ -903,6 +878,36 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         createdAt: new Date().toLocaleString('en-IN')
       });
 
+      // 🎁 ORDER COMPLETE HONE PAR BACKEND WALLET ME AUTOMATICALLY REWARD COUPON ADD HO JAYEGA
+      try {
+        await fetch(`${API_BASE}/coupons/my-coupons`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            code: 'THANKYOU10',
+            discountType: 'percentage',
+            discountValue: 10,
+            minSpend: 200,
+            productName: 'Reward for completing order'
+          })
+        });
+
+        // Refresh coupons list from backend
+        const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const cData = await resCoupons.json();
+        if (resCoupons.ok && Array.isArray(cData.savedCoupons)) {
+          setSavedCoupons(cData.savedCoupons);
+          localStorage.setItem('sgs_saved_coupons', JSON.stringify(cData.savedCoupons));
+        }
+      } catch (cErr) {
+        console.error('Auto save reward coupon error:', cErr);
+      }
+
       setStep('success');
       if (onOrderPlaced) onOrderPlaced();
     } catch (err) {
@@ -976,7 +981,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       <span>Qty & Line Total</span>
                     </div>
 
-                    {/* Product Rows with Price directly below (+ -) */}
+                    {/* Product Rows */}
                     <div style={{ padding: '12px 18px' }}>
                       {enrichedCartItems.map((item) => {
                         const unitPrice = parseNumericPrice(item.unitPrice || item.price);
@@ -1009,7 +1014,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                               </div>
                             </div>
 
-                            {/* 🌟 RIGHT: (+ -) STEPPER ON TOP AND TOTAL PRICE RIGHT UNDERNEATH */}
+                            {/* RIGHT: (+ -) STEPPER ON TOP AND TOTAL PRICE RIGHT UNDERNEATH */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', flexShrink: 0 }}>
                               
                               {/* Top row: Stepper and Remove Button */}
@@ -1044,7 +1049,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                 </button>
                               </div>
 
-                              {/* ⬇️ Total Price exactly niche (+ -) ke */}
                               <div style={{ fontWeight: '900', color: '#0f172a', fontSize: '0.96rem', textAlign: 'right', paddingRight: '2px' }}>
                                 ₹{formatMoney(lineTotal)}
                               </div>
@@ -1165,7 +1169,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     {isHomeDeliveryType && (
                       <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1.5px solid #b91c1c' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#b91c1c', display: 'block', marginBottom: '4px' }}>
-                          Delivery Pincode * <span style={{ color: '#dc2626', fontSize: '0.74rem' }}>(Mandatory for charge calculation)</span>
+                          Delivery Pincode * <span style={{ color: '#dc2626', fontSize: '0.74rem' }}>(Mandatory for calculation)</span>
                         </label>
                         <input
                           type="text"
@@ -1227,7 +1231,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </span>
                       </div>
 
-                      {/* 🧾 GST ROW — ℹ button par product/shipping tax ka exact % aur amount */}
+                      {/* GST ROW */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div
                           style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}
@@ -1299,7 +1303,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         <strong>₹{formatMoney(totalTaxAmount)}</strong>
                       </div>
 
-                      {/* 🎁 GIFT BOX TICK MARK — GST ke theek neeche */}
+                      {/* 🎁 GIFT BOX */}
                       {giftBoxAvailable && (
                         <label
                           style={{
@@ -1337,7 +1341,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </div>
                       )}
 
-                      {/* 🌟 GRAND TOTAL ROW RIGHT BESIDE GST / SUMMARY */}
+                      {/* 🌟 GRAND TOTAL ROW */}
                       <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a' }}>Grand Total</span>
                         <span style={{ fontSize: '1.4rem', fontWeight: '900', color: '#b91c1c' }}>
@@ -1345,11 +1349,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </span>
                       </div>
 
-                      {/* 🎫 MY SAVED COUPONS — got earlier, usable anytime later */}
+                      {/* 🎫 MY SAVED WALLET COUPONS (From User Database) */}
                       {savedCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#4338ca', fontSize: '0.82rem', marginBottom: '8px' }}>
-                            🎫 My Coupons
+                            🎫 My Wallet Coupons ({savedCoupons.length})
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1420,7 +1424,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </div>
                       )}
 
-                      {/* 🎟️ AVAILABLE COUPONS */}
+                      {/* 🎟️ AVAILABLE STORE COUPONS (Direct Apply Only) */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1482,23 +1486,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                       <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
                                         🔒 LOCKED (Add ₹{formatMoney(c.remaining)})
                                       </span>
-                                    )}
-
-                                    {!c.isExpired && (
-                                      savedCoupons.some((sc) => sc.code === c.code) ? (
-                                        <span style={{ background: '#e0e7ff', color: '#4338ca', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #c7d2fe' }}>
-                                          🎫 SAVED
-                                        </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleGetCoupon(c)}
-                                          style={{ background: '#fff', color: '#7c3aed', fontSize: '10px', fontWeight: '800', padding: '5px 10px', borderRadius: '4px', border: '1px solid #7c3aed', cursor: 'pointer' }}
-                                          title="Save this coupon to use anytime later"
-                                        >
-                                          🎫 GET
-                                        </button>
-                                      )
                                     )}
                                   </div>
                                 </div>

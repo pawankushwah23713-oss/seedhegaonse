@@ -28,7 +28,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['user', 'admin'],
       default: 'user'
-    }
+    },
+    // 🟢 Sirf ye nayi field add hui hai coupons store karne ke liye
+    savedCoupons: [
+      {
+        code: { type: String, uppercase: true, trim: true },
+        discountType: { type: String, default: 'flat' },
+        discountValue: { type: Number, default: 0 },
+        minSpend: { type: Number, default: 0 },
+        validUntil: { type: Date, default: null },
+        productName: { type: String, default: '' },
+        source: { type: String, default: 'manual' },
+        savedAt: { type: Date, default: Date.now }
+      }
+    ]
   },
   { timestamps: true }
 );
