@@ -93,6 +93,17 @@ const AppContent = ({
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
 
+  // 🟢 SCROLL-TO-TOP FIX
+  // Pehle jo issue tha: page reload/reopen karne par browser purani
+  // scroll position yaad rakh ke wahin le jata tha (kabhi top se
+  // khulta, kabhi beech se). Ye React Router route-change scroll ka
+  // issue nahi tha — browser ka default "scrollRestoration" behavior
+  // tha, jo index.html me disable kiya gaya hai. Ye effect ab sirf
+  // route badalne par (aur pehle load pe) top pe le jata hai.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
     <div className="App">
       {/* Show Navbar only on store pages (Hide on Admin) */}

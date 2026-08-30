@@ -56,6 +56,15 @@ const extractObjectId = (val) => {
 
 const nameKey = (val) => String(val || '').trim().toLowerCase();
 
+// 🟢 Consistent short Order ID for display everywhere (e.g. "CEE897")
+// Always derive from the LAST 6 chars of the full id — never show the
+// full 24-char Mongo _id anywhere in the UI, so it matches whatever
+// other screens (Orders list, admin panel, etc.) are already showing.
+const shortOrderId = (id) => {
+  const clean = String(id || '').trim();
+  return clean.length > 6 ? clean.slice(-6).toUpperCase() : clean.toUpperCase();
+};
+
 const getAuthToken = () => {
   try {
     const directToken = localStorage.getItem('token') ||
@@ -1000,6 +1009,86 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   };
 
+  // 🧾 NEW: Generate & download a printable order slip / receipt.
+  // Opens a new tab with a formatted receipt and triggers the browser's
+  // print dialog — user can "Save as PDF" from there. No extra libraries needed.
+  const handleDownloadSlip = () => {
+    if (!placedOrderDetails) return;
+    const d = placedOrderDetails;
+
+    const itemsRows = d.itemsSnapshot.map((item) => `
+      <tr>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;">${item.name} <span style="color:#888;">(${item.variant})</span></td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;">${item.qty}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;">₹${formatMoney(item.unitPrice)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:700;">₹${formatMoney(item.totalPrice)}</td>
+      </tr>
+    `).join('');
+
+    const receiptHTML = `
+      <html>
+      <head>
+        <title>Order Slip - ${shortOrderId(d.orderId)}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 650px; margin: 0 auto; }
+          h1 { color: #94191d; font-size: 22px; margin-bottom: 2px; }
+          .muted { color: #64748b; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+          th { text-align: left; background: #f8fafc; padding: 8px 6px; font-size: 13px; border-bottom: 2px solid #b91c1c; }
+          .totals { margin-top: 16px; width: 100%; font-size: 14px; }
+          .totals td { padding: 4px 6px; }
+          .grand { font-size: 18px; font-weight: 900; color: #b91c1c; border-top: 2px dashed #cbd5e1; }
+          .addr { margin-top: 20px; background: #f8fafc; padding: 12px 16px; border-radius: 8px; font-size: 13px; }
+          @media print { .no-print { display: none; } }
+        </style>
+      </head>
+      <body>
+        <h1>Seedhe Gaon Se</h1>
+        <div class="muted">Order Slip / Receipt</div>
+        <div class="muted">Order ID: <strong>#${shortOrderId(d.orderId)}</strong> &nbsp;|&nbsp; Date: ${d.createdAt}</div>
+
+        <table>
+          <thead>
+            <tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr>
+          </thead>
+          <tbody>${itemsRows}</tbody>
+        </table>
+
+        <table class="totals">
+          <tr><td>Sub Total</td><td style="text-align:right;">₹${formatMoney(d.subTotal)}</td></tr>
+          <tr><td>Coupon Discount</td><td style="text-align:right;">- ₹${formatMoney(d.couponDiscount)}</td></tr>
+          <tr><td>Product/Bulk Discount</td><td style="text-align:right;">- ₹${formatMoney(d.bulkDiscount)}</td></tr>
+          <tr><td>Shipping</td><td style="text-align:right;">₹${formatMoney(d.shippingCharge)}</td></tr>
+          <tr><td>Tax (GST)</td><td style="text-align:right;">₹${formatMoney(d.taxAmount)}</td></tr>
+          ${d.giftBoxCharge > 0 ? `<tr><td>${d.giftBoxTitle}</td><td style="text-align:right;">₹${formatMoney(d.giftBoxCharge)}</td></tr>` : ''}
+          <tr class="grand"><td>Grand Total</td><td style="text-align:right;">₹${formatMoney(d.totalAmount)}</td></tr>
+        </table>
+
+        <div class="addr">
+          <strong>Delivery Address</strong><br/>
+          ${d.customer.name} | ${d.customer.phone}<br/>
+          ${d.customer.address}, ${d.customer.landmark}<br/>
+          ${d.customer.city}, ${d.customer.state} - ${d.customer.pincode}<br/>
+          Payment: ${d.paymentMethod}${d.upiTransactionId ? ' (Ref: ' + d.upiTransactionId + ')' : ''}
+        </div>
+
+        <p class="muted" style="margin-top:24px;">Thank you for shopping with Seedhe Gaon Se! 🙏</p>
+
+        <div class="no-print" style="margin-top:20px;">
+          <button onclick="window.print()" style="padding:10px 20px;background:#881337;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">
+            🖨️ Print / Save as PDF
+          </button>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 400);
+  };
+
   const inputStyle = {
     width: '100%',
     padding: '9px 12px',
@@ -1749,9 +1838,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
             </div>
           )}
 
-          {/* 🎉 SUCCESS SCREEN WITH DYNAMICALLY EARNED STORE COUPONS */}
+          {/* 🎉 SUCCESS SCREEN — FULL ORDER SUMMARY + DOWNLOAD SLIP */}
           {step === 'success' && (
-            <div style={{ maxWidth: '650px', margin: '0 auto', background: '#fff', padding: isSmallMobile ? '16px 14px' : '24px 28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+            <div style={{ maxWidth: '680px', margin: '0 auto', background: '#fff', padding: isSmallMobile ? '16px 14px' : '24px 28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
 
               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                 <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#22c55e', color: '#fff', fontSize: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
@@ -1759,9 +1848,51 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 </div>
                 <h2 style={{ color: '#0f172a', margin: '0 0 6px', fontSize: '1.4rem' }}>Order Placed Successfully!</h2>
                 <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
-                  Order ID: <strong style={{ color: '#94191d' }}>#{confirmedOrderId.toUpperCase()}</strong>
+                  Order ID: <strong style={{ color: '#94191d' }}>#{shortOrderId(confirmedOrderId)}</strong>
+                  {placedOrderDetails && <span> • {placedOrderDetails.createdAt}</span>}
                 </p>
               </div>
+
+              {/* 📦 FULL ITEMS LIST */}
+              {placedOrderDetails && (
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
+                  <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '2px solid #b91c1c', fontWeight: '800', fontSize: '0.88rem', color: '#0f172a' }}>
+                    🧾 Order Items ({placedOrderDetails.itemsSnapshot.length})
+                  </div>
+                  {placedOrderDetails.itemsSnapshot.map((item, idx) => (
+                    <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                      <img src={item.img || 'https://via.placeholder.com/44'} alt={item.name} style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0', flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#0f172a' }}>{item.name}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{item.variant} • Qty: {item.qty} × ₹{formatMoney(item.unitPrice)}</div>
+                      </div>
+                      <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#0f172a' }}>₹{formatMoney(item.totalPrice)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 💰 FULL PRICE BREAKDOWN */}
+              {placedOrderDetails && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px', fontSize: '0.86rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Sub Total</span><strong>₹{formatMoney(placedOrderDetails.subTotal)}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Coupon Discount</span><span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Product/Bulk Discount</span><span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping ({placedOrderDetails.shippingType})</span><span>₹{formatMoney(placedOrderDetails.shippingCharge)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax (GST)</span><span>₹{formatMoney(placedOrderDetails.taxAmount)}</span></div>
+                  {placedOrderDetails.giftBoxCharge > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>{placedOrderDetails.giftBoxTitle}</span><span>₹{formatMoney(placedOrderDetails.giftBoxCharge)}</span></div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px dashed #cbd5e1', paddingTop: '8px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '1.02rem', fontWeight: '800' }}>Grand Total</span>
+                    <span style={{ fontSize: '1.15rem', fontWeight: '900', color: '#b91c1c' }}>₹{formatMoney(placedOrderDetails.totalAmount)}</span>
+                  </div>
+                  <div style={{ marginTop: '4px', fontSize: '0.78rem', color: '#64748b' }}>
+                    Payment: <strong>{placedOrderDetails.paymentMethod}</strong>
+                    {placedOrderDetails.upiTransactionId ? ` (Ref: ${placedOrderDetails.upiTransactionId})` : ''}
+                  </div>
+                </div>
+              )}
 
               {/* 🎁 DYNAMIC COUPONS SAVED CONFIRMATION */}
               {unlockedOrderCoupons.length > 0 && (
@@ -1803,8 +1934,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 </div>
               )}
 
+              {/* 📍 DELIVERY DETAILS */}
               {placedOrderDetails && (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px' }}>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px' }}>
                   <h4 style={{ margin: '0 0 10px', fontSize: '0.92rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
                     📍 Delivery & Customer Details
                   </h4>
@@ -1818,21 +1950,21 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 </div>
               )}
 
-              {placedOrderDetails && (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', fontSize: '0.88rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: '900', color: '#b91c1c' }}>
-                    <span>Total Amount:</span>
-                    <span>₹{formatMoney(placedOrderDetails.totalAmount)}</span>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleClose}
-                style={{ width: '100%', padding: '14px', background: '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.95rem', cursor: 'pointer' }}
-              >
-                Continue Shopping 🛍️
-              </button>
+              {/* BUTTONS */}
+              <div style={{ display: 'grid', gridTemplateColumns: isSmallMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                <button
+                  onClick={handleDownloadSlip}
+                  style={{ width: '100%', padding: '14px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.92rem', cursor: 'pointer' }}
+                >
+                  📥 Download Slip
+                </button>
+                <button
+                  onClick={handleClose}
+                  style={{ width: '100%', padding: '14px', background: '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.92rem', cursor: 'pointer' }}
+                >
+                  Continue Shopping 🛍️
+                </button>
+              </div>
             </div>
           )}
         </div>

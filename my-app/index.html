@@ -5,6 +5,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>my-app</title>
+    <script>
+      // 🟢 Browser ke default scroll-memory ko band karo — isi ki wajah se
+      // page reload/reopen karne par kabhi top se, kabhi beech se khulta tha.
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
