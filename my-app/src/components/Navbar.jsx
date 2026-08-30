@@ -302,12 +302,7 @@ const Navbar = ({
                   </button>
                  
                 </div>
-                <div className="location-pill-btn" title="Change Location">
-                  <span className="location-name">{selectedLocation}</span>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </div>
+                
               </div>
             </div>
 
