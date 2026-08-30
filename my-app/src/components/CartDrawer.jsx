@@ -97,9 +97,21 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
-  // Gift Packaging Box (+₹50)
+  // 🎁 Gift Packaging Box + 🧾 Tax — values admin panel se aati hain
   const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
-  const GIFT_BOX_CHARGE = 50.00;
+  const [storeSettings, setStoreSettings] = useState({
+    giftBoxEnabled: true,
+    giftBoxTitle: 'Gift Box Packaging',
+    giftBoxCharge: 50,
+    productTaxPercent: 5,
+    shippingTaxPercent: 5
+  });
+
+  const GIFT_BOX_CHARGE = Number(storeSettings.giftBoxCharge) || 0;
+  const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box Packaging';
+  const PRODUCT_TAX_PERCENT = Number(storeSettings.productTaxPercent) || 0;
+  const SHIPPING_TAX_PERCENT = Number(storeSettings.shippingTaxPercent) || 0;
+
   const FOUNDER_DELIVERY_CHARGE = 5000.00;
 
   // Tax Info Popup Hover State
@@ -153,6 +165,34 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       console.error(err);
     }
   }, [shippingMode]);
+
+  // 🟢 Admin panel se Gift Box + Tax settings load karo
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/delivery/settings`);
+        const data = await res.json();
+        if (!cancelled && res.ok && data?.settings) {
+          const s = data.settings;
+          setStoreSettings({
+            giftBoxEnabled: s.giftBoxEnabled !== false,
+            giftBoxTitle: s.giftBoxTitle || 'Gift Box Packaging',
+            giftBoxCharge: s.giftBoxCharge ?? 50,
+            productTaxPercent: s.productTaxPercent ?? 5,
+            shippingTaxPercent: s.shippingTaxPercent ?? 5
+          });
+        }
+      } catch (err) {
+        console.error('Store settings load error:', err);
+      }
+    };
+
+    loadSettings();
+    return () => { cancelled = true; };
+  }, [isOpen]);
 
   // 🟢 Fetch BOTH Sweets & Cakes offers from API when cart opens / items change
   useEffect(() => {
@@ -536,10 +576,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const couponDiscount = round2(appliedCoupon ? parseNumericPrice(appliedCoupon.discount) : 0);
   const taxableProductAmount = round2(Math.max(0, effectiveCartTotal - couponDiscount - bulkDiscount));
 
-  const productTax = round2(taxableProductAmount * 0.05);
-  const shippingTax = (shippingCharge > 0) ? round2(shippingCharge * 0.05) : 0;
+  // 🧾 Tax admin ke set kiye percent par (default 5%)
+  const productTax = round2((taxableProductAmount * PRODUCT_TAX_PERCENT) / 100);
+  const shippingTax = (shippingCharge > 0) ? round2((shippingCharge * SHIPPING_TAX_PERCENT) / 100) : 0;
   const totalTaxAmount = round2(productTax + shippingTax);
-  const giftBoxAmount = isGiftBoxSelected ? GIFT_BOX_CHARGE : 0;
+
+  // 🎁 Gift box tabhi chalega jab admin ne enable kiya ho aur price > 0 ho
+  const giftBoxAvailable = storeSettings.giftBoxEnabled && GIFT_BOX_CHARGE > 0;
+  const giftBoxAmount = (giftBoxAvailable && isGiftBoxSelected) ? GIFT_BOX_CHARGE : 0;
 
   const grandTotal = round2(
     Math.max(0, taxableProductAmount + (shippingMode ? shippingCharge : 0) + totalTaxAmount + giftBoxAmount)
@@ -726,6 +770,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         shippingTax: round2(shippingTax),
         taxAmount: round2(totalTaxAmount),
         giftBoxCharge: round2(giftBoxAmount),
+        giftBoxTitle: giftBoxAmount > 0 ? GIFT_BOX_TITLE : '',
         totalAmount: round2(grandTotal),
         paymentMethod: paymentMethod.toUpperCase(),
         upiTransactionId: upiRef
@@ -1077,7 +1122,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </span>
                       </div>
 
-                      {/* GST ROW WITH ACCURATE TOOLTIP */}
+                      {/* 🧾 GST ROW — ℹ button par product/shipping tax ka exact % aur amount */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div
                           style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}
@@ -1111,7 +1156,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                 position: 'absolute',
                                 bottom: '26px',
                                 left: '0',
-                                width: 'min(210px, 68vw)',
+                                width: 'min(230px, 72vw)',
                                 background: '#1e293b',
                                 color: '#fff',
                                 border: '1px solid #334155',
@@ -1124,14 +1169,22 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                               }}
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ color: '#cbd5e1' }}>Product Tax (5%):</span>
+                                <span style={{ color: '#cbd5e1' }}>Product GST ({PRODUCT_TAX_PERCENT}%):</span>
                                 <strong>₹{formatMoney(productTax)}</strong>
                               </div>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '5px' }}>
+                                ₹{formatMoney(taxableProductAmount)} × {PRODUCT_TAX_PERCENT}%
+                              </div>
+
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ color: '#cbd5e1' }}>Shipping Tax (5%):</span>
+                                <span style={{ color: '#cbd5e1' }}>Shipping GST ({SHIPPING_TAX_PERCENT}%):</span>
                                 <strong>₹{formatMoney(shippingTax)}</strong>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #475569', paddingTop: '4px', marginTop: '4px', fontWeight: 'bold' }}>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                ₹{formatMoney(shippingCharge)} × {SHIPPING_TAX_PERCENT}%
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #475569', paddingTop: '5px', marginTop: '6px', fontWeight: 'bold' }}>
                                 <span>Total Tax:</span>
                                 <span style={{ color: '#4ade80' }}>₹{formatMoney(totalTaxAmount)}</span>
                               </div>
@@ -1141,9 +1194,40 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         <strong>₹{formatMoney(totalTaxAmount)}</strong>
                       </div>
 
-                      {isGiftBoxSelected && (
+                      {/* 🎁 GIFT BOX TICK MARK — GST ke theek neeche */}
+                      {giftBoxAvailable && (
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '9px',
+                            padding: '10px 11px',
+                            borderRadius: '8px',
+                            background: isGiftBoxSelected ? '#ecfdf5' : '#f8fafc',
+                            border: `1.5px solid ${isGiftBoxSelected ? '#22c55e' : '#e2e8f0'}`,
+                            cursor: 'pointer',
+                            marginTop: '2px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isGiftBoxSelected}
+                            onChange={(e) => setIsGiftBoxSelected(e.target.checked)}
+                            style={{ width: '17px', height: '17px', accentColor: '#10b981', cursor: 'pointer', flexShrink: 0 }}
+                          />
+                          <span style={{ flex: 1, fontSize: '0.84rem', fontWeight: '700', color: isGiftBoxSelected ? '#047857' : '#334155' }}>
+                            🎁 {GIFT_BOX_TITLE}
+                          </span>
+                          <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#10b981', whiteSpace: 'nowrap' }}>
+                            + ₹{formatMoney(GIFT_BOX_CHARGE)}
+                          </span>
+                        </label>
+                      )}
+
+                      {giftBoxAmount > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: '700' }}>
-                          <span>🎁 Gift Box Packaging</span>
+                          <span>🎁 {GIFT_BOX_TITLE}</span>
                           <span>+ ₹{formatMoney(GIFT_BOX_CHARGE)}</span>
                         </div>
                       )}
@@ -1216,7 +1300,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                       </button>
                                     ) : (
                                       <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                        🔒 LOCKED (Add ₹${formatMoney(c.remaining)})
+                                        🔒 LOCKED (Add ₹{formatMoney(c.remaining)})
                                       </span>
                                     )}
                                   </div>
@@ -1737,7 +1821,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   </div>
                   {placedOrderDetails.giftBoxCharge > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', marginBottom: '4px' }}>
-                      <span>Gift Box Packaging:</span>
+                      <span>🎁 {placedOrderDetails.giftBoxTitle || 'Gift Box Packaging'}:</span>
                       <span>+ ₹{formatMoney(placedOrderDetails.giftBoxCharge)}</span>
                     </div>
                   )}

@@ -156,10 +156,11 @@
   min-width: 0;
 }
 
-/* ❤️ WISHLIST QUICK BUTTON (pehle yahan "⚡ 15 MINS" tag tha) */
+/* ❤️ WISHLIST — MOBILE VERSION (delivery widget ke andar)
+   Desktop par chhupa rehta hai, kyunki wahan heart profile ke pass hai. */
 .wishlist-quick-btn {
+  display: none;
   position: relative;
-  display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
@@ -172,11 +173,6 @@
   flex-shrink: 0;
   padding: 0;
   transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.wishlist-quick-btn:hover {
-  background: #ffffff;
-  transform: scale(1.08);
 }
 
 .wishlist-quick-btn:active {
@@ -287,8 +283,55 @@
 .header-action-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-shrink: 0;
+}
+
+/* ❤️ WISHLIST — LAPTOP / DESKTOP VERSION (profile icon ke bilkul pass)
+   Size profile avatar (34px) jaisa hi rakha hai taaki line straight lage. */
+.wishlist-header-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: none;
+  color: #94191d;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.wishlist-header-btn:hover {
+  background: #ffffff;
+  transform: scale(1.07);
+}
+
+.wishlist-header-btn:active {
+  transform: scale(0.95);
+}
+
+.wishlist-header-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 900;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #94191d;
+  box-sizing: border-box;
 }
 
 .icon-circle-btn {
@@ -996,7 +1039,7 @@
     gap: 10px;
   }
   .header-action-group {
-    gap: 6px;
+    gap: 9px;
   }
   .brand-subtext {
     display: none;
@@ -1011,6 +1054,15 @@
 
 /* 📱 Mobile & Small Tablets (<= 768px) */
 @media screen and (max-width: 768px) {
+  /* ❤️ Heart ab delivery widget me (mobile wali jagah), header wala hat jayega */
+  .wishlist-quick-btn {
+    display: flex;
+  }
+
+  .wishlist-header-btn {
+    display: none;
+  }
+
   /* Nav shelf ab hamburger drawer ki jagah laptop jaisa horizontal scroll bar banega */
   .desktop-navigation-shelf {
     display: block;
@@ -1087,6 +1139,10 @@
     gap: 8px;
   }
 
+  .header-action-group {
+    gap: 8px;
+  }
+
   .category-scroll-track {
     padding: 6px 12px;
     gap: 10px;
@@ -1118,7 +1174,7 @@
     max-width: 110px;
   }
   .header-action-group {
-    gap: 6px;
+    gap: 7px;
   }
 }
 
@@ -1181,7 +1237,7 @@
   }
 
   .header-action-group {
-    gap: 5px;
+    gap: 6px;
   }
 
   .mobile-subnav-links li a {
@@ -1205,7 +1261,7 @@
     gap: 4px;
   }
   .header-action-group {
-    gap: 4px;
+    gap: 5px;
   }
   .icon-circle-btn {
     width: 32px;
