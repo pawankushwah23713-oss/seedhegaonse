@@ -19,6 +19,7 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
 const SERVER_HOST = API_BASE.replace('/api', '');
 const WISHLIST_KEY = 'seedhegaonse_wishlist';
 const CAKE_WISHLIST_KEY = 'seedhegaonse_cake_wishlist';
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
 
 // 🟢 DUMMY SWEETS LIST
 const DUMMY_SWEETS = [
@@ -161,8 +162,8 @@ const DUMMY_CAKES = [
 // Helper to get Token
 const getAuthToken = () => {
   try {
-    const directToken = localStorage.getItem('token') || 
-                        localStorage.getItem('userToken') || 
+    const directToken = localStorage.getItem('token') ||
+                        localStorage.getItem('userToken') ||
                         localStorage.getItem('authToken');
     if (directToken) return directToken;
 
@@ -180,7 +181,7 @@ const getAuthToken = () => {
 // Backend & Local Image Formatter
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
-    return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
+    return FALLBACK_IMG;
   }
   if (
     imagePath.startsWith('http://') ||
@@ -197,12 +198,64 @@ const getImageUrl = (imagePath) => {
   return `${SERVER_HOST}${normalizedPath}`;
 };
 
+const isOutOfStock = (product) => product?.inStock === false;
+
 const Wishlist = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
   const [wishlistItems, setWishlistItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [localToast, setLocalToast] = useState('');
+
+  // 🟢 QUICK VIEW MODAL STATE
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modalQty, setModalQty] = useState(1);
+  const [zoomStyle, setZoomStyle] = useState({
+    transformOrigin: 'center center',
+    transform: 'scale(1)'
+  });
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomStyle({
+      transformOrigin: `${x}% ${y}%`,
+      transform: 'scale(2.1)'
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomStyle({
+      transformOrigin: 'center center',
+      transform: 'scale(1)'
+    });
+  };
+
+  const handleOpenModal = (product) => {
+    if (isOutOfStock(product)) return;
+    setSelectedProduct(product);
+    setModalQty(1);
+  };
+
+  const closeModal = () => setSelectedProduct(null);
+
+  // Lock body scroll while modal open
+  useEffect(() => {
+    document.body.style.overflow = selectedProduct ? 'hidden' : 'unset';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedProduct]);
+
+  // Close modal on ESC
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 1. FETCH WISHLIST (Sweets + Cakes + Dummies + Backend API)
   const fetchWishlist = async () => {
@@ -302,13 +355,19 @@ const Wishlist = ({ addToCart, addedToast }) => {
 
   // 2. REMOVE ITEM FROM WISHLIST
   const handleRemove = async (e, productId) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     if (!productId) return;
 
     const pIdStr = productId.toString();
     const prevItems = [...wishlistItems];
 
     setWishlistItems((prev) => prev.filter((item) => (item._id || item.id)?.toString() !== pIdStr));
+
+    // If the removed item is currently open in the modal, close it
+    setSelectedProduct((prev) => {
+      if (prev && (prev._id || prev.id)?.toString() === pIdStr) return null;
+      return prev;
+    });
 
     // Update LocalStorage for both keys
     const updateLocalKey = (k) => {
@@ -352,20 +411,24 @@ const Wishlist = ({ addToCart, addedToast }) => {
   };
 
   // 3. ADD TO CART FUNCTION
-  const handleProductAddToCart = (p) => {
+  const handleProductAddToCart = (p, qty = 1) => {
+    if (isOutOfStock(p)) return false;
+
+    const unitPrice = Number(p.price) || 0;
+
     const formattedItem = {
       id: p._id || p.id,
       _id: p._id || p.id,
       productId: p._id || p.id,
       name: p.name,
       variant: p.category ? `${p.category.toUpperCase()}` : 'Standard',
-      price: typeof p.price === 'string' && p.price.startsWith('₹') ? p.price : `₹${p.price}`,
-      unitPrice: Number(p.price) || 0,
-      totalPrice: Number(p.price) || 0,
+      price: `₹${unitPrice}`,
+      unitPrice,
+      totalPrice: unitPrice * qty,
       img: getImageUrl(p.image),
       image: getImageUrl(p.image),
       originRegion: p.originRegion || 'Authentic Special',
-      quantity: 1
+      quantity: qty
     };
 
     if (typeof addToCart === 'function') {
@@ -376,7 +439,7 @@ const Wishlist = ({ addToCart, addedToast }) => {
         const existingIndex = savedCart.findIndex(item => (item.id || item._id) === formattedItem.id);
 
         if (existingIndex > -1) {
-          savedCart[existingIndex].quantity = (savedCart[existingIndex].quantity || 1) + 1;
+          savedCart[existingIndex].quantity = (savedCart[existingIndex].quantity || 1) + qty;
         } else {
           savedCart.push(formattedItem);
         }
@@ -395,6 +458,7 @@ const Wishlist = ({ addToCart, addedToast }) => {
     setTimeout(() => {
       setLocalToast('');
     }, 2500);
+    return true;
   };
 
   const activeToastMessage = addedToast || localToast;
@@ -417,6 +481,102 @@ const Wishlist = ({ addToCart, addedToast }) => {
           ✓ <strong>{activeToastMessage}</strong> added to cart
         </div>
       )}
+
+      {/* 🟢 QUICK VIEW POPUP MODAL */}
+      {selectedProduct && (() => {
+        const modalOutOfStock = isOutOfStock(selectedProduct);
+        const unitPrice = Number(selectedProduct.price) || 0;
+        const totalPrice = unitPrice * modalQty;
+
+        return (
+          <div className="wl-modal-backdrop" onClick={closeModal}>
+            <div className="wl-modal-card" onClick={(e) => e.stopPropagation()}>
+              <button className="wl-modal-close-btn" onClick={closeModal} aria-label="Close">✕</button>
+
+              <div
+                className="wl-modal-image-col"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                style={modalOutOfStock ? { filter: 'blur(4px) grayscale(0.85)', opacity: 0.7 } : undefined}
+              >
+                <img
+                  src={getImageUrl(selectedProduct.image)}
+                  alt={selectedProduct.name}
+                  style={zoomStyle}
+                  onError={(e) => { e.target.src = FALLBACK_IMG; }}
+                />
+              </div>
+
+              <div className="wl-modal-info-col">
+                <div>
+                  <div className="wl-modal-tags-row">
+                    {modalOutOfStock && (
+                      <span className="wl-badge-category" style={{ background: '#dc2626', color: '#fff' }}>
+                        ⛔ OUT OF STOCK
+                      </span>
+                    )}
+                    {selectedProduct.originRegion && (
+                      <span className="wl-badge-origin">📍 {selectedProduct.originRegion}</span>
+                    )}
+                    {selectedProduct.category && (
+                      <span className="wl-badge-category">{selectedProduct.category.toUpperCase()}</span>
+                    )}
+                  </div>
+
+                  <h3 className="wl-modal-title">{selectedProduct.name}</h3>
+
+                  <div className="wl-modal-price-box">
+                    <span className="wl-modal-current-price">₹{totalPrice}</span>
+                  </div>
+
+                  <p className="wl-modal-desc">
+                    {selectedProduct.description || 'Authentic traditional recipe prepared using 100% pure ingredients with no artificial flavours or preservatives.'}
+                  </p>
+                </div>
+
+                <div className="wl-modal-trust-checklist">
+                  <div className="wl-trust-check-item">✓ Fresh & Handcrafted</div>
+                  <div className="wl-trust-check-item">✓ 0 Preservatives Added</div>
+                  <div className="wl-trust-check-item">✓ Hygienically Packed</div>
+                  <div className="wl-trust-check-item">✓ Quality Assured</div>
+                </div>
+
+                <div className="wl-modal-actions-row">
+                  <button
+                    className="wl-btn-modal-remove"
+                    onClick={(e) => handleRemove(e, selectedProduct._id || selectedProduct.id)}
+                    title="Remove from wishlist"
+                  >
+                    ❤ Remove
+                  </button>
+
+                  <div
+                    className="wl-stepper-box"
+                    style={modalOutOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                  >
+                    <button type="button" className="wl-stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1 || modalOutOfStock}>−</button>
+                    <span className="wl-stepper-val">{modalQty}</span>
+                    <button type="button" className="wl-stepper-btn" onClick={() => setModalQty((prev) => prev + 1)} disabled={modalOutOfStock}>+</button>
+                  </div>
+
+                  <button
+                    className="wl-btn-modal-add"
+                    onClick={() => {
+                      if (modalOutOfStock) return;
+                      const added = handleProductAddToCart(selectedProduct, modalQty);
+                      if (added) closeModal();
+                    }}
+                    disabled={modalOutOfStock}
+                    style={modalOutOfStock ? { background: '#94a3b8', cursor: 'not-allowed' } : undefined}
+                  >
+                    {modalOutOfStock ? '⛔ Out of Stock' : `Add ${modalQty} to Cart • ₹${totalPrice}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="wishlist-header">
         <h1 className="wishlist-title">My Saved Sweets & Cakes</h1>
@@ -446,71 +606,79 @@ const Wishlist = ({ addToCart, addedToast }) => {
         </div>
       ) : (
         <div className="wishlist-grid">
-          {wishlistItems.map((p) => (
-            <div key={p._id || p.id} className="wishlist-card">
-              <div className="wishlist-image-wrap">
-                {p.originRegion && (
-                  <span className="wishlist-badge">📍 {p.originRegion}</span>
-                )}
-
-                <button
-                  className="wishlist-remove-btn"
-                  onClick={(e) => handleRemove(e, p._id || p.id)}
-                  title="Remove from wishlist"
-                  aria-label="Remove"
+          {wishlistItems.map((p) => {
+            const outOfStock = isOutOfStock(p);
+            return (
+              <div
+                key={p._id || p.id}
+                className="wishlist-card"
+                style={{ cursor: outOfStock ? 'not-allowed' : 'pointer' }}
+                onClick={() => handleOpenModal(p)}
+              >
+                <div
+                  className="wishlist-image-wrap"
+                  style={outOfStock ? { filter: 'blur(3px) grayscale(0.85)', opacity: 0.65 } : undefined}
                 >
-                  ✕
-                </button>
-
-                <img
-                  src={getImageUrl(p.image)}
-                  alt={p.name}
-                  crossOrigin="anonymous"
-                  loading="lazy"
-                  onError={(e) => {
-                    e.target.src =
-                      'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
-                  }}
-                />
-              </div>
-
-              <div className="wishlist-info">
-                <div className="wishlist-rating">
-                  ★★★★★ <span>({p.category === 'bento' || p.category === 'chocolate' || p.category === 'redvelvet' ? 'Fresh Daily Baked' : '100% Pure Desi Ghee'})</span>
-                </div>
-
-                <h3 className="wishlist-product-name" title={p.name}>
-                  {p.name}
-                </h3>
-
-                {p.description && (
-                  <p className="wishlist-product-desc">
-                    {p.description}
-                  </p>
-                )}
-
-                <div className="wishlist-footer">
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="wishlist-price">₹{p.price}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Starting Price</span>
-                  </div>
+                  {p.originRegion && (
+                    <span className="wishlist-badge">📍 {p.originRegion}</span>
+                  )}
 
                   <button
-                    className="cart-btn"
-                    onClick={() => handleProductAddToCart(p)}
-                    disabled={p.inStock === false}
-                    style={{
-                      opacity: p.inStock === false ? 0.6 : 1,
-                      cursor: p.inStock === false ? 'not-allowed' : 'pointer',
-                      background: p.category ? '#e11d48' : '#94191d'
-                    }}
+                    className="wishlist-remove-btn"
+                    onClick={(e) => handleRemove(e, p._id || p.id)}
+                    title="Remove from wishlist"
+                    aria-label="Remove"
                   >
-                    {p.inStock === false ? 'Out of Stock' : '+ Add'}
+                    ✕
                   </button>
+
+                  <img
+                    src={getImageUrl(p.image)}
+                    alt={p.name}
+                    crossOrigin="anonymous"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.src = FALLBACK_IMG;
+                    }}
+                  />
+                </div>
+
+                <div className="wishlist-info">
+                  <div className="wishlist-rating">
+                    ★★★★★ <span>({p.category === 'bento' || p.category === 'chocolate' || p.category === 'redvelvet' ? 'Fresh Daily Baked' : '100% Pure Desi Ghee'})</span>
+                  </div>
+
+                  <h3 className="wishlist-product-name" title={p.name}>
+                    {p.name}
+                  </h3>
+
+                  {p.description && (
+                    <p className="wishlist-product-desc">
+                      {p.description}
+                    </p>
+                  )}
+
+                  <div className="wishlist-footer">
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span className="wishlist-price">₹{p.price}</span>
+                      <span className="wishlist-unit">Starting Price</span>
+                    </div>
+
+                    <button
+                      className="cart-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleProductAddToCart(p, 1);
+                      }}
+                      disabled={outOfStock}
+                    >
+                      {outOfStock ? 'Out of Stock' : '+ Add'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -145,6 +145,48 @@ const HalwaPage = ({ addToCart, addedToast }) => {
   const [selectedModalVariant, setSelectedModalVariant] = useState(null);
   const [modalQty, setModalQty] = useState(1);
 
+  // 🟢 Image zoom state for the modal (matches Homepage behaviour)
+  const [zoomStyle, setZoomStyle] = useState({
+    transformOrigin: 'center center',
+    transform: 'scale(1)'
+  });
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomStyle({
+      transformOrigin: `${x}% ${y}%`,
+      transform: 'scale(2.3)'
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomStyle({
+      transformOrigin: 'center center',
+      transform: 'scale(1)'
+    });
+  };
+
+  const closeModal = () => setSelectedProduct(null);
+
+  // 🟢 Lock body scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = selectedProduct ? 'hidden' : 'unset';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedProduct]);
+
+  // 🟢 Close modal on ESC
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   useEffect(() => {
     const fetchLiveHalwas = async () => {
       try {
@@ -180,6 +222,14 @@ const HalwaPage = ({ addToCart, addedToast }) => {
     });
   };
 
+  const handleOpenModal = (product, initialVariant = null) => {
+    if (isOutOfStock(product)) return;
+    const variants = getProductVariants(product);
+    setSelectedProduct(product);
+    setSelectedModalVariant(initialVariant || variants[0]);
+    setModalQty(1);
+  };
+
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
     if (isOutOfStock(p)) {
       setAuthAlert(`"${p.name}" abhi Out of Stock hai`);
@@ -206,7 +256,135 @@ const HalwaPage = ({ addToCart, addedToast }) => {
     <div className="sg-homepage-container">
       {authAlert && <div className="sg-cart-toast" style={{ background: '#dc2626' }}>⚠️ {authAlert}</div>}
       {addedToast && <div className="sg-cart-toast">✓ <strong>{addedToast}</strong> added to cart</div>}
-      
+
+      {/* 🟢 QUICK VIEW POPUP MODAL (same structure/classes as Homepage) */}
+      {selectedProduct && (() => {
+        const isDummy = isDummyProduct(selectedProduct);
+        const modalOutOfStock = isOutOfStock(selectedProduct);
+        const modalVariants = getProductVariants(selectedProduct);
+        const currentActiveVariant = selectedModalVariant || modalVariants[0];
+        const pricing = calculatePricing(currentActiveVariant, modalQty, isDummy);
+
+        return (
+          <div className="sg-product-modal-backdrop" onClick={closeModal}>
+            <div className="sg-product-modal-card" onClick={(e) => e.stopPropagation()}>
+              <button className="sg-modal-close-btn" onClick={closeModal} aria-label="Close">✕</button>
+
+              <div
+                className="sg-modal-image-col"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                style={modalOutOfStock ? { filter: 'blur(4px) grayscale(0.85)', opacity: 0.7 } : undefined}
+              >
+                <img
+                  src={getImageUrl(selectedProduct.image)}
+                  alt={selectedProduct.name}
+                  style={zoomStyle}
+                  onError={(e) => { e.target.src = FALLBACK_IMG; }}
+                />
+              </div>
+
+              <div className="sg-modal-info-col">
+                <div>
+                  <div className="sg-modal-tags-row">
+                    {modalOutOfStock && (
+                      <span className="sg-badge-category" style={{ background: '#dc2626', color: '#fff' }}>
+                        ⛔ OUT OF STOCK
+                      </span>
+                    )}
+                    {selectedProduct.originRegion && (
+                      <span className="sg-badge-origin">📍 {selectedProduct.originRegion} Special</span>
+                    )}
+                    <span className="sg-badge-category">🥣 HALWA</span>
+                  </div>
+
+                  <h3 className="sg-modal-title">{selectedProduct.name}</h3>
+
+                  <div className="sg-modal-variant-section">
+                    <span className="sg-variant-section-title">Select Pack Size / Weight:</span>
+                    <div
+                      className="sg-modal-variant-chips"
+                      style={modalOutOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                    >
+                      {modalVariants.map((v, idx) => {
+                        const isActive = currentActiveVariant?.label === v.label || currentActiveVariant?.weight === v.weight;
+                        return (
+                          <button
+                            key={v._id || idx}
+                            type="button"
+                            className={`sg-modal-chip-btn ${isActive ? 'sg-active' : ''}`}
+                            onClick={() => setSelectedModalVariant(v)}
+                            disabled={modalOutOfStock}
+                          >
+                            <span className="sg-chip-label">{v.label || v.weight}</span>
+                            <span className="sg-chip-price">₹{v.price}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="sg-modal-price-box">
+                    <div className="sg-modal-price-numbers">
+                      <span className="sg-modal-current-price">₹{pricing.price}</span>
+                      {!isDummy && pricing.mrp && <span className="sg-modal-mrp-price">₹{pricing.mrp}</span>}
+                    </div>
+                    {!isDummy && pricing.discountPercent && (
+                      <span className="sg-modal-discount-pill">{pricing.discountPercent}% OFF</span>
+                    )}
+                  </div>
+
+                  <p className="sg-modal-desc">
+                    {selectedProduct.description || 'Slow-cooked traditional halwa prepared using 100% pure desi ghee with no artificial flavours or preservatives.'}
+                  </p>
+                </div>
+
+                <div className="sg-modal-trust-checklist">
+                  <div className="sg-trust-check-item">✓ 100% Pure Desi Ghee</div>
+                  <div className="sg-trust-check-item">✓ 0 Preservatives Added</div>
+                  <div className="sg-trust-check-item">✓ Shelf Life: 7-10 Days</div>
+                  <div className="sg-trust-check-item">✓ Hygienically Packed</div>
+                </div>
+
+                <div className="sg-modal-actions-row">
+                  <button
+                    className="sg-btn-modal-wishlist"
+                    onClick={(e) => toggleWishlist(e, selectedProduct._id)}
+                    title="Wishlist"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted(selectedProduct._id) ? '#ef4444' : 'none'} stroke={isWishlisted(selectedProduct._id) ? '#ef4444' : '#64748b'} strokeWidth="2.2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                  </button>
+
+                  <div
+                    className="sg-stepper-box"
+                    style={modalOutOfStock ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                  >
+                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => Math.max(1, prev - 1))} disabled={modalQty <= 1 || modalOutOfStock}>−</button>
+                    <span className="sg-stepper-val">{modalQty}</span>
+                    <button type="button" className="sg-stepper-btn" onClick={() => setModalQty((prev) => prev + 1)} disabled={modalOutOfStock}>+</button>
+                  </div>
+
+                  <button
+                    className="sg-btn-modal-add"
+                    onClick={() => {
+                      if (modalOutOfStock) return;
+                      const added = handleProductAddToCart(selectedProduct, modalQty, currentActiveVariant);
+                      if (added) closeModal();
+                    }}
+                    disabled={modalOutOfStock}
+                    style={modalOutOfStock ? { background: '#94a3b8', cursor: 'not-allowed' } : undefined}
+                  >
+                    {modalOutOfStock ? '⛔ Out of Stock' : `Add ${modalQty} to Cart • ₹${pricing.price}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <section className="sg-container" style={{ marginTop: '24px' }}>
         <div className="sg-section-heading-wrap sg-text-center">
           <span className="sg-sub-heading">Slow Cooked in Pure Ghee</span>
@@ -226,25 +404,66 @@ const HalwaPage = ({ addToCart, addedToast }) => {
               const variants = getProductVariants(p);
               const out = isOutOfStock(p);
               return (
-                <div className="sg-product-card" key={p._id} onClick={() => { setSelectedProduct(p); setSelectedModalVariant(variants[0]); setModalQty(1); }}>
-                  <div className="sg-card-top-bar">
-                    <span className="sg-badge-category-mini">🥣 HALWA</span>
+                <div
+                  className="sg-product-card"
+                  key={p._id}
+                  style={{ cursor: out ? 'not-allowed' : 'pointer' }}
+                  onClick={() => handleOpenModal(p, variants[0])}
+                >
+                  {out && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '40%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%) rotate(-8deg)',
+                        background: '#dc2626',
+                        color: '#fff',
+                        padding: '8px 18px',
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '0.85rem',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
+                        zIndex: 5,
+                        pointerEvents: 'none',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      ⛔ OUT OF STOCK
+                    </div>
+                  )}
+
+                  <div className="sg-card-top-bar" style={{ position: 'relative', zIndex: 6 }}>
+                    {out ? (
+                      <span className="sg-badge-discount" style={{ background: '#dc2626', color: '#fff' }}>SOLD OUT</span>
+                    ) : (
+                      <span className="sg-badge-category-mini">🥣 HALWA</span>
+                    )}
                     <button type="button" className={`sg-card-heart-btn ${isWishlisted(p._id) ? 'sg-is-liked' : ''}`} onClick={(e) => toggleWishlist(e, p._id)}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted(p._id) ? '#ef4444' : 'none'} stroke={isWishlisted(p._id) ? '#ef4444' : '#64748b'} strokeWidth="2.2">
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                       </svg>
                     </button>
                   </div>
-                  <div className="sg-card-media-box">
+                  <div
+                    className="sg-card-media-box"
+                    style={out ? { filter: 'blur(3px) grayscale(0.85)', opacity: 0.65 } : undefined}
+                  >
                     <img src={getImageUrl(p.image)} alt={p.name} className="sg-card-product-img" onError={(e) => { e.target.src = FALLBACK_IMG; }} />
                   </div>
                   <div className="sg-card-body">
-                    <h3 className="sg-card-title">{p.name}</h3>
+                    <h3 className="sg-card-title" style={out ? { opacity: 0.55 } : undefined}>{p.name}</h3>
                     <div className="sg-card-footer">
-                      <div className="sg-card-price-group">
+                      <div className="sg-card-price-group" style={out ? { opacity: 0.5 } : undefined}>
                         <span className="sg-current-price">₹{Math.round(p.price * 0.55)}</span>
                       </div>
-                      <button className="sg-btn-add-cart" onClick={(e) => { e.stopPropagation(); handleProductAddToCart(p, 1, variants[0]); }} disabled={out}>
+                      <button
+                        className="sg-btn-add-cart"
+                        onClick={(e) => { e.stopPropagation(); handleProductAddToCart(p, 1, variants[0]); }}
+                        disabled={out}
+                        style={out ? { background: '#94a3b8', cursor: 'not-allowed', opacity: 0.9 } : undefined}
+                      >
                         {out ? 'Out of Stock' : '+ ADD'}
                       </button>
                     </div>

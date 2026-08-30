@@ -57,6 +57,7 @@ import CheesecakePage from './pages/CheesecakePage';
 import BentoCakePage from './pages/BentoCakePage';
 import ButterscotchPage from './pages/ButterscotchPage';
 import MyCoupons from './pages/MyCoupons';
+import BulkPage from './pages/bulkpage'
 // 🟢 Cart ko localStorage me save karne ki key
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
@@ -234,6 +235,10 @@ const AppContent = ({
         <Route
            path="/cake"
           element={<CakePage addToCart={addToCart} addedToast={addedToast} />}
+        />
+         <Route
+           path="/bulk-gifting"
+          element={< BulkPage />}
         />
  
         
