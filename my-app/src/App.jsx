@@ -56,7 +56,7 @@ import FreshFruitPage from './pages/FreshFruitPage';
 import CheesecakePage from './pages/CheesecakePage';
 import BentoCakePage from './pages/BentoCakePage';
 import ButterscotchPage from './pages/ButterscotchPage';
-
+import MyCoupons from './pages/MyCoupons';
 // 🟢 Cart ko localStorage me save karne ki key
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
@@ -225,6 +225,8 @@ const AppContent = ({
           path="/terms"
           element={<TermsAndConditions />}
         />
+       <Route path="/my-coupons" element={<MyCoupons />} />
+
          <Route
           path="/privacy"
           element={<PrivacyPolicy />}
@@ -261,6 +263,7 @@ const AppContent = ({
             <Route path="products" element={<AdminAllInOneCakes />} />
             <Route path="add-product" element={<AdminAddProduct />} />
              <Route path="admincontact" element={<AdminInquiries />} />
+
              <Route path="addpincharges" element={<AdminPincodeManager />} />
            
           </Route>

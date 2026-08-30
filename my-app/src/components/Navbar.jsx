@@ -100,7 +100,7 @@ const Navbar = ({
   isLoggedIn, 
   userName, 
   onLogout,
-  userAddress = "Block A2, Janakpuri, New Delhi"
+  userAddress = ""
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileDropdown, setMobileDropdown] = useState(null);
@@ -300,7 +300,7 @@ const Navbar = ({
                       <span className="wishlist-quick-count">{wishlistCount}</span>
                     )}
                   </button>
-                  <span className="delivery-city">Delivery to</span>
+                 
                 </div>
                 <div className="location-pill-btn" title="Change Location">
                   <span className="location-name">{selectedLocation}</span>
@@ -380,6 +380,12 @@ const Navbar = ({
                             📦 My Orders
                           </button>
                         </li>
+                        <li>
+                          <button onClick={() => { setAccountMenuOpen(false); navigate('/my-coupons'); }}>
+                            📦 My coupons
+                          </button>
+                        </li>
+                        
                         <li>
                           <button onClick={() => { setAccountMenuOpen(false); navigate('/wishlist'); }}>
                             ❤️ Wishlist ({wishlistCount})
@@ -657,6 +663,9 @@ const Navbar = ({
                 <div className="drawer-line-divider"></div>
                 <li>
                   <Link to="/my-orders" className="drawer-link-item" onClick={closeMobileMenu}>📦 My Orders</Link>
+                </li>
+                <li>
+                  <Link to="/my-coupons" className="drawer-link-item" onClick={closeMobileMenu}>📦 coupons</Link>
                 </li>
                 <li>
                   <Link to="/wishlist" className="drawer-link-item" onClick={closeMobileMenu}>❤️ My Wishlist ({wishlistCount})</Link>

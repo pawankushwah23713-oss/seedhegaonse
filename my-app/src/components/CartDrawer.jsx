@@ -91,6 +91,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [error, setError] = useState('');
   const [confirmedOrderId, setConfirmedOrderId] = useState('');
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
+  const [unlockedOrderCoupons, setUnlockedOrderCoupons] = useState([]);
+  const [copiedCode, setCopiedCode] = useState('');
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
@@ -107,7 +109,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   });
 
-  // Fetch the logged-in user's saved coupon wallet from the backend when the cart opens
+  // Fetch the logged-in user's saved coupon wallet from backend when cart opens
   useEffect(() => {
     if (!isOpen) return;
     const token = getAuthToken();
@@ -153,7 +155,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   // Tax Info Popup Hover State
   const [showTaxInfo, setShowTaxInfo] = useState(false);
 
-  // Shipping Mode persisted from localStorage so refresh doesn't lose it
+  // Shipping Mode persisted from localStorage
   const [shippingMode, setShippingMode] = useState(() => {
     try {
       return localStorage.getItem('cart_shipping_mode') || '';
@@ -230,7 +232,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // 🟢 Fetch BOTH Sweets & Cakes offers from API when cart opens / items change
+  // 🟢 Fetch BOTH Sweets & Cakes offers from API
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -426,6 +428,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       setError('');
       setLoading(false);
       setShowTaxInfo(false);
+      setUnlockedOrderCoupons([]);
     }, 300);
   };
 
@@ -508,7 +511,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
   const bulkDiscount = round2(itemQtyDiscountsTotal + bulkSpendDiscount);
 
-  // Available Coupons List
+  // Available Dynamic Coupons List from Fetched Products/Cakes
   const availableCoupons = [];
   const seenCouponCodes = new Set();
   enrichedCartItems.forEach((item) => {
@@ -646,14 +649,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     setStep('checkout');
   };
 
-  // 🟢 APPLY COUPON: Checks Product list, Saved Wallet Coupons & Server
+  // 🟢 APPLY COUPON
   const handleApplyCoupon = async (overrideCode) => {
     const rawCode = typeof overrideCode === 'string' ? overrideCode : couponCode;
     if (!rawCode.trim()) return setCouponMsg({ text: 'Please enter a coupon code.', type: 'error' });
     const upper = rawCode.trim().toUpperCase();
     setCouponCode(upper);
 
-    // 1. Check in Product Offers
+    // 1. Check in Dynamic Product Offers
     for (const item of enrichedCartItems) {
       const coupons = ensureArray(item.couponsList);
       const matched = coupons.find((c) => String(c.code || '').toUpperCase() === upper);
@@ -878,34 +881,45 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         createdAt: new Date().toLocaleString('en-IN')
       });
 
-      // 🎁 ORDER COMPLETE HONE PAR BACKEND WALLET ME AUTOMATICALLY REWARD COUPON ADD HO JAYEGA
-      try {
-        await fetch(`${API_BASE}/coupons/my-coupons`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            code: 'THANKYOU10',
-            discountType: 'percentage',
-            discountValue: 10,
-            minSpend: 200,
-            productName: 'Reward for completing order'
-          })
-        });
+      // 🟢 DYNAMIC COUPONS AUTO-SAVE TO MONGO WALLET ON ORDER COMPLETION
+      const nonExpiredFetchedCoupons = availableCoupons.filter((c) => !c.isExpired);
+      setUnlockedOrderCoupons(nonExpiredFetchedCoupons);
 
-        // Refresh coupons list from backend
-        const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const cData = await resCoupons.json();
-        if (resCoupons.ok && Array.isArray(cData.savedCoupons)) {
-          setSavedCoupons(cData.savedCoupons);
-          localStorage.setItem('sgs_saved_coupons', JSON.stringify(cData.savedCoupons));
+      if (nonExpiredFetchedCoupons.length > 0) {
+        try {
+          await Promise.allSettled(
+            nonExpiredFetchedCoupons.map((c) =>
+              fetch(`${API_BASE}/coupons/my-coupons`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  code: c.code,
+                  discountType: c.discountType || 'flat',
+                  discountValue: parseNumericPrice(c.discountValue),
+                  minSpend: parseNumericPrice(c.minSpend),
+                  validUntil: c.validUntil ? new Date(c.validUntil).toISOString() : null,
+                  productName: c.productName || 'Order Earned Coupon',
+                  source: 'order-complete-reward'
+                })
+              })
+            )
+          );
+
+          // Refresh coupons list from backend
+          const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const cData = await resCoupons.json();
+          if (resCoupons.ok && Array.isArray(cData.savedCoupons)) {
+            setSavedCoupons(cData.savedCoupons);
+            localStorage.setItem('sgs_saved_coupons', JSON.stringify(cData.savedCoupons));
+          }
+        } catch (cErr) {
+          console.error('Auto save dynamic coupons error:', cErr);
         }
-      } catch (cErr) {
-        console.error('Auto save reward coupon error:', cErr);
       }
 
       setStep('success');
@@ -964,21 +978,15 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.65fr 1fr', gap: isMobile ? '16px' : '24px', alignItems: 'start' }}>
 
-                {/* 👈 LEFT COLUMN: PRODUCT LIST FIRST, GIFTS ROADMAP DIRECTLY BELOW IT */}
+                {/* 👈 LEFT COLUMN */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                  {/* CARD 1: PRODUCT LIST & SHOP NAME */}
+                  {/* Product List Card */}
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                     <div style={{ padding: '14px 18px', borderBottom: '2px solid #b91c1c' }}>
                       <span style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a' }}>
                         Shop name : <strong style={{ color: '#0f172a' }}>Seedhe Gaon Se</strong>
                       </span>
-                    </div>
-
-                    {/* Table Header */}
-                    <div style={{ display: isSmallMobile ? 'none' : 'flex', justifyContent: 'space-between', padding: '10px 18px', background: '#f8fafc', fontSize: '0.84rem', fontWeight: '700', color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
-                      <span>Product / Cake details</span>
-                      <span>Qty & Line Total</span>
                     </div>
 
                     {/* Product Rows */}
@@ -1014,10 +1022,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                               </div>
                             </div>
 
-                            {/* RIGHT: (+ -) STEPPER ON TOP AND TOTAL PRICE RIGHT UNDERNEATH */}
+                            {/* Stepper + Total */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', flexShrink: 0 }}>
-                              
-                              {/* Top row: Stepper and Remove Button */}
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden', background: '#fff' }}>
                                   <button
@@ -1052,7 +1058,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                               <div style={{ fontWeight: '900', color: '#0f172a', fontSize: '0.96rem', textAlign: 'right', paddingRight: '2px' }}>
                                 ₹{formatMoney(lineTotal)}
                               </div>
-
                             </div>
 
                           </div>
@@ -1061,7 +1066,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     </div>
                   </div>
 
-                  {/* 🎁 GIFTS ROADMAP DIRECTLY BELOW PRODUCT LIST */}
+                  {/* 🎁 GIFTS ROADMAP */}
                   {giftTierRows.length > 0 && (
                     <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                       <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.88rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1114,7 +1119,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
                 </div>
 
-                {/* 👉 RIGHT COLUMN: ORDER SUMMARY & TOTAL */}
+                {/* 👉 RIGHT COLUMN */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
 
@@ -1198,6 +1203,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       </div>
                     )}
 
+                    {/* Price Breakdown */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', fontSize: '0.88rem', color: '#334155' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Sub total</span>
@@ -1242,57 +1248,21 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                           <button
                             type="button"
                             onClick={() => setShowTaxInfo(!showTaxInfo)}
-                            style={{
-                              background: '#e2e8f0',
-                              border: 'none',
-                              borderRadius: '50%',
-                              width: '16px',
-                              height: '16px',
-                              fontSize: '10px',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: 0
-                            }}
+                            style={{ background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                           >
                             ℹ
                           </button>
 
                           {showTaxInfo && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                bottom: '26px',
-                                left: '0',
-                                width: 'min(230px, 72vw)',
-                                background: '#1e293b',
-                                color: '#fff',
-                                border: '1px solid #334155',
-                                borderRadius: '8px',
-                                padding: '10px 12px',
-                                fontSize: '0.78rem',
-                                boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
-                                zIndex: 100,
-                                pointerEvents: 'none'
-                              }}
-                            >
+                            <div style={{ position: 'absolute', bottom: '26px', left: '0', width: 'min(230px, 72vw)', background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '8px', padding: '10px 12px', fontSize: '0.78rem', boxShadow: '0 6px 16px rgba(0,0,0,0.2)', zIndex: 100, pointerEvents: 'none' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                                 <span style={{ color: '#cbd5e1' }}>Product GST ({PRODUCT_TAX_PERCENT}%):</span>
                                 <strong>₹{formatMoney(productTax)}</strong>
                               </div>
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '5px' }}>
-                                ₹{formatMoney(taxableProductAmount)} × {PRODUCT_TAX_PERCENT}%
-                              </div>
-
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                                 <span style={{ color: '#cbd5e1' }}>Shipping GST ({SHIPPING_TAX_PERCENT}%):</span>
                                 <strong>₹{formatMoney(shippingTax)}</strong>
                               </div>
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                                ₹{formatMoney(shippingCharge)} × {SHIPPING_TAX_PERCENT}%
-                              </div>
-
                               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #475569', paddingTop: '5px', marginTop: '6px', fontWeight: 'bold' }}>
                                 <span>Total Tax:</span>
                                 <span style={{ color: '#4ade80' }}>₹{formatMoney(totalTaxAmount)}</span>
@@ -1303,21 +1273,10 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         <strong>₹{formatMoney(totalTaxAmount)}</strong>
                       </div>
 
-                      {/* 🎁 GIFT BOX */}
+                      {/* Gift Box Checkbox */}
                       {giftBoxAvailable && (
                         <label
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '9px',
-                            padding: '10px 11px',
-                            borderRadius: '8px',
-                            background: isGiftBoxSelected ? '#ecfdf5' : '#f8fafc',
-                            border: `1.5px solid ${isGiftBoxSelected ? '#22c55e' : '#e2e8f0'}`,
-                            cursor: 'pointer',
-                            marginTop: '2px',
-                            transition: 'all 0.2s ease'
-                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 11px', borderRadius: '8px', background: isGiftBoxSelected ? '#ecfdf5' : '#f8fafc', border: `1.5px solid ${isGiftBoxSelected ? '#22c55e' : '#e2e8f0'}`, cursor: 'pointer', marginTop: '2px' }}
                         >
                           <input
                             type="checkbox"
@@ -1334,14 +1293,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </label>
                       )}
 
-                      {giftBoxAmount > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: '700' }}>
-                          <span>🎁 {GIFT_BOX_TITLE}</span>
-                          <span>+ ₹{formatMoney(GIFT_BOX_CHARGE)}</span>
-                        </div>
-                      )}
-
-                      {/* 🌟 GRAND TOTAL ROW */}
+                      {/* Grand Total */}
                       <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a' }}>Grand Total</span>
                         <span style={{ fontSize: '1.4rem', fontWeight: '900', color: '#b91c1c' }}>
@@ -1349,11 +1301,20 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </span>
                       </div>
 
-                      {/* 🎫 MY SAVED WALLET COUPONS (From User Database) */}
+                      {/* 🎫 MY SAVED WALLET COUPONS */}
                       {savedCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
-                          <div style={{ fontWeight: '800', color: '#4338ca', fontSize: '0.82rem', marginBottom: '8px' }}>
-                            🎫 My Wallet Coupons ({savedCoupons.length})
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <div style={{ fontWeight: '800', color: '#4338ca', fontSize: '0.82rem' }}>
+                              🎫 My Wallet Coupons ({savedCoupons.length})
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => navigate('/my-coupons')}
+                              style={{ background: 'transparent', border: 'none', color: '#4338ca', fontSize: '0.74rem', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
+                            >
+                              Manage Wallet ↗
+                            </button>
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1365,13 +1326,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                               return (
                                 <div
                                   key={sc.code}
-                                  style={{
-                                    padding: '9px 11px',
-                                    borderRadius: '8px',
-                                    background: isApplied ? '#f0fdf4' : '#eef2ff',
-                                    border: `1px dashed ${isApplied ? '#22c55e' : '#818cf8'}`,
-                                    opacity: isExpired ? 0.65 : 1
-                                  }}
+                                  style={{ padding: '9px 11px', borderRadius: '8px', background: isApplied ? '#f0fdf4' : '#eef2ff', border: `1px dashed ${isApplied ? '#22c55e' : '#818cf8'}`, opacity: isExpired ? 0.65 : 1 }}
                                 >
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '0.84rem', fontWeight: '800', color: '#4338ca', letterSpacing: '0.4px' }}>
@@ -1428,7 +1383,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
-                            🎟️ Available Coupons
+                            🎟️ Available Offers & Coupons
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1439,13 +1394,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                               return (
                                 <div
                                   key={c.code}
-                                  style={{
-                                    padding: '9px 11px',
-                                    borderRadius: '8px',
-                                    background: isApplied ? '#f0fdf4' : active ? '#f5f3ff' : '#f8fafc',
-                                    border: `1px dashed ${isApplied ? '#22c55e' : active ? '#7c3aed' : '#cbd5e1'}`,
-                                    opacity: c.isExpired ? 0.65 : 1
-                                  }}
+                                  style={{ padding: '9px 11px', borderRadius: '8px', background: isApplied ? '#f0fdf4' : active ? '#f5f3ff' : '#f8fafc', border: `1px dashed ${isApplied ? '#22c55e' : active ? '#7c3aed' : '#cbd5e1'}`, opacity: c.isExpired ? 0.65 : 1 }}
                                 >
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '0.84rem', fontWeight: '800', color: active ? '#5b21b6' : '#64748b', letterSpacing: '0.4px' }}>
@@ -1484,7 +1433,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                       </button>
                                     ) : (
                                       <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                        🔒 LOCKED (Add ₹{formatMoney(c.remaining)})
+                                        🔒 LOCKED (Add ₹${formatMoney(c.remaining)})
                                       </span>
                                     )}
                                   </div>
@@ -1494,44 +1443,21 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                           </div>
                         </div>
                       )}
-
-                      {offersLoading && availableCoupons.length === 0 && (
-                        <div style={{ fontSize: '0.76rem', color: '#64748b', paddingTop: '6px' }}>
-                          Loading offers...
-                        </div>
-                      )}
                     </div>
 
+                    {/* Manual Coupon Input */}
                     <div style={{ marginTop: '16px' }}>
                       <input
                         type="text"
                         placeholder="Enter coupon code"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '0.88rem',
-                          boxSizing: 'border-box',
-                          marginBottom: '8px'
-                        }}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.88rem', boxSizing: 'border-box', marginBottom: '8px' }}
                       />
                       <button
                         type="button"
                         onClick={() => handleApplyCoupon()}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          background: '#881337',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontWeight: '800',
-                          fontSize: '0.9rem',
-                          cursor: 'pointer'
-                        }}
+                        style={{ width: '100%', padding: '10px', background: '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer' }}
                       >
                         Apply code
                       </button>
@@ -1546,20 +1472,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       <button
                         type="button"
                         onClick={handleClose}
-                        style={{
-                          padding: '12px 8px',
-                          background: '#881337',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontWeight: '800',
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px'
-                        }}
+                        style={{ padding: '12px 8px', background: '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.85rem', cursor: 'pointer' }}
                       >
                         ⏪ Continue shopping
                       </button>
@@ -1568,21 +1481,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         type="button"
                         onClick={handleProceedToCheckout}
                         disabled={!shippingMode}
-                        style={{
-                          padding: '12px 8px',
-                          background: !shippingMode ? '#9ca3af' : '#881337',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontWeight: '800',
-                          fontSize: '0.85rem',
-                          cursor: !shippingMode ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px'
-                        }}
-                        title={!shippingMode ? 'Please select a delivery option first' : ''}
+                        style={{ padding: '12px 8px', background: !shippingMode ? '#9ca3af' : '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.85rem', cursor: !shippingMode ? 'not-allowed' : 'pointer' }}
                       >
                         Checkout ⏩
                       </button>
@@ -1601,10 +1500,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 Please login to your account or register to confirm your order.
               </p>
               <button
-                onClick={() => {
-                  handleClose();
-                  navigate('/auth');
-                }}
+                onClick={() => { handleClose(); navigate('/auth'); }}
                 style={{ width: '100%', padding: '12px', background: '#94191d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginBottom: '10px' }}
               >
                 🔑 Login / Sign In to Continue
@@ -1634,32 +1530,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   </div>
 
                   <label style={labelStyle}>Contact person name <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter your full name"
-                    value={shippingAddress.name}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, name: e.target.value })}
-                    style={inputStyle}
-                  />
+                  <input type="text" required placeholder="Enter your full name" value={shippingAddress.name} onChange={(e) => setShippingAddress({ ...shippingAddress, name: e.target.value })} style={inputStyle} />
 
                   <label style={labelStyle}>Phone (10 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <input
-                    type="tel"
-                    maxLength="10"
-                    required
-                    placeholder="e.g. 9876543210"
-                    value={shippingAddress.phone}
-                    onChange={handlePhoneChange}
-                    style={inputStyle}
-                  />
+                  <input type="tel" maxLength="10" required placeholder="e.g. 9876543210" value={shippingAddress.phone} onChange={handlePhoneChange} style={inputStyle} />
 
                   <label style={labelStyle}>Address Type</label>
-                  <select
-                    value={shippingAddress.addressType}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, addressType: e.target.value })}
-                    style={inputStyle}
-                  >
+                  <select value={shippingAddress.addressType} onChange={(e) => setShippingAddress({ ...shippingAddress, addressType: e.target.value })} style={inputStyle}>
                     <option value="Permanent">Permanent</option>
                     <option value="Home">Home</option>
                     <option value="Office">Office</option>
@@ -1667,32 +1544,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   </select>
 
                   <label style={labelStyle}>Address <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <textarea
-                    required
-                    rows="3"
-                    placeholder="House / Flat No., Street, Building Name"
-                    value={shippingAddress.address}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, address: e.target.value })}
-                    style={{ ...inputStyle, minHeight: '70px', resize: 'vertical' }}
-                  />
+                  <textarea required rows="3" placeholder="House / Flat No., Street, Building Name" value={shippingAddress.address} onChange={(e) => setShippingAddress({ ...shippingAddress, address: e.target.value })} style={{ ...inputStyle, minHeight: '70px', resize: 'vertical' }} />
 
                   <label style={labelStyle}>Landmark / Floor / House Details <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Near Shiv Temple, 2nd Floor, Landlord Name"
-                    value={shippingAddress.landmark}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, landmark: e.target.value })}
-                    style={inputStyle}
-                  />
+                  <input type="text" required placeholder="e.g. Near Shiv Temple, 2nd Floor, Landlord Name" value={shippingAddress.landmark} onChange={(e) => setShippingAddress({ ...shippingAddress, landmark: e.target.value })} style={inputStyle} />
 
                   <label style={labelStyle}>State / Union Territory <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <select
-                    required
-                    value={shippingAddress.state}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
-                    style={inputStyle}
-                  >
+                  <select required value={shippingAddress.state} onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })} style={inputStyle}>
                     <option value="">Select State / UT</option>
                     {INDIAN_STATES.map((st) => (
                       <option key={st} value={st}>{st}</option>
@@ -1700,47 +1558,15 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   </select>
 
                   <label style={labelStyle}>City <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Noida, Delhi"
-                    value={shippingAddress.city}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                    style={inputStyle}
-                  />
+                  <input type="text" required placeholder="e.g. Noida, Delhi" value={shippingAddress.city} onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })} style={inputStyle} />
 
                   <label style={labelStyle}>Zip code (6 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <input
-                    type="text"
-                    maxLength="6"
-                    required
-                    placeholder="Enter 6-digit zip code"
-                    value={shippingAddress.pincode}
-                    onChange={handlePincodeChange}
-                    style={inputStyle}
-                  />
+                  <input type="text" maxLength="6" required placeholder="Enter 6-digit zip code" value={shippingAddress.pincode} onChange={handlePincodeChange} style={inputStyle} />
 
                   <label style={labelStyle}>Country <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <select
-                    value={shippingAddress.country}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
-                    style={inputStyle}
-                  >
+                  <select value={shippingAddress.country} onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })} style={inputStyle}>
                     <option value="India">India</option>
                   </select>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                    <input
-                      type="checkbox"
-                      id="saveShippingAddress"
-                      checked={shippingAddress.saveAddress}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, saveAddress: e.target.checked })}
-                      style={{ cursor: 'pointer', accentColor: '#b91c1c', width: '16px', height: '16px' }}
-                    />
-                    <label htmlFor="saveShippingAddress" style={{ fontSize: '0.86rem', color: '#475569', cursor: 'pointer' }}>
-                      Save this address
-                    </label>
-                  </div>
                 </div>
 
                 <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '20px', marginBottom: '20px' }}>
@@ -1751,13 +1577,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <input
-                        type="checkbox"
-                        id="sameAsShipping"
-                        checked={sameAsShipping}
-                        onChange={(e) => setSameAsShipping(e.target.checked)}
-                        style={{ cursor: 'pointer', accentColor: '#b91c1c', width: '16px', height: '16px' }}
-                      />
+                      <input type="checkbox" id="sameAsShipping" checked={sameAsShipping} onChange={(e) => setSameAsShipping(e.target.checked)} style={{ cursor: 'pointer', accentColor: '#b91c1c', width: '16px', height: '16px' }} />
                       <label htmlFor="sameAsShipping" style={{ fontSize: '0.85rem', color: '#475569', cursor: 'pointer', fontWeight: '600' }}>
                         Same as Shipping Address
                       </label>
@@ -1767,51 +1587,19 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   {!sameAsShipping && (
                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '10px' }}>
                       <label style={labelStyle}>Billing Contact Person Name <span style={{ color: '#b91c1c' }}>*</span></label>
-                      <input
-                        type="text"
-                        required={!sameAsShipping}
-                        value={billingAddress.name}
-                        onChange={(e) => setBillingAddress({ ...billingAddress, name: e.target.value })}
-                        style={inputStyle}
-                      />
+                      <input type="text" required={!sameAsShipping} value={billingAddress.name} onChange={(e) => setBillingAddress({ ...billingAddress, name: e.target.value })} style={inputStyle} />
 
                       <label style={labelStyle}>Billing Phone (10 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
-                      <input
-                        type="tel"
-                        maxLength="10"
-                        required={!sameAsShipping}
-                        value={billingAddress.phone}
-                        onChange={(e) => setBillingAddress({ ...billingAddress, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                        style={inputStyle}
-                      />
+                      <input type="tel" maxLength="10" required={!sameAsShipping} value={billingAddress.phone} onChange={(e) => setBillingAddress({ ...billingAddress, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} style={inputStyle} />
 
                       <label style={labelStyle}>Billing Address <span style={{ color: '#b91c1c' }}>*</span></label>
-                      <textarea
-                        required={!sameAsShipping}
-                        rows="3"
-                        placeholder="House / Flat No., Street"
-                        value={billingAddress.address}
-                        onChange={(e) => setBillingAddress({ ...billingAddress, address: e.target.value })}
-                        style={{ ...inputStyle, minHeight: '70px' }}
-                      />
+                      <textarea required={!sameAsShipping} rows="3" placeholder="House / Flat No., Street" value={billingAddress.address} onChange={(e) => setBillingAddress({ ...billingAddress, address: e.target.value })} style={{ ...inputStyle, minHeight: '70px' }} />
 
-                      <label style={labelStyle}>Billing Landmark / Floor / House Details <span style={{ color: '#b91c1c' }}>*</span></label>
-                      <input
-                        type="text"
-                        required={!sameAsShipping}
-                        placeholder="e.g. Near City Center, 1st Floor"
-                        value={billingAddress.landmark}
-                        onChange={(e) => setBillingAddress({ ...billingAddress, landmark: e.target.value })}
-                        style={inputStyle}
-                      />
+                      <label style={labelStyle}>Billing Landmark <span style={{ color: '#b91c1c' }}>*</span></label>
+                      <input type="text" required={!sameAsShipping} placeholder="e.g. Near City Center" value={billingAddress.landmark} onChange={(e) => setBillingAddress({ ...billingAddress, landmark: e.target.value })} style={inputStyle} />
 
                       <label style={labelStyle}>State / Union Territory <span style={{ color: '#b91c1c' }}>*</span></label>
-                      <select
-                        required={!sameAsShipping}
-                        value={billingAddress.state}
-                        onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })}
-                        style={inputStyle}
-                      >
+                      <select required={!sameAsShipping} value={billingAddress.state} onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })} style={inputStyle}>
                         <option value="">Select State / UT</option>
                         {INDIAN_STATES.map((st) => (
                           <option key={st} value={st}>{st}</option>
@@ -1819,84 +1607,49 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       </select>
 
                       <label style={labelStyle}>City <span style={{ color: '#b91c1c' }}>*</span></label>
-                      <input
-                        type="text"
-                        required={!sameAsShipping}
-                        value={billingAddress.city}
-                        onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })}
-                        style={inputStyle}
-                      />
+                      <input type="text" required={!sameAsShipping} value={billingAddress.city} onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })} style={inputStyle} />
 
                       <label style={labelStyle}>Zip code (6 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
-                      <input
-                        type="text"
-                        maxLength="6"
-                        required={!sameAsShipping}
-                        placeholder="Enter 6-digit zip code"
-                        value={billingAddress.pincode}
-                        onChange={(e) => setBillingAddress({ ...billingAddress, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
-                        style={inputStyle}
-                      />
+                      <input type="text" maxLength="6" required={!sameAsShipping} placeholder="Enter 6-digit zip code" value={billingAddress.pincode} onChange={(e) => setBillingAddress({ ...billingAddress, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })} style={inputStyle} />
                     </div>
                   )}
                 </div>
 
+                {/* Payment Method */}
                 <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '20px', marginBottom: '20px' }}>
-                  <h3 className="section-card-title">💳 Payment Method</h3>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', margin: '0 0 12px' }}>💳 Payment Method</h3>
 
-                  <div className="payment-options-list">
-                    <label className={`pm-option-card ${paymentMethod === 'COD' ? 'active' : ''}`}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="COD"
-                        checked={paymentMethod === 'COD'}
-                        onChange={() => setPaymentMethod('COD')}
-                      />
-                      <div className="pm-info">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', border: `1.5px solid ${paymentMethod === 'COD' ? '#b91c1c' : '#cbd5e1'}`, borderRadius: '8px', cursor: 'pointer', background: paymentMethod === 'COD' ? '#fff5f5' : '#fff' }}>
+                      <input type="radio" name="paymentMethod" value="COD" checked={paymentMethod === 'COD'} onChange={() => setPaymentMethod('COD')} />
+                      <div>
                         <strong>💵 Cash on Delivery</strong>
-                        <span>Pay in cash when your order arrives</span>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>Pay on delivery</div>
                       </div>
                     </label>
 
-                    <label className={`pm-option-card ${paymentMethod === 'UPI' ? 'active' : ''}`}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="UPI"
-                        checked={paymentMethod === 'UPI'}
-                        onChange={() => setPaymentMethod('UPI')}
-                      />
-                      <div className="pm-info">
-                        <strong>📲 UPI (GPay / PhonePe / Paytm)</strong>
-                        <span>Pay instantly using any UPI app</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', border: `1.5px solid ${paymentMethod === 'UPI' ? '#b91c1c' : '#cbd5e1'}`, borderRadius: '8px', cursor: 'pointer', background: paymentMethod === 'UPI' ? '#fff5f5' : '#fff' }}>
+                      <input type="radio" name="paymentMethod" value="UPI" checked={paymentMethod === 'UPI'} onChange={() => setPaymentMethod('UPI')} />
+                      <div>
+                        <strong>📲 UPI Instant Pay</strong>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>GPay / PhonePe / Paytm</div>
                       </div>
                     </label>
                   </div>
 
                   {paymentMethod === 'UPI' && (
-                    <div className="upi-details-card">
-                      <p style={{ margin: '0 0 8px', fontSize: '0.85rem', color: '#166534', fontWeight: 600 }}>
-                        Total to pay: ₹{formatMoney(grandTotal)}
-                      </p>
+                    <div style={{ background: '#f0fdf4', border: '1px dashed #22c55e', padding: '14px', borderRadius: '8px', marginTop: '12px' }}>
                       <a
                         href={`upi://pay?pa=seedhegaonse@upi&pn=${encodeURIComponent('Seedhe Gaon Se')}&am=${grandTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order Payment')}`}
-                        className="btn-open-upi-app"
+                        style={{ display: 'inline-block', background: '#16a34a', color: '#fff', padding: '10px 16px', borderRadius: '6px', fontWeight: 'bold', textDecoration: 'none', marginBottom: '10px', fontSize: '0.88rem' }}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        📲 Pay ₹{formatMoney(grandTotal)} via UPI App
+                        📲 Click to Pay ₹{formatMoney(grandTotal)} via UPI
                       </a>
-                      <div style={{ marginTop: '10px' }}>
+                      <div>
                         <label style={labelStyle}>UPI Transaction / Reference ID <span style={{ color: '#b91c1c' }}>*</span></label>
-                        <input
-                          type="text"
-                          required={paymentMethod === 'UPI'}
-                          placeholder="Enter UPI transaction / reference ID"
-                          value={upiRef}
-                          onChange={(e) => setUpiRef(e.target.value)}
-                          style={{ ...inputStyle, marginBottom: 0 }}
-                        />
+                        <input type="text" required placeholder="Enter UPI Ref ID" value={upiRef} onChange={(e) => setUpiRef(e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
                       </div>
                     </div>
                   )}
@@ -1905,18 +1658,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 <button
                   type="submit"
                   disabled={loading}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    background: '#881337',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontWeight: '800',
-                    fontSize: '1rem',
-                    cursor: 'pointer',
-                    marginTop: '10px'
-                  }}
+                  style={{ width: '100%', padding: '14px', background: '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '1rem', cursor: 'pointer', marginTop: '10px' }}
                 >
                   {loading ? 'Placing Order...' : `Confirm Order (₹${formatMoney(grandTotal)})`}
                 </button>
@@ -1924,6 +1666,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
             </div>
           )}
 
+          {/* 🎉 SUCCESS SCREEN WITH DYNAMICALLY EARNED STORE COUPONS */}
           {step === 'success' && (
             <div style={{ maxWidth: '650px', margin: '0 auto', background: '#fff', padding: isSmallMobile ? '16px 14px' : '24px 28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
 
@@ -1937,80 +1680,65 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 </p>
               </div>
 
+              {/* 🎁 DYNAMIC COUPONS SAVED CONFIRMATION */}
+              {unlockedOrderCoupons.length > 0 && (
+                <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', border: '2px dashed #d97706', borderRadius: '10px', padding: '16px', marginBottom: '18px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.15rem', marginBottom: '4px' }}>🎉 <strong>Coupons Added to Your Wallet!</strong></div>
+                  <p style={{ color: '#92400e', fontSize: '0.85rem', margin: '0 0 12px' }}>
+                    The following offer coupons have been automatically saved to your wallet for next orders:
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {unlockedOrderCoupons.map((uc) => (
+                      <div
+                        key={uc.code}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1.5px solid #d97706', borderRadius: '8px', padding: '8px 14px' }}
+                      >
+                        <div style={{ textAlign: 'left' }}>
+                          <span style={{ fontSize: '1rem', fontWeight: '900', color: '#b45309', letterSpacing: '0.5px' }}>
+                            🎫 {uc.code}
+                          </span>
+                          <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                            {uc.discountType === 'percentage' ? `${uc.discountValue}% OFF` : `₹${formatMoney(uc.discountValue)} OFF`}
+                            {parseNumericPrice(uc.minSpend) > 0 ? ` • Min ₹${formatMoney(uc.minSpend)}` : ''}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(uc.code);
+                            setCopiedCode(uc.code);
+                            setTimeout(() => setCopiedCode(''), 2500);
+                          }}
+                          style={{ background: copiedCode === uc.code ? '#15803d' : '#b45309', color: '#fff', border: 'none', borderRadius: '4px', padding: '5px 12px', fontSize: '0.78rem', fontWeight: 'bold', cursor: 'pointer' }}
+                        >
+                          {copiedCode === uc.code ? '✓ Copied!' : '📋 Copy'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {placedOrderDetails && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px' }}>
                   <h4 style={{ margin: '0 0 10px', fontSize: '0.92rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
                     📍 Delivery & Customer Details
                   </h4>
                   <div style={{ display: 'grid', gridTemplateColumns: isSmallMobile ? '1fr' : '1fr 1fr', gap: '8px', fontSize: '0.85rem', color: '#334155' }}>
-                    <div><strong>Customer Name:</strong> {placedOrderDetails.customer.name}</div>
+                    <div><strong>Customer:</strong> {placedOrderDetails.customer.name}</div>
                     <div><strong>Phone:</strong> {placedOrderDetails.customer.phone}</div>
                     <div style={{ gridColumn: isSmallMobile ? 'auto' : 'span 2' }}>
-                      <strong>Shipping Address:</strong> {placedOrderDetails.customer.address}, Landmark: {placedOrderDetails.customer.landmark}, {placedOrderDetails.customer.city}, {placedOrderDetails.customer.state} - {placedOrderDetails.customer.pincode}
-                    </div>
-                    <div style={{ gridColumn: isSmallMobile ? 'auto' : 'span 2', color: '#b91c1c', fontWeight: '700' }}>
-                      <strong>Delivery Mode:</strong> {placedOrderDetails.deliveryZone}
+                      <strong>Address:</strong> {placedOrderDetails.customer.address}, Landmark: {placedOrderDetails.customer.landmark}, {placedOrderDetails.customer.city}, {placedOrderDetails.customer.state} - {placedOrderDetails.customer.pincode}
                     </div>
                   </div>
-                </div>
-              )}
-
-              {placedOrderDetails && placedOrderDetails.itemsSnapshot && (
-                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px' }}>
-                  <h4 style={{ margin: '0 0 10px', fontSize: '0.92rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
-                    📦 Ordered Items ({placedOrderDetails.itemsSnapshot.filter(i => !i.isFreeGift).length})
-                  </h4>
-                  {placedOrderDetails.itemsSnapshot.map((item, idx) => (
-                    <div key={item.id || idx} style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px dashed #f1f5f9', fontSize: '0.85rem' }}>
-                      <div>
-                        <strong style={{ color: item.isFreeGift ? '#15803d' : '#0f172a' }}>{item.name}</strong>{' '}
-                        <span style={{ color: '#64748b' }}>({item.variant || 'Standard'} × {item.qty || item.quantity || 1})</span>
-                      </div>
-                      <div style={{ fontWeight: '700', color: item.isFreeGift ? '#15803d' : '#0f172a' }}>
-                        {item.isFreeGift ? 'FREE (₹0.00)' : `₹${formatMoney(round2(parseNumericPrice(item.unitPrice || item.price) * Number(item.qty || item.quantity || 1)))}`}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
 
               {placedOrderDetails && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', fontSize: '0.88rem' }}>
-                  <h4 style={{ margin: '0 0 10px', fontSize: '0.92rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
-                    🧾 Payment Breakdown
-                  </h4>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>Subtotal:</span>
-                    <strong>₹{formatMoney(placedOrderDetails.subTotal)}</strong>
-                  </div>
-                  {placedOrderDetails.couponDiscount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899', marginBottom: '4px' }}>
-                      <span>Coupon Discount:</span>
-                      <span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span>
-                    </div>
-                  )}
-                  {placedOrderDetails.bulkDiscount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899', marginBottom: '4px' }}>
-                      <span>Discount on Product / Cakes:</span>
-                      <span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>Shipping Charges:</span>
-                    <span>{placedOrderDetails.shippingCharge > 0 ? `₹${formatMoney(placedOrderDetails.shippingCharge)}` : 'FREE'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>Tax (GST):</span>
-                    <span>₹{formatMoney(placedOrderDetails.taxAmount)}</span>
-                  </div>
-                  {placedOrderDetails.giftBoxCharge > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', marginBottom: '4px' }}>
-                      <span>🎁 {placedOrderDetails.giftBoxTitle || 'Gift Box Packaging'}:</span>
-                      <span>+ ₹{formatMoney(placedOrderDetails.giftBoxCharge)}</span>
-                    </div>
-                  )}
-                  <div style={{ borderTop: '1.5px solid #e2e8f0', paddingTop: '6px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: '900', color: '#b91c1c' }}>
-                    <span>Total Amount Paid / Payable:</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: '900', color: '#b91c1c' }}>
+                    <span>Total Amount:</span>
                     <span>₹{formatMoney(placedOrderDetails.totalAmount)}</span>
                   </div>
                 </div>
