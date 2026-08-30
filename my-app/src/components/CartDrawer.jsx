@@ -354,6 +354,44 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   }, [shippingAddress]);
 
+  // 🟢 If the user has a saved profile address (e.g. saved earlier from the
+  // Cart, or added/edited on the Profile Info page) and the cart doesn't
+  // already have a filled-in address, pull it in automatically once logged in.
+  useEffect(() => {
+    if (!isOpen) return;
+    const token = getAuthToken();
+    if (!token) return;
+    if (shippingAddress.address && shippingAddress.address.trim()) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok && data.address) {
+          setShippingAddress((prev) => ({
+            ...prev,
+            name: prev.name || data.name || '',
+            phone: prev.phone || data.phone || '',
+            addressType: data.addressType || prev.addressType,
+            address: data.address || prev.address,
+            landmark: data.landmark || prev.landmark,
+            state: data.state || prev.state,
+            city: data.city || prev.city,
+            pincode: data.pincode || prev.pincode,
+            country: data.country || prev.country
+          }));
+        }
+      } catch (err) {
+        console.error('Unable to load saved profile address:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const [sameAsShipping, setSameAsShipping] = useState(true);
   const [billingAddress, setBillingAddress] = useState({
     name: '',
@@ -751,6 +789,31 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   };
 
+  // 🟢 Persist the current shipping address to the user's profile
+  // (backed by /api/auth/profile, saved on the User model's address fields)
+  const saveAddressToProfile = async (token) => {
+    try {
+      const payload = new FormData();
+      payload.append('addressType', shippingAddress.addressType || 'Permanent');
+      payload.append('address', shippingAddress.address || '');
+      payload.append('landmark', shippingAddress.landmark || '');
+      payload.append('state', shippingAddress.state || '');
+      payload.append('city', shippingAddress.city || '');
+      payload.append('pincode', shippingAddress.pincode || '');
+      payload.append('country', shippingAddress.country || 'India');
+
+      await fetch(`${API_BASE}/auth/profile`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: payload
+      });
+    } catch (err) {
+      // Non-fatal — the order itself should still go through even if the
+      // "save to profile" call fails for some reason.
+      console.error('Unable to save address to profile:', err);
+    }
+  };
+
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setError('');
@@ -880,6 +943,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         itemsSnapshot: [...formattedCartItems],
         createdAt: new Date().toLocaleString('en-IN')
       });
+
+      // 🟢 SAVE ADDRESS TO PROFILE if the user opted in — so it shows up
+      // (and can be edited) on the Profile Info page next time.
+      if (shippingAddress.saveAddress) {
+        await saveAddressToProfile(token);
+      }
 
       // 🟢 DYNAMIC COUPONS AUTO-SAVE TO MONGO WALLET ON ORDER COMPLETION
       const nonExpiredFetchedCoupons = availableCoupons.filter((c) => !c.isExpired);
@@ -1567,6 +1636,20 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   <select value={shippingAddress.country} onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })} style={inputStyle}>
                     <option value="India">India</option>
                   </select>
+
+                  {/* 🟢 Save this address to profile — so it's fetched & editable later on the Profile Info page */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '-6px', marginBottom: '4px' }}>
+                    <input
+                      type="checkbox"
+                      id="saveAddressToProfile"
+                      checked={!!shippingAddress.saveAddress}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, saveAddress: e.target.checked })}
+                      style={{ cursor: 'pointer', accentColor: '#b91c1c', width: '16px', height: '16px' }}
+                    />
+                    <label htmlFor="saveAddressToProfile" style={{ fontSize: '0.85rem', color: '#475569', cursor: 'pointer', fontWeight: '600' }}>
+                      Save this address to my profile for next time
+                    </label>
+                  </div>
                 </div>
 
                 <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '20px', marginBottom: '20px' }}>

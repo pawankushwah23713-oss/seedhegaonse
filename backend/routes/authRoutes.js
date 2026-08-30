@@ -120,10 +120,26 @@ router.get('/me', protect, async (req, res) => {
   }
 });
 
-// ── 4. 🟢 UPDATE USER PROFILE (Avatar, Name, Phone, Password) (/api/auth/profile) ──
+// ── 4. 🟢 UPDATE USER PROFILE (Avatar, Name, Phone, Password, Address) (/api/auth/profile) ──
 router.put('/profile', protect, upload.single('avatar'), async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, newPassword } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      newPassword,
+      // 🟢 Address fields — sent either from Profile page or from the
+      // Cart's "Save this address to my profile" checkbox
+      address,
+      landmark,
+      addressType,
+      city,
+      state,
+      pincode,
+      country
+    } = req.body;
+
     const user = await User.findById(req.user.id);
 
     if (!user) {
@@ -152,6 +168,16 @@ router.put('/profile', protect, upload.single('avatar'), async (req, res) => {
     if (firstName !== undefined) user.firstName = firstName.trim();
     if (lastName !== undefined) user.lastName = lastName.trim();
     user.name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name;
+
+    // 🟢 Update Saved Address (only touch fields that were actually sent,
+    // so a partial update from the Cart drawer never wipes other fields)
+    if (address !== undefined) user.address = address.trim();
+    if (landmark !== undefined) user.landmark = landmark.trim();
+    if (addressType !== undefined) user.addressType = addressType.trim();
+    if (city !== undefined) user.city = city.trim();
+    if (state !== undefined) user.state = state.trim();
+    if (pincode !== undefined) user.pincode = pincode.trim();
+    if (country !== undefined) user.country = country.trim();
 
     // 🟢 Update Avatar File if Uploaded
     if (req.file) {
@@ -183,7 +209,14 @@ router.put('/profile', protect, upload.single('avatar'), async (req, res) => {
         email: updatedUser.email,
         phone: updatedUser.phone,
         avatar: updatedUser.avatar || '',
-        role: updatedUser.role
+        role: updatedUser.role,
+        address: updatedUser.address || '',
+        landmark: updatedUser.landmark || '',
+        addressType: updatedUser.addressType || 'Permanent',
+        city: updatedUser.city || '',
+        state: updatedUser.state || '',
+        pincode: updatedUser.pincode || '',
+        country: updatedUser.country || 'India'
       }
     });
   } catch (error) {

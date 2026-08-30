@@ -9,6 +9,18 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 
+// Same list used in the Cart drawer, kept here so this page can render
+// the same State dropdown when editing the saved address.
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+];
+
 const ProfileInfo = ({ onUserUpdated, onLogout }) => {
   const navigate = useNavigate();
 
@@ -18,7 +30,16 @@ const ProfileInfo = ({ onUserUpdated, onLogout }) => {
     email: '',
     phone: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    // 🟢 Saved address fields (same shape as the Cart drawer's shippingAddress,
+    // so an address saved from checkout shows up here automatically)
+    addressType: 'Permanent',
+    address: '',
+    landmark: '',
+    state: '',
+    city: '',
+    pincode: '',
+    country: 'India'
   });
 
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -52,7 +73,16 @@ const ProfileInfo = ({ onUserUpdated, onLogout }) => {
             email: data.email || '',
             phone: data.phone || '',
             newPassword: '',
-            confirmPassword: ''
+            confirmPassword: '',
+            // 🟢 Populate the saved address (present once the user has
+            // saved one from checkout, or edited it here before)
+            addressType: data.addressType || 'Permanent',
+            address: data.address || '',
+            landmark: data.landmark || '',
+            state: data.state || '',
+            city: data.city || '',
+            pincode: data.pincode || '',
+            country: data.country || 'India'
           });
 
           if (data.avatar) {
@@ -69,6 +99,13 @@ const ProfileInfo = ({ onUserUpdated, onLogout }) => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (error) setError('');
+  };
+
+  // Pincode should only ever be digits, max 6 (same rule as Cart checkout)
+  const handlePincodeChange = (e) => {
+    const newPin = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setFormData((prev) => ({ ...prev, pincode: newPin }));
     if (error) setError('');
   };
 
@@ -114,6 +151,16 @@ const ProfileInfo = ({ onUserUpdated, onLogout }) => {
         data.append('avatar', avatarFile);
       }
 
+      // 🟢 Send the (possibly edited) saved address along with the rest
+      // of the profile update
+      data.append('addressType', formData.addressType);
+      data.append('address', formData.address);
+      data.append('landmark', formData.landmark);
+      data.append('state', formData.state);
+      data.append('city', formData.city);
+      data.append('pincode', formData.pincode);
+      data.append('country', formData.country);
+
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/auth/profile`, {
         method: 'PUT',
@@ -129,7 +176,18 @@ const ProfileInfo = ({ onUserUpdated, onLogout }) => {
 
       if (onUserUpdated) onUserUpdated(result.user);
 
-      setFormData((prev) => ({ ...prev, newPassword: '', confirmPassword: '' }));
+      setFormData((prev) => ({
+        ...prev,
+        newPassword: '',
+        confirmPassword: '',
+        addressType: result.user.addressType || prev.addressType,
+        address: result.user.address ?? prev.address,
+        landmark: result.user.landmark ?? prev.landmark,
+        state: result.user.state ?? prev.state,
+        city: result.user.city ?? prev.city,
+        pincode: result.user.pincode ?? prev.pincode,
+        country: result.user.country || prev.country
+      }));
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
       setError(err.message);
@@ -294,6 +352,92 @@ const ProfileInfo = ({ onUserUpdated, onLogout }) => {
                   👁️
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* ── 🟢 SAVED ADDRESS SECTION (fetched from /auth/me, editable, saved via /auth/profile) ── */}
+          <h2 className="section-title" style={{ marginTop: '10px' }}>Saved address</h2>
+          <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '-6px 0 14px' }}>
+            This is the address used at checkout. Ticking "Save this address" in the cart
+            will update it here automatically — you can also edit it directly below.
+          </p>
+
+          <div className="form-grid-2">
+            <div className="input-field">
+              <label>Address type</label>
+              <select name="addressType" value={formData.addressType} onChange={handleChange}>
+                <option value="Permanent">Permanent</option>
+                <option value="Home">Home</option>
+                <option value="Office">Office</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="input-field">
+              <label>Country</label>
+              <select name="country" value={formData.country} onChange={handleChange}>
+                <option value="India">India</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="input-field">
+            <label>Address</label>
+            <textarea
+              name="address"
+              placeholder="House / Flat No., Street, Building Name"
+              rows="3"
+              value={formData.address}
+              onChange={handleChange}
+              style={{ width: '100%', resize: 'vertical' }}
+            />
+          </div>
+
+          <div className="form-grid-2">
+            <div className="input-field">
+              <label>Landmark / Floor / House details</label>
+              <input
+                type="text"
+                name="landmark"
+                placeholder="e.g. Near Shiv Temple, 2nd Floor"
+                value={formData.landmark}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="input-field">
+              <label>State / Union Territory</label>
+              <select name="state" value={formData.state} onChange={handleChange}>
+                <option value="">Select State / UT</option>
+                {INDIAN_STATES.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="form-grid-2">
+            <div className="input-field">
+              <label>City</label>
+              <input
+                type="text"
+                name="city"
+                placeholder="e.g. Noida, Delhi"
+                value={formData.city}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="input-field">
+              <label>Pincode (6 digits)</label>
+              <input
+                type="text"
+                name="pincode"
+                maxLength="6"
+                placeholder="e.g. 201301"
+                value={formData.pincode}
+                onChange={handlePincodeChange}
+              />
             </div>
           </div>
 
