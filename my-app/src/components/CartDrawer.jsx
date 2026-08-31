@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartDrawer.css';
 
@@ -16,13 +16,13 @@ const INDIAN_STATES = [
   'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
 ];
 
-// Helper: 2 Decimal precision safely without floating point glitch
+// Helper: 2 Decimal precision safely
 const round2 = (num) => {
   const n = parseFloat(num) || 0;
   return Math.round((n + Number.EPSILON) * 100) / 100;
 };
 
-// Helper: Clean currency display with exact 2 decimal places
+// Helper: Clean currency display with 2 decimals
 const formatMoney = (val) => {
   return Number(val || 0).toFixed(2);
 };
@@ -48,7 +48,6 @@ const parseNumericPrice = (val) => {
   return parseFloat(String(val || 0).replace(/[₹,]/g, '').trim()) || 0;
 };
 
-// Extract MongoDB ObjectId from cart item ID
 const extractObjectId = (val) => {
   const match = String(val || '').match(/[0-9a-fA-F]{24}/);
   return match ? match[0] : null;
@@ -56,10 +55,6 @@ const extractObjectId = (val) => {
 
 const nameKey = (val) => String(val || '').trim().toLowerCase();
 
-// 🟢 Consistent short Order ID for display everywhere (e.g. "CEE897")
-// Always derive from the LAST 6 chars of the full id — never show the
-// full 24-char Mongo _id anywhere in the UI, so it matches whatever
-// other screens (Orders list, admin panel, etc.) are already showing.
 const shortOrderId = (id) => {
   const clean = String(id || '').trim();
   return clean.length > 6 ? clean.slice(-6).toUpperCase() : clean.toUpperCase();
@@ -93,7 +88,7 @@ const getSavedUser = () => {
   return null;
 };
 
-const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFromCart, onOrderPlaced }) => {
+const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, removeFromCart, onOrderPlaced }) => {
   const navigate = useNavigate();
   const [step, setStep] = useState('cart'); // 'cart' | 'checkout' | 'auth-required' | 'success'
   const [loading, setLoading] = useState(false);
@@ -103,12 +98,16 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const [unlockedOrderCoupons, setUnlockedOrderCoupons] = useState([]);
   const [copiedCode, setCopiedCode] = useState('');
 
+  // Store All Products & Offers list from Backend
+  const [storeProducts, setStoreProducts] = useState([]);
+  const [productOffers, setProductOffers] = useState({});
+
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
-  // 🎫 User ke saved coupons (Backend Database se load honge)
+  // Saved user coupons
   const [savedCoupons, setSavedCoupons] = useState(() => {
     try {
       const cached = localStorage.getItem('sgs_saved_coupons');
@@ -118,7 +117,66 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   });
 
-  // Fetch the logged-in user's saved coupon wallet from backend when cart opens
+  // Gift Box & Delivery Settings
+  const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
+  const [storeSettings, setStoreSettings] = useState({
+    giftBoxEnabled: true,
+    giftBoxTitle: 'Gift Box Packaging',
+    giftBoxCharge: 50,
+    productTaxPercent: 5,
+    shippingTaxPercent: 5,
+    globalCoupons: [],
+    globalGiftTiers: []
+  });
+
+  const GIFT_BOX_CHARGE = Number(storeSettings.giftBoxCharge) || 0;
+  const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box Packaging';
+  const PRODUCT_TAX_PERCENT = Number(storeSettings.productTaxPercent) || 0;
+  const SHIPPING_TAX_PERCENT = Number(storeSettings.shippingTaxPercent) || 0;
+  const FOUNDER_DELIVERY_CHARGE = 5000.00;
+
+  const [showTaxInfo, setShowTaxInfo] = useState(false);
+  const [shippingMode, setShippingMode] = useState(() => {
+    try {
+      return localStorage.getItem('cart_shipping_mode') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [pincodeDeliveryCharge, setPincodeDeliveryCharge] = useState(null);
+  const [pincodeStatusMsg, setPincodeStatusMsg] = useState('');
+  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
+
+  const [paymentMethod, setPaymentMethod] = useState('COD');
+  const [upiRef, setUpiRef] = useState('');
+
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 860 : false
+  );
+  const [isSmallMobile, setIsSmallMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 480 : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 860);
+      setIsSmallMobile(window.innerWidth <= 480);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (shippingMode) localStorage.setItem('cart_shipping_mode', shippingMode);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [shippingMode]);
+
+  // Load User Wallet Coupons
   useEffect(() => {
     if (!isOpen) return;
     const token = getAuthToken();
@@ -138,82 +196,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
           } catch {}
         }
       } catch (err) {
-        console.error('Unable to load saved coupons from profile:', err);
+        console.error('Unable to load saved coupons:', err);
       }
     })();
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // 🎁 Gift Packaging Box + 🧾 Tax — values admin panel se aati hain
-  const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
-  const [storeSettings, setStoreSettings] = useState({
-    giftBoxEnabled: true,
-    giftBoxTitle: 'Gift Box Packaging',
-    giftBoxCharge: 50,
-    productTaxPercent: 5,
-    shippingTaxPercent: 5
-  });
-
-  const GIFT_BOX_CHARGE = Number(storeSettings.giftBoxCharge) || 0;
-  const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box Packaging';
-  const PRODUCT_TAX_PERCENT = Number(storeSettings.productTaxPercent) || 0;
-  const SHIPPING_TAX_PERCENT = Number(storeSettings.shippingTaxPercent) || 0;
-
-  const FOUNDER_DELIVERY_CHARGE = 5000.00;
-
-  // Tax Info Popup Hover State
-  const [showTaxInfo, setShowTaxInfo] = useState(false);
-
-  // Shipping Mode persisted from localStorage
-  const [shippingMode, setShippingMode] = useState(() => {
-    try {
-      return localStorage.getItem('cart_shipping_mode') || '';
-    } catch {
-      return '';
-    }
-  });
-
-  // Pincode Delivery Charge States
-  const [pincodeDeliveryCharge, setPincodeDeliveryCharge] = useState(null);
-  const [pincodeStatusMsg, setPincodeStatusMsg] = useState('');
-  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
-
-  const [paymentMethod, setPaymentMethod] = useState('COD');
-  const [upiRef, setUpiRef] = useState('');
-
-  // Store product & cake offers from API
-  const [productOffers, setProductOffers] = useState({});
-  const [offersLoading, setOffersLoading] = useState(false);
-
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth <= 860 : false
-  );
-  const [isSmallMobile, setIsSmallMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth <= 480 : false
-  );
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 860);
-      setIsSmallMobile(window.innerWidth <= 480);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Persist shipping mode to localStorage
-  useEffect(() => {
-    try {
-      if (shippingMode) {
-        localStorage.setItem('cart_shipping_mode', shippingMode);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, [shippingMode]);
-
-  // 🟢 Admin panel se Gift Box + Tax settings load karo
+  // Load Store Delivery & Tax Settings
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -229,7 +218,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
             giftBoxTitle: s.giftBoxTitle || 'Gift Box Packaging',
             giftBoxCharge: s.giftBoxCharge ?? 50,
             productTaxPercent: s.productTaxPercent ?? 5,
-            shippingTaxPercent: s.shippingTaxPercent ?? 5
+            shippingTaxPercent: s.shippingTaxPercent ?? 5,
+            globalCoupons: ensureArray(s.productGlobalCoupons),
+            globalGiftTiers: ensureArray(s.productGlobalGiftTiers)
           });
         }
       } catch (err) {
@@ -241,13 +232,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // 🟢 Fetch BOTH Sweets & Cakes offers from API
+  // Load Sweets & Cakes from Backend to sync latest Bulk Offers
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
 
     const loadOffers = async () => {
-      setOffersLoading(true);
       try {
         const [resProducts, resCakes] = await Promise.allSettled([
           fetch(`${API_BASE}/products`),
@@ -255,12 +245,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         ]);
 
         const map = {};
+        const allList = [];
 
         const processList = async (res) => {
           if (res.status === 'fulfilled' && res.value.ok) {
             const data = await res.value.json();
             if (Array.isArray(data)) {
               data.forEach((p) => {
+                allList.push(p);
                 const entry = {
                   giftTiers: ensureArray(p.giftTiers),
                   couponsList: ensureArray(p.couponsList),
@@ -270,7 +262,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                   ),
                   highValueThreshold: p.highValueThreshold,
                   highValueDiscountPercent: p.highValueDiscountPercent,
-                  isFreeDelivery: p.isFreeDelivery
+                  isFreeDelivery: p.isFreeDelivery,
+                  inStock: p.inStock
                 };
                 if (p._id) map[String(p._id)] = entry;
                 if (p.name) {
@@ -286,53 +279,56 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         await processList(resProducts);
         await processList(resCakes);
 
-        if (!cancelled) setProductOffers(map);
+        if (!cancelled) {
+          setStoreProducts(allList);
+          setProductOffers(map);
+        }
       } catch (err) {
-        console.error('Unable to load product/cake offers:', err);
-      } finally {
-        if (!cancelled) setOffersLoading(false);
+        console.error('Unable to load offers from backend:', err);
       }
     };
 
     loadOffers();
     return () => { cancelled = true; };
-  }, [isOpen, cartItems.length]);
+  }, [isOpen]);
 
-  // 🟢 Merge Cart Items with Sweets & Cakes Offers
-  const enrichedCartItems = cartItems.map((item) => {
-    const idKey = extractObjectId(item.productId) || extractObjectId(item.id) || String(item.productId || '');
-    const cleanBaseName = nameKey(String(item.name || '').replace(/\s*\([^)]*\)\s*$/, ''));
-    const offers = productOffers[idKey] ||
-                   productOffers[`name:${nameKey(item.name)}`] ||
-                   productOffers[`name:${cleanBaseName}`] || {};
+  // Merge Cart Items with latest database offers
+  const enrichedCartItems = useMemo(() => {
+    return cartItems.map((item) => {
+      const idKey = extractObjectId(item.productId) || extractObjectId(item.id) || String(item.productId || item.id || '');
+      const cleanBaseName = nameKey(String(item.name || '').replace(/\s*\([^)]*\)\s*$/, ''));
+      const offers = productOffers[idKey] ||
+                     productOffers[`name:${nameKey(item.name)}`] ||
+                     productOffers[`name:${cleanBaseName}`] || {};
 
-    const pick = (local, remote) => {
-      const remoteArr = ensureArray(remote);
-      return remoteArr.length > 0 ? remoteArr : ensureArray(local);
-    };
+      const pick = (local, remote) => {
+        const remoteArr = ensureArray(remote);
+        return remoteArr.length > 0 ? remoteArr : ensureArray(local);
+      };
 
-    return {
-      ...item,
-      giftTiers: pick(item.giftTiers, offers.giftTiers),
-      couponsList: pick(item.couponsList, offers.couponsList),
-      bulkTiers: pick(item.bulkTiers, offers.bulkTiers),
-      quantityDiscounts: pick(
-        item.quantityDiscounts || item.qtyDiscounts || item.packDiscounts,
-        offers.quantityDiscounts
-      ),
-      highValueThreshold: parseNumericPrice(offers.highValueThreshold) > 0
-        ? offers.highValueThreshold
-        : item.highValueThreshold,
-      highValueDiscountPercent: parseNumericPrice(offers.highValueDiscountPercent) > 0
-        ? offers.highValueDiscountPercent
-        : item.highValueDiscountPercent,
-      isFreeDelivery: offers.isFreeDelivery !== undefined
-        ? isTrueFlag(offers.isFreeDelivery)
-        : isTrueFlag(item.isFreeDelivery)
-    };
-  });
+      return {
+        ...item,
+        giftTiers: pick(item.giftTiers, offers.giftTiers),
+        couponsList: pick(item.couponsList, offers.couponsList),
+        bulkTiers: pick(item.bulkTiers, offers.bulkTiers),
+        quantityDiscounts: pick(
+          item.quantityDiscounts || item.qtyDiscounts || item.packDiscounts,
+          offers.quantityDiscounts
+        ),
+        highValueThreshold: parseNumericPrice(offers.highValueThreshold) > 0
+          ? offers.highValueThreshold
+          : item.highValueThreshold,
+        highValueDiscountPercent: parseNumericPrice(offers.highValueDiscountPercent) > 0
+          ? offers.highValueDiscountPercent
+          : item.highValueDiscountPercent,
+        isFreeDelivery: offers.isFreeDelivery !== undefined
+          ? isTrueFlag(offers.isFreeDelivery)
+          : isTrueFlag(item.isFreeDelivery)
+      };
+    });
+  }, [cartItems, productOffers]);
 
-  // Shipping Address with localStorage fallback
+  // Customer Shipping Address State
   const [shippingAddress, setShippingAddress] = useState(() => {
     try {
       const cached = localStorage.getItem('cart_shipping_address');
@@ -362,44 +358,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       console.error(err);
     }
   }, [shippingAddress]);
-
-  // 🟢 If the user has a saved profile address (e.g. saved earlier from the
-  // Cart, or added/edited on the Profile Info page) and the cart doesn't
-  // already have a filled-in address, pull it in automatically once logged in.
-  useEffect(() => {
-    if (!isOpen) return;
-    const token = getAuthToken();
-    if (!token) return;
-    if (shippingAddress.address && shippingAddress.address.trim()) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (!cancelled && res.ok && data.address) {
-          setShippingAddress((prev) => ({
-            ...prev,
-            name: prev.name || data.name || '',
-            phone: prev.phone || data.phone || '',
-            addressType: data.addressType || prev.addressType,
-            address: data.address || prev.address,
-            landmark: data.landmark || prev.landmark,
-            state: data.state || prev.state,
-            city: data.city || prev.city,
-            pincode: data.pincode || prev.pincode,
-            country: data.country || prev.country
-          }));
-        }
-      } catch (err) {
-        console.error('Unable to load saved profile address:', err);
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
 
   const [sameAsShipping, setSameAsShipping] = useState(true);
   const [billingAddress, setBillingAddress] = useState({
@@ -432,7 +390,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         if (data.city) {
           setShippingAddress((prev) => ({ ...prev, city: data.city }));
         }
-        setPincodeStatusMsg(`✓ Standard Delivery: ₹${formatMoney(rate)} (${data.city || 'Serviceable Area'})`);
+        setPincodeStatusMsg(`✓ Serviceable Area: ${data.city || ''} (Delivery ₹${formatMoney(rate)})`);
         setError('');
       } else {
         setPincodeDeliveryCharge(null);
@@ -447,7 +405,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   };
 
   useEffect(() => {
-    if (shippingMode === 'delivery' && shippingAddress.pincode && shippingAddress.pincode.length === 6) {
+    if ((shippingMode === 'delivery' || shippingMode === 'founder') && shippingAddress.pincode && shippingAddress.pincode.length === 6) {
       fetchDeliveryChargeByPincode(shippingAddress.pincode);
     }
   }, [shippingMode, shippingAddress.pincode]);
@@ -455,7 +413,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const handlePincodeChange = (e) => {
     const newPin = e.target.value.replace(/\D/g, '').slice(0, 6);
     setShippingAddress((prev) => ({ ...prev, pincode: newPin }));
-    if (newPin.length === 6 && shippingMode === 'delivery') {
+    if (newPin.length === 6 && (shippingMode === 'delivery' || shippingMode === 'founder')) {
       fetchDeliveryChargeByPincode(newPin);
     } else if (newPin.length !== 6) {
       setPincodeDeliveryCharge(null);
@@ -479,6 +437,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }, 300);
   };
 
+  // Subtotal Calculation
   const rawSubTotal = enrichedCartItems.reduce((acc, item) => {
     const uPrice = parseNumericPrice(item.unitPrice || item.price);
     const q = Number(item.qty || item.quantity || 1);
@@ -486,7 +445,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   }, 0);
   const effectiveCartTotal = round2(rawSubTotal);
 
-  // 📦 CALCULATE QUANTITY / PACK DISCOUNTS
+  // Multi-Pack / Qty Discounts Calculation
   let itemQtyDiscountsTotal = 0;
   const itemAppliedQtyDiscounts = {};
 
@@ -521,127 +480,114 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   });
 
-  // Calculate Spend-based Bulk Tiers
-  let bulkSpendDiscount = 0;
-  const allCartBulkTiers = [];
-  enrichedCartItems.forEach((item) => {
-    const rawTiers = ensureArray(item.bulkTiers);
-    if (rawTiers.length > 0) {
-      rawTiers.forEach((b) => {
-        if (parseNumericPrice(b.minSpend) > 0) {
-          allCartBulkTiers.push({
-            minSpend: parseNumericPrice(b.minSpend),
-            discountValue: parseNumericPrice(b.discountValue || b.discountPercent || 0),
-            discountType: b.discountType || 'percentage'
-          });
-        }
-      });
-    } else if (parseNumericPrice(item.highValueThreshold) > 0) {
-      allCartBulkTiers.push({
-        minSpend: parseNumericPrice(item.highValueThreshold),
-        discountValue: parseNumericPrice(item.highValueDiscountPercent || 10),
-        discountType: 'percentage'
-      });
-    }
-  });
+  const bulkDiscount = round2(itemQtyDiscountsTotal);
 
-  const sortedBulkTiers = allCartBulkTiers.sort((a, b) => b.minSpend - a.minSpend);
-  if (sortedBulkTiers.length > 0) {
-    const activeTier = sortedBulkTiers.find((t) => effectiveCartTotal >= t.minSpend);
-    if (activeTier) {
-      const calcDiscount = activeTier.discountType === 'flat'
-        ? activeTier.discountValue
-        : (effectiveCartTotal * activeTier.discountValue) / 100;
-      bulkSpendDiscount = round2(calcDiscount);
-    }
-  }
+  // 🎟️ POOL ALL ACTIVE SWEET & BULK COUPONS DEDUPLICATED
+  const availableCoupons = useMemo(() => {
+    const list = [];
+    const seen = new Set();
 
-  const bulkDiscount = round2(itemQtyDiscountsTotal + bulkSpendDiscount);
-
-  // Available Dynamic Coupons List from Fetched Products/Cakes
-  const availableCoupons = [];
-  const seenCouponCodes = new Set();
-  enrichedCartItems.forEach((item) => {
-    ensureArray(item.couponsList).forEach((c) => {
-      const code = String(c.code || '').trim().toUpperCase();
-      if (!code || seenCouponCodes.has(code)) return;
-      seenCouponCodes.add(code);
+    const addCoupon = (c, sourceName) => {
+      const code = String(c?.code || '').trim().toUpperCase();
+      if (!code || seen.has(code)) return;
+      seen.add(code);
 
       const minSpend = parseNumericPrice(c.minSpend);
       const validUntil = c.validUntil ? new Date(c.validUntil) : null;
       const hasValidDate = validUntil && !isNaN(validUntil.getTime());
       const isExpired = hasValidDate && validUntil < new Date();
 
-      availableCoupons.push({
+      list.push({
         code,
-        discountType: c.discountType || 'flat',
-        discountValue: parseNumericPrice(c.discountValue),
+        discountType: c.discountType === 'percentage' ? 'percentage' : 'flat',
+        discountValue: parseNumericPrice(c.discountValue || c.discount || 0),
         minSpend,
         validUntil: hasValidDate ? validUntil : null,
         isExpired,
         isUnlocked: !isExpired && effectiveCartTotal >= minSpend,
         remaining: round2(Math.max(0, minSpend - effectiveCartTotal)),
-        productName: item.name
+        productName: sourceName || 'All Sweets Offer'
       });
+    };
+
+    // 1. From Cart Items
+    enrichedCartItems.forEach((item) => {
+      ensureArray(item.couponsList).forEach((c) => addCoupon(c, item.name));
     });
-  });
 
-  // Gift Tiers Roadmap
-  const giftTierRows = [];
-  enrichedCartItems.forEach((item) => {
-    const tiers = [];
-    const rawTiers = ensureArray(item.giftTiers);
+    // 2. From All Store Sweets (Bulk)
+    storeProducts.forEach((p) => {
+      ensureArray(p.couponsList).forEach((c) => addCoupon(c, p.name || 'Store Sweet'));
+    });
 
-    if (rawTiers.length > 0) {
-      rawTiers.forEach((gt) => {
-        if (gt) {
-          const rawMin = gt.minSpend ?? gt.minOrder ?? gt.threshold ?? gt.minAmount ?? gt.spend ?? gt.amount ?? gt.orderValue;
-          const minSpend = parseNumericPrice(rawMin);
-          const giftTitle = gt.giftTitle || gt.title || gt.name || gt.giftName || gt.gift || 'Special Gift';
-          if (minSpend > 0 || giftTitle) {
-            tiers.push({ minSpend, giftTitle });
-          }
-        }
+    // 3. From Global settings
+    ensureArray(storeSettings.globalCoupons).forEach((c) => addCoupon(c, 'Store-wide Coupon'));
+
+    return list;
+  }, [enrichedCartItems, storeProducts, storeSettings.globalCoupons, effectiveCartTotal]);
+
+  // 🎁 UNIFIED FREE GIFT TIERS (Deduplicated & evaluated on Cart Total)
+  const giftTierRows = useMemo(() => {
+    const allGifts = [];
+    const seenGiftKeys = new Set();
+
+    const addGift = (gt, sourceName) => {
+      if (!gt) return;
+      const rawMin = gt.minSpend ?? gt.minOrder ?? gt.threshold ?? gt.minAmount ?? gt.spend ?? gt.amount ?? gt.orderValue;
+      const minSpend = parseNumericPrice(rawMin);
+      const giftTitle = String(gt.giftTitle || gt.title || gt.name || gt.giftName || gt.gift || '').trim();
+      if (!giftTitle) return;
+
+      const key = `${minSpend}_${giftTitle.toLowerCase()}`;
+      if (seenGiftKeys.has(key)) return;
+      seenGiftKeys.add(key);
+
+      allGifts.push({
+        minSpend,
+        giftTitle,
+        source: sourceName || 'Special Gift Offer'
       });
-    } else if (parseNumericPrice(item.giftMinSpend || item.minOrder || item.giftThreshold) > 0 || item.giftTitle) {
-      tiers.push({
-        minSpend: parseNumericPrice(item.giftMinSpend || item.minOrder || item.giftThreshold),
-        giftTitle: item.giftTitle || 'Special Free Gift'
-      });
-    }
+    };
 
-    if (tiers.length === 0) return;
+    // 1. From Cart Items
+    enrichedCartItems.forEach((item) => {
+      ensureArray(item.giftTiers).forEach((gt) => addGift(gt, item.name));
+    });
 
-    const itemQty = Number(item.qty || item.quantity || 1) || 1;
-    const itemUnitPrice = parseNumericPrice(item.unitPrice || item.price || item.sellingPrice || item.salePrice || 0);
-    const calculatedSubTotal = round2(itemUnitPrice * itemQty);
-    const itemSubTotal = calculatedSubTotal > 0 ? calculatedSubTotal : round2(parseNumericPrice(item.totalPrice) || effectiveCartTotal);
+    // 2. From All Store Sweets (Bulk offers)
+    storeProducts.forEach((p) => {
+      ensureArray(p.giftTiers).forEach((gt) => addGift(gt, p.name || 'Sweets Offer'));
+    });
 
-    const sortedTiers = tiers.sort((a, b) => a.minSpend - b.minSpend);
+    // 3. From Global settings
+    ensureArray(storeSettings.globalGiftTiers).forEach((gt) => addGift(gt, 'Store Gift'));
 
-    const activeUnlockedTier = [...sortedTiers]
+    allGifts.sort((a, b) => a.minSpend - b.minSpend);
+
+    // Check unlocked tier
+    const activeUnlockedTier = [...allGifts]
       .reverse()
-      .find((t) => itemSubTotal >= t.minSpend && t.minSpend > 0);
+      .find((t) => effectiveCartTotal >= t.minSpend && t.minSpend > 0);
 
-    sortedTiers.forEach((gt, idx) => {
+    return allGifts.map((gt, idx) => {
       const isThisUnlocked = Boolean(
         activeUnlockedTier &&
         activeUnlockedTier.minSpend === gt.minSpend &&
-        activeUnlockedTier.giftTitle === gt.giftTitle
+        activeUnlockedTier.giftTitle.toLowerCase() === gt.giftTitle.toLowerCase()
       );
-      const remainingAmount = round2(Math.max(0, gt.minSpend - itemSubTotal));
+      const remainingAmount = round2(Math.max(0, gt.minSpend - effectiveCartTotal));
 
-      giftTierRows.push({
-        key: `${item.id || item.productId || idx}-tier-${idx}`,
-        productName: item.name,
+      return {
+        key: `gift-tier-${idx}-${gt.minSpend}`,
+        productName: gt.source,
         giftTitle: gt.giftTitle,
         minSpend: gt.minSpend,
-        itemSubTotal,
+        cartTotal: effectiveCartTotal,
         isUnlocked: isThisUnlocked,
         remaining: remainingAmount
-      });
+      };
     });
-  });
+  }, [enrichedCartItems, storeProducts, storeSettings.globalGiftTiers, effectiveCartTotal]);
 
   const isFreeDelivery = enrichedCartItems.some((i) => isTrueFlag(i.isFreeDelivery));
   let shippingCharge = 0;
@@ -649,7 +595,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   if (shippingMode === 'pickup') {
     shippingCharge = 0;
   } else if (shippingMode === 'founder') {
-    shippingCharge = FOUNDER_DELIVERY_CHARGE;
+    shippingCharge = (pincodeDeliveryCharge !== null) ? FOUNDER_DELIVERY_CHARGE : 0;
   } else if (shippingMode === 'delivery') {
     shippingCharge = isFreeDelivery ? 0 : (pincodeDeliveryCharge !== null ? pincodeDeliveryCharge : 0);
   }
@@ -658,12 +604,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
   const couponDiscount = round2(appliedCoupon ? parseNumericPrice(appliedCoupon.discount) : 0);
   const taxableProductAmount = round2(Math.max(0, effectiveCartTotal - couponDiscount - bulkDiscount));
 
-  // 🧾 Tax calculation
+  // Tax calculations
   const productTax = round2((taxableProductAmount * PRODUCT_TAX_PERCENT) / 100);
   const shippingTax = (shippingCharge > 0) ? round2((shippingCharge * SHIPPING_TAX_PERCENT) / 100) : 0;
   const totalTaxAmount = round2(productTax + shippingTax);
 
-  // 🎁 Gift box
+  // Gift box
   const giftBoxAvailable = storeSettings.giftBoxEnabled && GIFT_BOX_CHARGE > 0;
   const giftBoxAmount = (giftBoxAvailable && isGiftBoxSelected) ? GIFT_BOX_CHARGE : 0;
 
@@ -688,6 +634,10 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       alert('⚠️ Please enter your 6-digit Pincode for Founder Delivery.');
       return;
     }
+    if (shippingMode === 'founder' && pincodeDeliveryCharge === null) {
+      alert('⚠️ Founder Delivery is not available for this pincode. Please try another pincode.');
+      return;
+    }
     const token = getAuthToken();
     if (!token) {
       setStep('auth-required');
@@ -696,41 +646,35 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     setStep('checkout');
   };
 
-  // 🟢 APPLY COUPON
+  // Apply Coupon Code
   const handleApplyCoupon = async (overrideCode) => {
     const rawCode = typeof overrideCode === 'string' ? overrideCode : couponCode;
     if (!rawCode.trim()) return setCouponMsg({ text: 'Please enter a coupon code.', type: 'error' });
     const upper = rawCode.trim().toUpperCase();
     setCouponCode(upper);
 
-    // 1. Check in Dynamic Product Offers
-    for (const item of enrichedCartItems) {
-      const coupons = ensureArray(item.couponsList);
-      const matched = coupons.find((c) => String(c.code || '').toUpperCase() === upper);
-      if (matched) {
-        const minSpend = parseNumericPrice(matched.minSpend);
-        if (effectiveCartTotal < minSpend) {
-          return setCouponMsg({
-            text: `🔒 Add ₹${formatMoney(round2(minSpend - effectiveCartTotal))} more to use ${upper} (min spend ₹${formatMoney(minSpend)}).`,
-            type: 'error'
-          });
-        }
-
-        const validUntil = matched.validUntil ? new Date(matched.validUntil) : null;
-        if (validUntil && !isNaN(validUntil.getTime()) && validUntil < new Date()) {
-          return setCouponMsg({ text: `⌛ Coupon ${upper} has expired.`, type: 'error' });
-        }
-
-        const discVal = parseNumericPrice(matched.discountValue);
-        const finalDisc = matched.discountType === 'percentage'
-          ? round2((effectiveCartTotal * discVal) / 100)
-          : discVal;
-        setAppliedCoupon({ code: upper, discount: finalDisc });
-        return setCouponMsg({ text: `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
+    // 1. Search in all available store & cart coupons
+    const matched = availableCoupons.find((c) => c.code === upper);
+    if (matched) {
+      if (effectiveCartTotal < matched.minSpend) {
+        return setCouponMsg({
+          text: `🔒 Add ₹${formatMoney(round2(matched.minSpend - effectiveCartTotal))} more to use ${upper} (min spend ₹${formatMoney(matched.minSpend)}).`,
+          type: 'error'
+        });
       }
+      if (matched.isExpired) {
+        return setCouponMsg({ text: `⌛ Coupon ${upper} has expired.`, type: 'error' });
+      }
+
+      const finalDisc = matched.discountType === 'percentage'
+        ? round2((effectiveCartTotal * matched.discountValue) / 100)
+        : matched.discountValue;
+
+      setAppliedCoupon({ code: upper, discount: finalDisc });
+      return setCouponMsg({ text: `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
     }
 
-    // 2. Check in User's Saved Wallet Coupons
+    // 2. Search in user's saved wallet
     const savedMatched = savedCoupons.find((sc) => String(sc.code || '').toUpperCase() === upper);
     if (savedMatched) {
       const minSpend = parseNumericPrice(savedMatched.minSpend);
@@ -740,10 +684,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
           type: 'error'
         });
       }
-      const validUntil = savedMatched.validUntil ? new Date(savedMatched.validUntil) : null;
-      if (validUntil && !isNaN(validUntil.getTime()) && validUntil < new Date()) {
-        return setCouponMsg({ text: `⌛ Coupon ${upper} has expired.`, type: 'error' });
-      }
       const discVal = parseNumericPrice(savedMatched.discountValue);
       const finalDisc = savedMatched.discountType === 'percentage'
         ? round2((effectiveCartTotal * discVal) / 100)
@@ -752,7 +692,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
       return setCouponMsg({ text: `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
     }
 
-    // 3. Fallback: Verify on backend
+    // 3. Fallback verification with server
     try {
       const res = await fetch(`${API_BASE}/coupons/verify`, {
         method: 'POST',
@@ -798,8 +738,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   };
 
-  // 🟢 Persist the current shipping address to the user's profile
-  // (backed by /api/auth/profile, saved on the User model's address fields)
   const saveAddressToProfile = async (token) => {
     try {
       const payload = new FormData();
@@ -817,8 +755,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         body: payload
       });
     } catch (err) {
-      // Non-fatal — the order itself should still go through even if the
-      // "save to profile" call fails for some reason.
       console.error('Unable to save address to profile:', err);
     }
   };
@@ -866,6 +802,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
 
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
       setError('Delivery is not available for this pincode. Please try another pincode.');
+      return;
+    }
+
+    if (shippingMode === 'founder' && pincodeDeliveryCharge === null) {
+      setError('Founder Delivery is not available for this pincode. Please try another pincode.');
       return;
     }
 
@@ -953,52 +894,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         createdAt: new Date().toLocaleString('en-IN')
       });
 
-      // 🟢 SAVE ADDRESS TO PROFILE if the user opted in — so it shows up
-      // (and can be edited) on the Profile Info page next time.
       if (shippingAddress.saveAddress) {
         await saveAddressToProfile(token);
       }
 
-      // 🟢 DYNAMIC COUPONS AUTO-SAVE TO MONGO WALLET ON ORDER COMPLETION
       const nonExpiredFetchedCoupons = availableCoupons.filter((c) => !c.isExpired);
       setUnlockedOrderCoupons(nonExpiredFetchedCoupons);
-
-      if (nonExpiredFetchedCoupons.length > 0) {
-        try {
-          await Promise.allSettled(
-            nonExpiredFetchedCoupons.map((c) =>
-              fetch(`${API_BASE}/coupons/my-coupons`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  code: c.code,
-                  discountType: c.discountType || 'flat',
-                  discountValue: parseNumericPrice(c.discountValue),
-                  minSpend: parseNumericPrice(c.minSpend),
-                  validUntil: c.validUntil ? new Date(c.validUntil).toISOString() : null,
-                  productName: c.productName || 'Order Earned Coupon',
-                  source: 'order-complete-reward'
-                })
-              })
-            )
-          );
-
-          // Refresh coupons list from backend
-          const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const cData = await resCoupons.json();
-          if (resCoupons.ok && Array.isArray(cData.savedCoupons)) {
-            setSavedCoupons(cData.savedCoupons);
-            localStorage.setItem('sgs_saved_coupons', JSON.stringify(cData.savedCoupons));
-          }
-        } catch (cErr) {
-          console.error('Auto save dynamic coupons error:', cErr);
-        }
-      }
 
       setStep('success');
       if (onOrderPlaced) onOrderPlaced();
@@ -1009,9 +910,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
     }
   };
 
-  // 🧾 NEW: Generate & download a printable order slip / receipt.
-  // Opens a new tab with a formatted receipt and triggers the browser's
-  // print dialog — user can "Save as PDF" from there. No extra libraries needed.
   const handleDownloadSlip = () => {
     if (!placedOrderDetails) return;
     const d = placedOrderDetails;
@@ -1057,7 +955,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
         <table class="totals">
           <tr><td>Sub Total</td><td style="text-align:right;">₹${formatMoney(d.subTotal)}</td></tr>
           <tr><td>Coupon Discount</td><td style="text-align:right;">- ₹${formatMoney(d.couponDiscount)}</td></tr>
-          <tr><td>Product/Bulk Discount</td><td style="text-align:right;">- ₹${formatMoney(d.bulkDiscount)}</td></tr>
+          <tr><td>Multi-Pack Discount</td><td style="text-align:right;">- ₹${formatMoney(d.bulkDiscount)}</td></tr>
           <tr><td>Shipping</td><td style="text-align:right;">₹${formatMoney(d.shippingCharge)}</td></tr>
           <tr><td>Tax (GST)</td><td style="text-align:right;">₹${formatMoney(d.taxAmount)}</td></tr>
           ${d.giftBoxCharge > 0 ? `<tr><td>${d.giftBoxTitle}</td><td style="text-align:right;">₹${formatMoney(d.giftBoxCharge)}</td></tr>` : ''}
@@ -1224,11 +1122,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     </div>
                   </div>
 
-                  {/* 🎁 GIFTS ROADMAP */}
+                  {/* 🎁 FREE GIFTS ROADMAP */}
                   {giftTierRows.length > 0 && (
                     <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                       <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.88rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🎁</span> Free Gift Tiers & Roadmap
+                        <span>🎁</span> Free Gifts & Offers Roadmap
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1255,7 +1153,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                             </div>
 
                             <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                              {gt.productName} • Subtotal: ₹{formatMoney(gt.itemSubTotal)}
+                              {gt.productName} • Cart Total: ₹{formatMoney(gt.cartTotal)}
                             </div>
 
                             <div style={{ marginTop: '2px' }}>
@@ -1265,7 +1163,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                 </span>
                               ) : (
                                 <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                  {gt.remaining > 0 ? `🔒 LOCKED (Add ₹${formatMoney(gt.remaining)})` : '🔒 Upgraded to higher tier'}
+                                  {gt.remaining > 0 ? `🔒 LOCKED (Add ₹${formatMoney(gt.remaining)} more)` : '🔒 Upgraded to higher tier'}
                                 </span>
                               )}
                             </div>
@@ -1281,7 +1179,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
 
-                    {/* Shipping Type Selected Pill */}
+                    {/* Shipping Type Pill */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderLeft: '4px solid #b91c1c', borderRadius: '6px', marginBottom: '16px' }}>
                       <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         🚚 Shipping Method:
@@ -1299,7 +1197,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         value={shippingMode}
                         onChange={(e) => {
                           setShippingMode(e.target.value);
-                          if (e.target.value === 'pickup' || e.target.value === 'founder') {
+                          if (e.target.value === 'pickup') {
                             setPincodeStatusMsg('');
                           }
                         }}
@@ -1324,9 +1222,21 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     </div>
 
                     {shippingMode === 'founder' && (
-                      <div style={{ background: '#fef3c7', border: '1px dashed #d97706', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
-                        🎖️ <strong>Founder Delivery (₹5,000 Flat):</strong> Personally hand-delivered by our founder team!
-                      </div>
+                      shippingAddress.pincode.length === 6 && !isPincodeLoading ? (
+                        pincodeDeliveryCharge !== null ? (
+                          <div style={{ background: '#fef3c7', border: '1px dashed #d97706', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
+                            🎖️ <strong>Founder Delivery (₹5,000 Flat):</strong> Personally hand-delivered by our founder team!
+                          </div>
+                        ) : (
+                          <div style={{ background: '#fee2e2', border: '1px dashed #dc2626', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#b91c1c', fontWeight: '600' }}>
+                            ⚠️ Founder Delivery is not available for this pincode.
+                          </div>
+                        )
+                      ) : (
+                        <div style={{ background: '#fef3c7', border: '1px dashed #d97706', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
+                          🎖️ Enter your 6-digit Pincode below to check Founder Delivery (₹5,000 Flat) availability.
+                        </div>
+                      )
                     )}
 
                     {isHomeDeliveryType && (
@@ -1350,12 +1260,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                             boxSizing: 'border-box'
                           }}
                         />
-                        {shippingMode === 'delivery' && isPincodeLoading && (
+                        {isPincodeLoading && (
                           <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '3px' }}>⏳ Calculating delivery charges...</div>
                         )}
-                        {shippingMode === 'delivery' && pincodeStatusMsg && !isPincodeLoading && (
+                        {pincodeStatusMsg && !isPincodeLoading && (
                           <div style={{ fontSize: '0.78rem', color: pincodeDeliveryCharge !== null ? '#059669' : '#dc2626', fontWeight: 'bold', marginTop: '4px' }}>
-                            {pincodeStatusMsg}
+                            {shippingMode === 'founder'
+                              ? (pincodeDeliveryCharge !== null ? '✓ Founder Delivery available for this pincode' : pincodeStatusMsg)
+                              : pincodeStatusMsg}
                           </div>
                         )}
                       </div>
@@ -1374,7 +1286,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}>
-                        <span>Discount on product / cakes</span>
+                        <span>Multi-Pack Discount</span>
                         <span>- ₹{formatMoney(bulkDiscount)}</span>
                       </div>
 
@@ -1384,7 +1296,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                           {!shippingMode ? (
                             <em style={{ color: '#ef4444', fontSize: '0.82rem', fontWeight: '600' }}>Select shipping method</em>
                           ) : shippingMode === 'founder' ? (
-                            <strong style={{ color: '#b91c1c' }}>₹{formatMoney(FOUNDER_DELIVERY_CHARGE)}</strong>
+                            pincodeDeliveryCharge !== null ? (
+                              <strong style={{ color: '#b91c1c' }}>₹{formatMoney(FOUNDER_DELIVERY_CHARGE)}</strong>
+                            ) : (
+                              <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: '700' }}>⚠️ Enter 6-digit Pincode</span>
+                            )
                           ) : shippingMode === 'pickup' || isFreeDelivery ? (
                             <strong style={{ color: '#059669' }}>FREE</strong>
                           ) : pincodeDeliveryCharge !== null ? (
@@ -1459,7 +1375,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </span>
                       </div>
 
-                      {/* 🎫 MY SAVED WALLET COUPONS */}
+                      {/* 🎫 USER SAVED WALLET COUPONS */}
                       {savedCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1537,11 +1453,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                         </div>
                       )}
 
-                      {/* 🎟️ AVAILABLE STORE COUPONS (Direct Apply Only) */}
+                      {/* 🎟️ AVAILABLE SWEET & BULK COUPONS */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
-                            🎟️ Available Offers & Coupons
+                            🎟️ Available Sweets Coupons & Offers
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1564,7 +1480,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                   </div>
 
                                   <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>
-                                    {c.minSpend > 0 ? `Min spend ₹${formatMoney(c.minSpend)}` : 'No minimum spend'}
+                                    {c.minSpend > 0 ? `Min spend ₹${formatMoney(c.minSpend)}` : 'No minimum spend'} • {c.productName}
                                     {c.validUntil ? ` • Till ${c.validUntil.toLocaleDateString('en-IN')}` : ''}
                                   </div>
 
@@ -1591,7 +1507,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                                       </button>
                                     ) : (
                                       <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                        🔒 LOCKED (Add ₹${formatMoney(c.remaining)})
+                                        🔒 LOCKED (Add ₹{formatMoney(c.remaining)})
                                       </span>
                                     )}
                                   </div>
@@ -1726,7 +1642,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                     <option value="India">India</option>
                   </select>
 
-                  {/* 🟢 Save this address to profile — so it's fetched & editable later on the Profile Info page */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '-6px', marginBottom: '4px' }}>
                     <input
                       type="checkbox"
@@ -1838,7 +1753,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
             </div>
           )}
 
-          {/* 🎉 SUCCESS SCREEN — FULL ORDER SUMMARY + DOWNLOAD SLIP */}
+          {/* 🎉 SUCCESS SCREEN */}
           {step === 'success' && (
             <div style={{ maxWidth: '680px', margin: '0 auto', background: '#fff', padding: isSmallMobile ? '16px 14px' : '24px 28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
 
@@ -1853,7 +1768,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 </p>
               </div>
 
-              {/* 📦 FULL ITEMS LIST */}
+              {/* 📦 ITEMS LIST */}
               {placedOrderDetails && (
                 <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
                   <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '2px solid #b91c1c', fontWeight: '800', fontSize: '0.88rem', color: '#0f172a' }}>
@@ -1872,12 +1787,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 </div>
               )}
 
-              {/* 💰 FULL PRICE BREAKDOWN */}
+              {/* 💰 PRICE BREAKDOWN */}
               {placedOrderDetails && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px', fontSize: '0.86rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Sub Total</span><strong>₹{formatMoney(placedOrderDetails.subTotal)}</strong></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Coupon Discount</span><span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Product/Bulk Discount</span><span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Multi-Pack Discount</span><span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping ({placedOrderDetails.shippingType})</span><span>₹{formatMoney(placedOrderDetails.shippingCharge)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax (GST)</span><span>₹{formatMoney(placedOrderDetails.taxAmount)}</span></div>
                   {placedOrderDetails.giftBoxCharge > 0 && (
@@ -1894,12 +1809,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems, cartCount, changeQty, removeFr
                 </div>
               )}
 
-              {/* 🎁 DYNAMIC COUPONS SAVED CONFIRMATION */}
+              {/* 🎁 REWARD COUPONS */}
               {unlockedOrderCoupons.length > 0 && (
                 <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', border: '2px dashed #d97706', borderRadius: '10px', padding: '16px', marginBottom: '18px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.15rem', marginBottom: '4px' }}>🎉 <strong>Coupons Added to Your Wallet!</strong></div>
+                  <div style={{ fontSize: '1.15rem', marginBottom: '4px' }}>🎉 <strong>Coupons Available for Next Order!</strong></div>
                   <p style={{ color: '#92400e', fontSize: '0.85rem', margin: '0 0 12px' }}>
-                    The following offer coupons have been automatically saved to your wallet for next orders:
+                    Use these coupons on your next order:
                   </p>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
