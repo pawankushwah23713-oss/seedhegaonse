@@ -16,6 +16,9 @@ const couponRoutes = require('./routes/couponRoutes');
 const giftRoutes = require('./routes/giftRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes'); 
+// 🟢 Enquiry Route Mount
+const enquiryRoutes = require('./routes/enquiryRoutes');
+
 const app = express();
 const couponWalletRoutes = require('./routes/Couponwallet.routes');
 const server = http.createServer(app); // 🟢 Create HTTP server
@@ -63,6 +66,7 @@ app.use(
 );
 
 // API Routes
+app.use('/api/enquiry', enquiryRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/auth', authRoutes);

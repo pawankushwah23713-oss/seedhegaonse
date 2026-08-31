@@ -87,6 +87,13 @@ const AdminLayout = ({ user, onLogout }) => {
           >
             📧 <span>Customer Inquiries</span>
           </NavLink>
+           <NavLink 
+            to="/admin/inquaries" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>bulk Inquiries</span>
+          </NavLink>
 
           
         </nav>

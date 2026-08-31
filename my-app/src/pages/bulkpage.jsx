@@ -1,29 +1,30 @@
 import React, { useState } from 'react';
-import './ContactUs.css';
+import './BulkEnquiry.css';
 
-const BulkPage = () => {
+const BulkEnquiry = () => {
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: ''
+    mobile: '',
+    sweets: '',
+    quantity: '',
+    eventType: '',
+    address: '',
   });
 
   const [loading, setLoading] = useState(false);
   const [responseMsg, setResponseMsg] = useState({ type: '', text: '' });
 
-  const handleChange = (e) => {
+  const handleChange不易 = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e有效地) => {
+    e有效地.preventDefault();
     setLoading(true);
     setResponseMsg({ type: '', text: '' });
 
     try {
-      const response = await fetch('https://seedhegaonse-1.onrender.com/api/contact', {
+      const response = await fetch('https://seedhegaonse-1.onrender.com/api/enquiry', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,10 +35,17 @@ const BulkPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setResponseMsg({ type: 'success', text: 'Message sent successfully!' });
-        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+        setResponseMsg({ type: 'success', text: data.message || 'Enquiry submitted successfully!' });
+        setFormData({
+          name: '',
+          mobile: '',
+          sweets: '',
+          quantity: '',
+          eventType: '',
+          address: '',
+        });
       } else {
-        setResponseMsg({ type: 'error', text: data.message || 'Failed to send message.' });
+        setResponseMsg({ type: 'error', text: data.message || 'Failed to submit enquiry.' });
       }
     } catch (error) {
       setResponseMsg({ type: 'error', text: 'Server error. Please try again later.' });
@@ -47,166 +55,121 @@ const BulkPage = () => {
   };
 
   return (
-    <div className="contact-page-container">
-      <h1 className="main-title">Contact Us</h1>
+    <div className="bulk-enquiry-container">
+      {responseMsg.text && (
+        <div className={`status-alert ${responseMsg.type}`}>
+          {responseMsg.text}
+        </div>
+      )}
 
-      <div className="contact-wrapper">
-        {/* Left Section - Contact Info */}
-        <div className="contact-card info-card">
-          <h2 className="section-title-left">Contact Information</h2>
-
-          <div className="info-list">
-            <div className="info-item">
-              <div className="icon maroon-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
-              </div>
-              <div className="info-text">
-                <span className="label">Address</span>
-                <p className="val">A2/3, Janakpuri, New Delhi-110058</p>
-              </div>
-            </div>
-
-            <div className="info-item">
-              <div className="icon maroon-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                </svg>
-              </div>
-              <div className="info-text">
-                <span className="label">Phone number</span>
-                <p className="val">+91 9315911105</p>
-              </div>
-            </div>
-
-            <div className="info-item">
-              <div className="icon maroon-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                </svg>
-              </div>
-              <div className="info-text">
-                <span className="label">Email</span>
-                <p className="val">info@seedhegaonse.in</p>
-              </div>
-            </div>
+      <form onSubmit={handleSubmit} className="enquiry-custom-form">
+        <div className="enquiry-grid">
+          {/* Name */}
+          <div className="input-box">
+            <label>Name <span className="star">*</span></label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange不易}
+              placeholder="Enter your full name"
+              required
+            />
           </div>
 
-          {/* Timings Banner */}
-          <div className="timings-banner">
-            <div className="clock-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </div>
-            <div className="timings-text">
-              <div className="sub-head">CUSTOMER CARE TIMINGS</div>
-              <div className="time">9:00 AM – 9:00 PM</div>
-            </div>
+          {/* Mobile */}
+          <div className="input-box">
+            <label>Mobile number <span className="star">*</span></label>
+            <input
+              type="tel"
+              name="mobile"
+              value={formData.mobile}
+              onChange={handleChange不易}
+              placeholder="Enter your mobile number"
+              pattern="[0-9]{10}"
+              required
+            />
           </div>
 
-          {/* Social Icons */}
-          <div className="social-icons">
-            <a href="https://www.instagram.com/seedhegaonse/" target="_blank" rel="noreferrer">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#871a1a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-              </svg>
-            </a>
-            <a href="https://www.facebook.com/profile.php?id=61570758547955" target="_blank" rel="noreferrer">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#871a1a">
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
-              </svg>
-            </a>
+          {/* Preferred sweets */}
+          <div className="input-box">
+            <label>Preferred sweets</label>
+            <input
+              type="text"
+              name="sweets"
+              value={formData.sweets}
+              onChange={handleChange不易}
+              placeholder="e.g., Pedha, Ghewar, Laddoo"
+            />
+          </div>
+
+          {/* Estimated quantity */}
+          <div className="input-box">
+            <label>Estimated quantity <span className="star">*</span></label>
+            <input
+              type="text"
+              name="quantity"
+              value={formData.quantity}
+              onChange={handleChange不易}
+              placeholder="e.g., 50 Boxes, 25 Kg"
+              required
+            />
+          </div>
+
+          {/* Type of Events */}
+          <div className="input-box">
+            <label>Type of Events</label>
+            <input
+              type="text"
+              name="eventType"
+              value={formData.eventType}
+              onChange={handleChange不易}
+              placeholder="e.g., Birthday, Anniversary, Corporate Event"
+            />
+          </div>
+
+          {/* Delivery address / location */}
+          <div className="input-box">
+            <label>Delivery address / location <span className="star">*</span></label>
+            <textarea
+              name="address"
+              value={formData.address}
+              onChange={handleChange不易}
+              placeholder="Enter complete delivery address or location details"
+              required
+            />
           </div>
         </div>
 
-        {/* Right Section - Form */}
-        <div className="contact-card form-card">
-          <h2 className="section-title-right">Send us a message</h2>
-
-          {responseMsg.text && (
-            <div className={`alert-box ${responseMsg.type}`}>
-              {responseMsg.text}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="contact-form">
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Your name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="John Doe"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Email address</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="johndoe@email.com"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Your phone</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="Contact Number"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Subject:</label>
-                <input
-                  type="text"
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  placeholder="Short title"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group full-width">
-              <label>Message</label>
-              <textarea
-                name="message"
-                rows="6"
-                value={formData.message}
-                onChange={handleChange}
-                placeholder=""
-                required
-              ></textarea>
-            </div>
-
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Sending...' : 'Send'}
-            </button>
-          </form>
+        {/* Submit Button */}
+        <div className="submit-action-wrapper">
+          <button type="submit" className="enquiry-submit-btn" disabled={loading}>
+            {loading ? 'SUBMITTING...' : (
+              <>
+                SUBMIT ENQUIRY
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              </>
+            )}
+          </button>
         </div>
-      </div>
+      </form>
 
-     
+      {/* Floating WhatsApp Button */}
+      <a
+        href="https://wa.me/919315911105"
+        className="floating-whatsapp"
+        target="_blank"
+        rel="noreferrer"
+        title="Chat with Seedhe Gaon Se"
+      >
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="#ffffff">
+          <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.983.54 1.871.82 2.796.82 3.183 0 5.769-2.587 5.77-5.767 0-3.182-2.587-5.805-5.77-5.805zm3.393 8.246c-.145.405-.843.766-1.168.807-.324.04-.633.118-2.02-.457-1.637-.677-2.684-2.339-2.766-2.449-.082-.11-1.026-1.365-1.026-2.602 0-1.238.653-1.848.885-2.097.232-.249.508-.312.678-.312.17 0 .34.002.489.009.157.007.369-.06.577.441.214.516.732 1.786.797 1.916.065.13.109.283.022.457-.087.174-.131.282-.261.435-.13.153-.274.34-.392.457-.13.13-.266.27-.114.531.152.261.677 1.116 1.453 1.808 1 .892 1.843 1.168 2.105 1.298.261.13.414.109.567-.066.153-.174.653-.762.827-1.023.174-.261.349-.218.588-.13.24.087 1.524.72 1.786.85.261.13.436.196.499.305.065.11.065.633-.08 1.038z" />
+        </svg>
+      </a>
     </div>
   );
 };
 
-export default BulkPage;
+export default BulkEnquiry;

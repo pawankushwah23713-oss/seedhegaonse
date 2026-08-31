@@ -1,0 +1,255 @@
+.admin-enquiry-container {
+  padding: 24px;
+  background: #f8fafc;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Header */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.admin-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #871a1a; /* Brand Maroon */
+}
+
+.sub-title {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Live Status Pulse Badge */
+.live-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pulsing-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulse-animation 1.5s infinite;
+}
+
+@keyframes pulse-animation {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Live Toast Bar */
+.live-toast-bar {
+  background: #871a1a;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 6px;
+  font-weight: 500;
+  margin-bottom: 15px;
+  animation: slideDown 0.3s ease;
+  box-shadow: 0 4px 10px rgba(135, 26, 26, 0.2);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Filter Bar */
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+.filter-btn.active {
+  background: #871a1a;
+  color: #fff;
+  border-color: #871a1a;
+}
+
+/* Table */
+.table-responsive {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+}
+
+.enquiry-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.enquiry-table th {
+  background: #f1f5f9;
+  padding: 12px 16px;
+  color: #334155;
+  font-weight: 600;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.enquiry-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #1e293b;
+}
+
+.date-cell small {
+  color: #64748b;
+}
+
+.contact-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 12.5px;
+  display: inline-block;
+  margin-top: 3px;
+  margin-right: 8px;
+}
+
+.wa-link {
+  color: #16a34a;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.highlight-text {
+  font-weight: 500;
+  color: #871a1a;
+}
+
+.qty-tag {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.event-badge {
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.address-cell {
+  max-width: 220px;
+  white-space: normal;
+  line-height: 1.4;
+  font-size: 13px;
+  color: #475569;
+}
+
+/* Status Select */
+.status-select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  outline: none;
+  cursor: pointer;
+}
+
+.status-select.pending {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.status-select.contacted {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.status-select.confirmed {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.status-select.cancelled {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px;
+  transition: transform 0.1s;
+}
+
+.delete-btn:hover {
+  transform: scale(1.2);
+}
+
+.admin-loading,
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  background: #fff;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 15px;
+}

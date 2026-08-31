@@ -57,7 +57,8 @@ import CheesecakePage from './pages/CheesecakePage';
 import BentoCakePage from './pages/BentoCakePage';
 import ButterscotchPage from './pages/ButterscotchPage';
 import MyCoupons from './pages/MyCoupons';
-import BulkPage from './pages/bulkpage'
+import BulkEnquiry from './pages/bulkpage';
+import AdminEnquiries from './pages/admin/AdminEnquiries';
 // 🟢 Cart ko localStorage me save karne ki key
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
@@ -249,7 +250,7 @@ const AppContent = ({
         />
          <Route
            path="/bulk-gifting"
-          element={< BulkPage />}
+          element={< BulkEnquiry />}
         />
  
         
@@ -274,6 +275,7 @@ const AppContent = ({
           <Route path="/admin" element={<AdminLayout user={currentUser} onLogout={handleLogout} />}>
             <Route index element={<AdminOverview />} />
             <Route path="orders" element={<AdminOrders />} />
+              <Route path="inquaries" element={<AdminEnquiries />} />
 
             <Route path="herobanner" element={<AdminMarketingManager />} />
             <Route path="products" element={<AdminAllInOneCakes />} />
