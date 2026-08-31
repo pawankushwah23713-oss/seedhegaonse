@@ -3,12 +3,11 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 
-// Helper function to extract user ID safely
 const getUserId = (req) => {
   return req.user?._id || req.user?.id || req.userId || (typeof req.user === 'string' ? req.user : null);
 };
 
-// 🟢 GET /api/coupons/my-coupons (Handles both '/' and '/my-coupons')
+// 🟢 GET /api/coupons/my-coupons
 const handleGetCoupons = async (req, res) => {
   try {
     const userId = getUserId(req);
@@ -19,7 +18,8 @@ const handleGetCoupons = async (req, res) => {
 
     return res.json({
       success: true,
-      savedCoupons: Array.isArray(user.savedCoupons) ? user.savedCoupons : []
+      savedCoupons: Array.isArray(user.savedCoupons) ? user.savedCoupons : [],
+      usedCoupons: Array.isArray(user.usedCoupons) ? user.usedCoupons : []
     });
   } catch (err) {
     console.error('Fetch saved coupons error:', err);
@@ -27,7 +27,7 @@ const handleGetCoupons = async (req, res) => {
   }
 };
 
-// 🟢 POST /api/coupons/my-coupons (Save coupon to MongoDB directly)
+// 🟢 POST /api/coupons/my-coupons (Sirf 1 baar save hoga, already used coupon dubara save nahi hoga)
 const handleSaveCoupon = async (req, res) => {
   try {
     const { code, discountType, discountValue, minSpend, validUntil, productName, source } = req.body;
@@ -38,15 +38,18 @@ const handleSaveCoupon = async (req, res) => {
 
     const upperCode = String(code).trim().toUpperCase();
 
-    // 1. Check if user exists
-    const user = await User.findById(userId).lean();
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const existingCoupons = Array.isArray(user.savedCoupons) ? user.savedCoupons : [];
-    const alreadySaved = existingCoupons.some((c) => c && c.code === upperCode);
+    const saved = Array.isArray(user.savedCoupons) ? user.savedCoupons : [];
+    const used = Array.isArray(user.usedCoupons) ? user.usedCoupons : [];
 
-    if (alreadySaved) {
-      return res.json({ success: true, message: 'Already saved', savedCoupons: existingCoupons });
+    // ❌ STRICT CHECK: Agar pehle se saved hai YA pehle use kar chuka hai toh block karein
+    if (used.includes(upperCode)) {
+      return res.json({ success: false, message: 'You have already used this coupon once.', savedCoupons: saved });
+    }
+    if (saved.some((c) => c && c.code === upperCode)) {
+      return res.json({ success: true, message: 'Already in wallet', savedCoupons: saved });
     }
 
     const newCouponItem = {
@@ -60,41 +63,46 @@ const handleSaveCoupon = async (req, res) => {
       savedAt: new Date()
     };
 
-    // 2. Direct MongoDB atomic update (Bypasses all mongoose validation errors)
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $push: { savedCoupons: newCouponItem } },
-      { new: true, runValidators: false }
-    ).lean();
+    user.savedCoupons.push(newCouponItem);
+    await user.save();
 
     return res.json({
       success: true,
-      message: `${upperCode} saved successfully to MongoDB!`,
-      savedCoupons: updatedUser?.savedCoupons || []
+      message: `${upperCode} saved successfully!`,
+      savedCoupons: user.savedCoupons
     });
   } catch (err) {
-    console.error('Save coupon to MongoDB error:', err);
+    console.error('Save coupon error:', err);
     return res.status(500).json({ message: 'Unable to save coupon', error: err.message });
   }
 };
 
-// 🟢 DELETE /api/coupons/my-coupons/:code (Remove coupon from MongoDB)
+// 🟢 DELETE /api/coupons/my-coupons/:code (Order place hote hi usedCoupons me permanently daal dega)
 const handleDeleteCoupon = async (req, res) => {
   try {
     const upperCode = String(req.params.code || '').trim().toUpperCase();
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'User not authenticated' });
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $pull: { savedCoupons: { code: upperCode } } },
-      { new: true, runValidators: false }
-    ).lean();
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // 1. Wallet se nikalein
+    user.savedCoupons = (user.savedCoupons || []).filter((c) => c.code !== upperCode);
+
+    // 2. Permanently 'usedCoupons' history me add karein (Lifetime 1 Time restriction ke liye)
+    if (!Array.isArray(user.usedCoupons)) user.usedCoupons = [];
+    if (!user.usedCoupons.includes(upperCode)) {
+      user.usedCoupons.push(upperCode);
+    }
+
+    await user.save();
 
     return res.json({
       success: true,
-      message: 'Coupon removed',
-      savedCoupons: updatedUser?.savedCoupons || []
+      message: 'Coupon consumed and marked as used',
+      savedCoupons: user.savedCoupons,
+      usedCoupons: user.usedCoupons
     });
   } catch (err) {
     console.error('Remove coupon error:', err);
@@ -102,13 +110,11 @@ const handleDeleteCoupon = async (req, res) => {
   }
 };
 
-// Route support for BOTH mounting styles:
+// Route support
 router.get('/', protect, handleGetCoupons);
 router.get('/my-coupons', protect, handleGetCoupons);
-
 router.post('/', protect, handleSaveCoupon);
 router.post('/my-coupons', protect, handleSaveCoupon);
-
 router.delete('/:code', protect, handleDeleteCoupon);
 router.delete('/my-coupons/:code', protect, handleDeleteCoupon);
 
