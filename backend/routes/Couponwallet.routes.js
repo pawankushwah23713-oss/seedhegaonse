@@ -7,7 +7,7 @@ const getUserId = (req) => {
   return req.user?._id || req.user?.id || req.userId || (typeof req.user === 'string' ? req.user : null);
 };
 
-// 🟢 GET /api/coupons/my-coupons
+// 🟢 1. GET /api/coupons/my-coupons (Returns active saved coupons & used coupons list)
 const handleGetCoupons = async (req, res) => {
   try {
     const userId = getUserId(req);
@@ -16,10 +16,20 @@ const handleGetCoupons = async (req, res) => {
     const user = await User.findById(userId).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    const usedList = Array.isArray(user.usedCoupons)
+      ? user.usedCoupons.map((u) => String(u).trim().toUpperCase())
+      : [];
+    const usedSet = new Set(usedList);
+
+    // Active coupons list me se used coupons filter out
+    const activeSaved = (Array.isArray(user.savedCoupons) ? user.savedCoupons : []).filter(
+      (c) => c && c.code && !usedSet.has(String(c.code).trim().toUpperCase())
+    );
+
     return res.json({
       success: true,
-      savedCoupons: Array.isArray(user.savedCoupons) ? user.savedCoupons : [],
-      usedCoupons: Array.isArray(user.usedCoupons) ? user.usedCoupons : []
+      savedCoupons: activeSaved,
+      usedCoupons: usedList
     });
   } catch (err) {
     console.error('Fetch saved coupons error:', err);
@@ -27,7 +37,61 @@ const handleGetCoupons = async (req, res) => {
   }
 };
 
-// 🟢 POST /api/coupons/my-coupons (Sirf 1 baar save hoga, already used coupon dubara save nahi hoga)
+// 🟢 2. POST /api/coupons/verify (Validates single-use lifetime restriction)
+router.post('/verify', protect, async (req, res) => {
+  try {
+    const { code, cartTotal } = req.body;
+    if (!code) return res.status(400).json({ message: 'Coupon code is required' });
+
+    const userId = getUserId(req);
+    const upperCode = String(code).trim().toUpperCase();
+
+    const user = await User.findById(userId).lean();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const usedCoupons = Array.isArray(user.usedCoupons)
+      ? user.usedCoupons.map((u) => String(u).toUpperCase())
+      : [];
+
+    // ❌ STRICT BLOCK: Agar pehle kabhi use kiya hai toh reject
+    if (usedCoupons.includes(upperCode)) {
+      return res.status(400).json({
+        success: false,
+        message: `⚠️ Coupon "${upperCode}" has already been used once by this account.`
+      });
+    }
+
+    const savedCoupon = (user.savedCoupons || []).find(
+      (c) => String(c.code).toUpperCase() === upperCode
+    );
+
+    if (savedCoupon) {
+      const minSpend = Number(savedCoupon.minSpend) || 0;
+      if (Number(cartTotal) < minSpend) {
+        return res.status(400).json({
+          success: false,
+          message: `Minimum spend of ₹${minSpend} required for this coupon.`
+        });
+      }
+      const disc = savedCoupon.discountType === 'percentage'
+        ? (Number(cartTotal) * Number(savedCoupon.discountValue)) / 100
+        : Number(savedCoupon.discountValue);
+
+      return res.json({
+        success: true,
+        code: upperCode,
+        discount: disc,
+        message: 'Coupon applied successfully!'
+      });
+    }
+
+    return res.status(404).json({ success: false, message: 'Invalid coupon code.' });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error verifying coupon: ' + err.message });
+  }
+});
+
+// 🟢 3. POST /api/coupons/my-coupons (Save new coupon - blocks already used)
 const handleSaveCoupon = async (req, res) => {
   try {
     const { code, discountType, discountValue, minSpend, validUntil, productName, source } = req.body;
@@ -37,18 +101,20 @@ const handleSaveCoupon = async (req, res) => {
     if (!userId) return res.status(401).json({ message: 'User not authenticated' });
 
     const upperCode = String(code).trim().toUpperCase();
-
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const saved = Array.isArray(user.savedCoupons) ? user.savedCoupons : [];
-    const used = Array.isArray(user.usedCoupons) ? user.usedCoupons : [];
+    const used = Array.isArray(user.usedCoupons)
+      ? user.usedCoupons.map((u) => String(u).toUpperCase())
+      : [];
 
-    // ❌ STRICT CHECK: Agar pehle se saved hai YA pehle use kar chuka hai toh block karein
+    // ❌ STRICT BLOCK: If ever used, do not re-add
     if (used.includes(upperCode)) {
-      return res.json({ success: false, message: 'You have already used this coupon once.', savedCoupons: saved });
+      return res.json({ success: false, message: 'Coupon already used once.', savedCoupons: saved });
     }
-    if (saved.some((c) => c && c.code === upperCode)) {
+
+    if (saved.some((c) => String(c.code).toUpperCase() === upperCode)) {
       return res.json({ success: true, message: 'Already in wallet', savedCoupons: saved });
     }
 
@@ -77,7 +143,7 @@ const handleSaveCoupon = async (req, res) => {
   }
 };
 
-// 🟢 DELETE /api/coupons/my-coupons/:code (Order place hote hi usedCoupons me permanently daal dega)
+// 🟢 4. DELETE /api/coupons/my-coupons/:code (Removes from wallet & adds to usedCoupons)
 const handleDeleteCoupon = async (req, res) => {
   try {
     const upperCode = String(req.params.code || '').trim().toUpperCase();
@@ -87,10 +153,10 @@ const handleDeleteCoupon = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // 1. Wallet se nikalein
-    user.savedCoupons = (user.savedCoupons || []).filter((c) => c.code !== upperCode);
+    user.savedCoupons = (user.savedCoupons || []).filter(
+      (c) => String(c.code).toUpperCase() !== upperCode
+    );
 
-    // 2. Permanently 'usedCoupons' history me add karein (Lifetime 1 Time restriction ke liye)
     if (!Array.isArray(user.usedCoupons)) user.usedCoupons = [];
     if (!user.usedCoupons.includes(upperCode)) {
       user.usedCoupons.push(upperCode);
@@ -100,7 +166,7 @@ const handleDeleteCoupon = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Coupon consumed and marked as used',
+      message: 'Coupon removed and locked as used',
       savedCoupons: user.savedCoupons,
       usedCoupons: user.usedCoupons
     });
@@ -110,7 +176,7 @@ const handleDeleteCoupon = async (req, res) => {
   }
 };
 
-// Route support
+// Routes
 router.get('/', protect, handleGetCoupons);
 router.get('/my-coupons', protect, handleGetCoupons);
 router.post('/', protect, handleSaveCoupon);

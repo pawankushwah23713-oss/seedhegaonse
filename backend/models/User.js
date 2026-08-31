@@ -11,8 +11,7 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     avatar: { type: String, default: '' },
 
-    // 🟢 Saved Address (added so the cart's checkout address can be
-    // persisted to the user's profile and edited later from Profile Info)
+    // Saved Address
     address: { type: String, trim: true, default: '' },
     landmark: { type: String, trim: true, default: '' },
     addressType: { type: String, trim: true, default: 'Permanent' },
@@ -21,12 +20,30 @@ const userSchema = new mongoose.Schema(
     pincode: { type: String, trim: true, default: '' },
     country: { type: String, trim: true, default: 'India' },
 
+    // 🟢 Active Wallet Coupons
     savedCoupons: {
-      type: Array,
+      type: [
+        {
+          code: { type: String, uppercase: true, trim: true },
+          discountType: { type: String, default: 'flat' },
+          discountValue: { type: Number, default: 0 },
+          minSpend: { type: Number, default: 0 },
+          validUntil: { type: Date, default: null },
+          productName: { type: String, default: '' },
+          source: { type: String, default: 'order-reward' },
+          savedAt: { type: Date, default: Date.now }
+        }
+      ],
+      default: []
+    },
+
+    // 🔒 Lifetime Used Coupons (1 User = 1 Time Record)
+    usedCoupons: {
+      type: [String],
       default: []
     }
   },
-  { timestamps: true, strict: false } // strict: false ensure karega ki data har haal me save ho
+  { timestamps: true }
 );
 
 module.exports = mongoose.model('User', userSchema);

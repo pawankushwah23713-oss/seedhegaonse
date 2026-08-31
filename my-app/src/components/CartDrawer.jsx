@@ -128,7 +128,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   });
 
-  // Active wallet coupons filtered from used coupons
+  // Active wallet coupons (Completely filters out any used coupon)
   const activeSavedCoupons = useMemo(() => {
     const usedSet = new Set(usedCoupons.map((u) => String(u || '').trim().toUpperCase()));
     return savedCoupons.filter((sc) => sc?.code && !usedSet.has(String(sc.code).trim().toUpperCase()));
@@ -202,13 +202,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     let cancelled = false;
     (async () => {
       try {
-        // 1. Fetch saved coupons from wallet
+        // 1. Fetch user's saved & used coupons from DB
         const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const dataCoupons = await resCoupons.json();
 
-        // 2. Fetch past orders to detect coupons user already used in previous orders
+        // 2. Fetch user's past orders history to verify any redeemed coupon
         let pastUsedCodes = [];
         try {
           const resOrders = await fetch(`${API_BASE}/orders/my-orders`, {
@@ -222,7 +222,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
               .filter(Boolean);
           }
         } catch {
-          // Silent fallback
+          // Fallback
         }
 
         if (!cancelled) {
@@ -230,7 +230,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
             ? dataCoupons.usedCoupons.map((u) => String(u).trim().toUpperCase())
             : [];
 
-          // Merge all used coupons from DB, order history and local cache
           const cachedUsed = (() => {
             try {
               const u = localStorage.getItem('sgs_used_coupons');
@@ -249,9 +248,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           const finalUsedList = Array.from(allUsedSet);
           setUsedCoupons(finalUsedList);
 
-          // Filter saved coupons removing any used one
           const savedList = (Array.isArray(dataCoupons.savedCoupons) ? dataCoupons.savedCoupons : [])
-            .filter((c) => !allUsedSet.has(String(c?.code || '').trim().toUpperCase()));
+            .filter((c) => c && c.code && !allUsedSet.has(String(c.code).trim().toUpperCase()));
 
           setSavedCoupons(savedList);
 
@@ -547,7 +545,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const bulkDiscount = round2(itemQtyDiscountsTotal);
 
-  // 🎟️ POOL ALL AVAILABLE SWEET COUPONS (100% HIDES ALREADY USED OR WALLET SAVED COUPONS)
+  // 🎟️ POOL ALL AVAILABLE SWEET COUPONS (100% HIDES ALREADY USED OR SAVED WALLET COUPONS)
   const availableCoupons = useMemo(() => {
     const list = [];
     const seen = new Set();
@@ -556,7 +554,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
     const addCoupon = (c, sourceName) => {
       const code = String(c?.code || '').trim().toUpperCase();
-      // ❌ COMPLETELY HIDE: If used in past OR already present in user's active wallet
+      // ❌ COMPLETELY HIDE: If used in past OR already in user's active wallet
       if (!code || seen.has(code) || usedSet.has(code) || savedSet.has(code)) return;
       seen.add(code);
 
