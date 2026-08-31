@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const Order = require('../models/Order.model');
-const User = require('../models/User.model') || require('../models/User');
+const User =  require('../models/User');
 
 // 1. Customer Orders (Sorted by Latest First)
 exports.getMyOrders = async (req, res) => {
