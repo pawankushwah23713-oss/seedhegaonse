@@ -1,4 +1,6 @@
+const jwt = require('jsonwebtoken');
 const Order = require('../models/Order.model');
+const User = require('../models/User.model') || require('../models/User');
 
 // 1. Customer Orders (Sorted by Latest First)
 exports.getMyOrders = async (req, res) => {
@@ -35,30 +37,110 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-// 3. Create Order
+// 3. Create Order (With Lifetime Coupon Lock, Complete Price Breakdown & Socket Emit)
 exports.createOrder = async (req, res) => {
   try {
-    const { customer, orderItems, totalAmount, paymentMethod, upiTransactionId } = req.body;
-
-    if (!customer || !orderItems || !orderItems.length || !totalAmount) {
-      return res.status(400).json({ message: 'Missing required order fields.' });
-    }
-
-    const isUpi = paymentMethod === 'UPI';
-
-    const order = await Order.create({
-      user: req.user?._id || req.user?.id || undefined,
+    const {
       customer,
+      shippingAddress,
+      billingAddress,
+      deliveryZone,
+      shippingType,
       orderItems,
       totalAmount,
+      paymentMethod,
+      upiTransactionId,
+      couponCode,
+      couponDiscount,
+      bulkDiscount,
+      subTotal,
+      shippingCharge,
+      taxAmount,
+      productTax,
+      shippingTax,
+      giftBoxCharge,
+      giftBoxTitle
+    } = req.body;
+
+    if (!customer || !orderItems || !orderItems.length || totalAmount === undefined) {
+      return res.status(400).json({ message: 'Missing required order fields (customer, items, total).' });
+    }
+
+    // 🔑 Extract User ID (via middleware or direct token header)
+    let userId = req.user?._id || req.user?.id || null;
+    if (!userId && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.id || decoded._id;
+      } catch {
+        // Guest user
+      }
+    }
+
+    const cleanCoupon = couponCode ? String(couponCode).trim().toUpperCase() : '';
+
+    // 🔒 1. SINGLE-USE COUPON VERIFICATION & ATOMIC LOCK
+    if (userId && cleanCoupon) {
+      try {
+        const existingUser = await User.findById(userId);
+        if (existingUser) {
+          const alreadyUsed = (existingUser.usedCoupons || []).some(
+            (c) => String(c).toUpperCase() === cleanCoupon
+          );
+
+          if (alreadyUsed) {
+            return res.status(400).json({
+              message: `⚠️ Coupon "${cleanCoupon}" has already been used once by this account.`
+            });
+          }
+
+          // Lock in 'usedCoupons' & remove from 'savedCoupons'
+          await User.findByIdAndUpdate(userId, {
+            $addToSet: { usedCoupons: cleanCoupon },
+            $pull: { savedCoupons: { code: cleanCoupon } }
+          });
+        }
+      } catch (userErr) {
+        console.error('Coupon check error:', userErr);
+      }
+    }
+
+    const isUpi = String(paymentMethod).toUpperCase() === 'UPI';
+    if (isUpi && !upiTransactionId) {
+      return res.status(400).json({ message: 'UPI transaction / reference ID is required.' });
+    }
+
+    // 📦 Create Order Record with full cart data
+    const orderData = {
+      user: userId || undefined,
+      customer: customer || shippingAddress,
+      shippingAddress: shippingAddress || customer,
+      billingAddress: billingAddress || shippingAddress || customer,
+      deliveryZone: deliveryZone || '',
+      shippingType: shippingType || 'delivery',
+      orderItems,
+      subTotal: Number(subTotal) || 0,
+      bulkDiscount: Number(bulkDiscount) || 0,
+      couponDiscount: Number(couponDiscount) || 0,
+      couponCode: cleanCoupon,
+      shippingCharge: Number(shippingCharge) || 0,
+      taxAmount: Number(taxAmount) || 0,
+      productTax: Number(productTax) || 0,
+      shippingTax: Number(shippingTax) || 0,
+      giftBoxCharge: Number(giftBoxCharge) || 0,
+      giftBoxTitle: giftBoxTitle || '',
+      totalAmount: Number(totalAmount),
       paymentMethod: isUpi ? 'UPI' : (paymentMethod || 'COD'),
       paymentStatus: isUpi ? 'pending_verification' : 'pending',
       orderStatus: 'Placed',
       upiTransactionId: upiTransactionId || undefined,
       messages: []
-    });
+    };
 
-    // 🟢 Real-time Socket Event Emit with exact ISO Timestamp
+    const order = await Order.create(orderData);
+
+    // 🟢 Real-time Socket Event Emit
     const io = req.app.get('io');
     if (io) {
       const orderPayload = order.toObject ? order.toObject() : order;
@@ -66,10 +148,14 @@ exports.createOrder = async (req, res) => {
         orderPayload.createdAt = new Date().toISOString();
       }
       io.emit('new_order', orderPayload);
+      io.emit('newOrder', orderPayload);
     }
 
     return res.status(201).json({
-      message: '🎉 Order placed successfully!',
+      success: true,
+      message: isUpi
+        ? '🎉 Order placed! We will verify your UPI payment shortly.'
+        : '🎉 Order placed successfully!',
       orderId: order._id.toString(),
       order
     });
@@ -79,7 +165,7 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// 4. Get single order
+// 4. Get single order by ID
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -90,7 +176,7 @@ exports.getOrderById = async (req, res) => {
   }
 };
 
-// 5. Update Status
+// 5. Update Order & Payment Status
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { orderStatus, paymentStatus } = req.body;
@@ -113,7 +199,7 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// 🟢 6. ORDER LIVE CHAT (Admin & Customer ke messages save aur broadcast karna)
+// 6. ORDER LIVE CHAT (Admin & Customer messages save & socket emit)
 exports.sendOrderMessage = async (req, res) => {
   try {
     const { id } = req.params;
@@ -135,10 +221,11 @@ exports.sendOrderMessage = async (req, res) => {
       createdAt: new Date()
     };
 
+    order.messages = order.messages || [];
     order.messages.push(newMessage);
     await order.save();
 
-    // 🟢 Real-time Socket Event Emit
+    // 🟢 Real-time Socket Emit
     const io = req.app.get('io');
     if (io) {
       io.emit('order_chat_message', {
