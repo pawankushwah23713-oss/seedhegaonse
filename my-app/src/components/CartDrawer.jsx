@@ -118,7 +118,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   });
 
-  // Lifetime Used coupons (To prevent reuse - 1 User 1 Time)
+  // Lifetime Used coupons (Strict Single-Use Tracker)
   const [usedCoupons, setUsedCoupons] = useState(() => {
     try {
       const cached = localStorage.getItem('sgs_used_coupons');
@@ -127,6 +127,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       return [];
     }
   });
+
+  // Active wallet coupons filtered from used coupons
+  const activeSavedCoupons = useMemo(() => {
+    const usedSet = new Set(usedCoupons.map((u) => String(u || '').trim().toUpperCase()));
+    return savedCoupons.filter((sc) => sc?.code && !usedSet.has(String(sc.code).trim().toUpperCase()));
+  }, [savedCoupons, usedCoupons]);
 
   // Gift Box & Delivery Settings
   const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
@@ -187,7 +193,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   }, [shippingMode]);
 
-  // Load User Wallet & Used Coupons from Backend MongoDB
+  // Load User Wallet, Used History & Past Orders from Backend
   useEffect(() => {
     if (!isOpen) return;
     const token = getAuthToken();
@@ -196,23 +202,63 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/coupons/my-coupons`, {
+        // 1. Fetch saved coupons from wallet
+        const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const data = await res.json();
-        if (!cancelled && res.ok) {
-          if (Array.isArray(data.savedCoupons)) {
-            setSavedCoupons(data.savedCoupons);
-            try {
-              localStorage.setItem('sgs_saved_coupons', JSON.stringify(data.savedCoupons));
-            } catch {}
+        const dataCoupons = await resCoupons.json();
+
+        // 2. Fetch past orders to detect coupons user already used in previous orders
+        let pastUsedCodes = [];
+        try {
+          const resOrders = await fetch(`${API_BASE}/orders/my-orders`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (resOrders.ok) {
+            const dataOrders = await resOrders.json();
+            const orderList = Array.isArray(dataOrders) ? dataOrders : (dataOrders.orders || []);
+            pastUsedCodes = orderList
+              .map((o) => String(o.couponCode || o.coupon || '').trim().toUpperCase())
+              .filter(Boolean);
           }
-          if (Array.isArray(data.usedCoupons)) {
-            setUsedCoupons(data.usedCoupons);
+        } catch {
+          // Silent fallback
+        }
+
+        if (!cancelled) {
+          const backendUsed = Array.isArray(dataCoupons.usedCoupons)
+            ? dataCoupons.usedCoupons.map((u) => String(u).trim().toUpperCase())
+            : [];
+
+          // Merge all used coupons from DB, order history and local cache
+          const cachedUsed = (() => {
             try {
-              localStorage.setItem('sgs_used_coupons', JSON.stringify(data.usedCoupons));
-            } catch {}
-          }
+              const u = localStorage.getItem('sgs_used_coupons');
+              return u ? JSON.parse(u) : [];
+            } catch {
+              return [];
+            }
+          })();
+
+          const allUsedSet = new Set([
+            ...cachedUsed.map((u) => String(u).trim().toUpperCase()),
+            ...backendUsed,
+            ...pastUsedCodes
+          ]);
+
+          const finalUsedList = Array.from(allUsedSet);
+          setUsedCoupons(finalUsedList);
+
+          // Filter saved coupons removing any used one
+          const savedList = (Array.isArray(dataCoupons.savedCoupons) ? dataCoupons.savedCoupons : [])
+            .filter((c) => !allUsedSet.has(String(c?.code || '').trim().toUpperCase()));
+
+          setSavedCoupons(savedList);
+
+          try {
+            localStorage.setItem('sgs_used_coupons', JSON.stringify(finalUsedList));
+            localStorage.setItem('sgs_saved_coupons', JSON.stringify(savedList));
+          } catch {}
         }
       } catch (err) {
         console.error('Unable to load saved coupons:', err);
@@ -501,15 +547,17 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const bulkDiscount = round2(itemQtyDiscountsTotal);
 
-  // 🎟️ POOL ALL ACTIVE SWEET COUPONS (Filters out already used coupons)
+  // 🎟️ POOL ALL AVAILABLE SWEET COUPONS (100% HIDES ALREADY USED OR WALLET SAVED COUPONS)
   const availableCoupons = useMemo(() => {
     const list = [];
     const seen = new Set();
-    const usedSet = new Set(usedCoupons.map((u) => String(u).toUpperCase()));
+    const usedSet = new Set(usedCoupons.map((u) => String(u || '').trim().toUpperCase()));
+    const savedSet = new Set(activeSavedCoupons.map((s) => String(s?.code || '').trim().toUpperCase()));
 
     const addCoupon = (c, sourceName) => {
       const code = String(c?.code || '').trim().toUpperCase();
-      if (!code || seen.has(code) || usedSet.has(code)) return; // ❌ Skip if already used lifetime
+      // ❌ COMPLETELY HIDE: If used in past OR already present in user's active wallet
+      if (!code || seen.has(code) || usedSet.has(code) || savedSet.has(code)) return;
       seen.add(code);
 
       const minSpend = parseNumericPrice(c.minSpend);
@@ -544,7 +592,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     ensureArray(storeSettings.globalCoupons).forEach((c) => addCoupon(c, 'Store-wide Coupon'));
 
     return list;
-  }, [enrichedCartItems, storeProducts, storeSettings.globalCoupons, effectiveCartTotal, usedCoupons]);
+  }, [enrichedCartItems, storeProducts, storeSettings.globalCoupons, effectiveCartTotal, usedCoupons, activeSavedCoupons]);
 
   // 🎁 UNIFIED FREE GIFT TIERS
   const giftTierRows = useMemo(() => {
@@ -673,7 +721,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     setCouponCode(upper);
 
     // ❌ STRICT 1 USER 1 TIME CHECK
-    const isAlreadyUsed = usedCoupons.some((u) => String(u).toUpperCase() === upper);
+    const isAlreadyUsed = usedCoupons.some((u) => String(u || '').trim().toUpperCase() === upper);
     if (isAlreadyUsed) {
       return setCouponMsg({
         text: `⚠️ You have already used coupon "${upper}". Each coupon can only be used once per user.`,
@@ -702,8 +750,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       return setCouponMsg({ text: `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
     }
 
-    // 2. Search in user's saved wallet
-    const savedMatched = savedCoupons.find((sc) => String(sc.code || '').toUpperCase() === upper);
+    // 2. Search in user's active wallet
+    const savedMatched = activeSavedCoupons.find((sc) => String(sc.code || '').toUpperCase() === upper);
     if (savedMatched) {
       const minSpend = parseNumericPrice(savedMatched.minSpend);
       if (effectiveCartTotal < minSpend) {
@@ -792,7 +840,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   };
 
-  // Place Order & Sync 1-time coupons to MongoDB
+  // Place Order & Permanently Lock Used Coupon
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setError('');
@@ -934,41 +982,43 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       }
 
       // =========================================================================
-      // 1. ONE-TIME CONSUMPTION: Mark applied coupon as used permanently in MongoDB
+      // 1. ONE-TIME CONSUMPTION: Mark used coupon and permanently lock it
       // =========================================================================
+      let updatedUsedList = [...usedCoupons];
+
       if (appliedCoupon?.code) {
+        const usedCodeUpper = appliedCoupon.code.trim().toUpperCase();
+        updatedUsedList = [...new Set([...updatedUsedList.map((u) => String(u).toUpperCase()), usedCodeUpper])];
+
+        setUsedCoupons(updatedUsedList);
+        localStorage.setItem('sgs_used_coupons', JSON.stringify(updatedUsedList));
+
+        const updatedSaved = savedCoupons.filter(
+          (sc) => String(sc.code || '').trim().toUpperCase() !== usedCodeUpper
+        );
+        setSavedCoupons(updatedSaved);
+        localStorage.setItem('sgs_saved_coupons', JSON.stringify(updatedSaved));
+
         try {
-          const delRes = await fetch(`${API_BASE}/coupons/my-coupons/${encodeURIComponent(appliedCoupon.code)}`, {
+          await fetch(`${API_BASE}/coupons/my-coupons/${encodeURIComponent(usedCodeUpper)}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`
             }
           });
-          const delData = await delRes.json();
-          if (delRes.ok) {
-            if (Array.isArray(delData.savedCoupons)) {
-              setSavedCoupons(delData.savedCoupons);
-              localStorage.setItem('sgs_saved_coupons', JSON.stringify(delData.savedCoupons));
-            }
-            if (Array.isArray(delData.usedCoupons)) {
-              setUsedCoupons(delData.usedCoupons);
-              localStorage.setItem('sgs_used_coupons', JSON.stringify(delData.usedCoupons));
-            }
-          }
         } catch (err) {
-          console.error('Failed to consume applied coupon:', err);
+          console.error('Failed to mark coupon used on backend:', err);
         }
       }
 
       // =========================================================================
-      // 2. SAVE REWARD COUPONS TO MONGODB (Excludes already used coupons)
+      // 2. SAVE REWARD COUPONS (Filters out any coupon ever used)
       // =========================================================================
-      const usedSet = new Set(usedCoupons.map((u) => String(u).toUpperCase()));
-      if (appliedCoupon?.code) usedSet.add(appliedCoupon.code.toUpperCase());
+      const usedSet = new Set(updatedUsedList.map((u) => String(u).toUpperCase()));
 
       const nonExpiredFetchedCoupons = availableCoupons.filter(
-        (c) => !c.isExpired && !usedSet.has(c.code.toUpperCase())
+        (c) => !c.isExpired && !usedSet.has(String(c.code).toUpperCase())
       );
       setUnlockedOrderCoupons(nonExpiredFetchedCoupons);
 
@@ -996,7 +1046,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
             const saveData = await saveRes.json();
             if (saveRes.ok && Array.isArray(saveData.savedCoupons)) {
-              latestSavedFromDb = saveData.savedCoupons;
+              latestSavedFromDb = saveData.savedCoupons.filter(
+                (sc) => !usedSet.has(String(sc?.code || '').toUpperCase())
+              );
             }
           } catch (singleSaveErr) {
             console.error('Error saving coupon to MongoDB:', c.code, singleSaveErr);
@@ -1481,12 +1533,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </span>
                       </div>
 
-                      {/* 🎫 USER SAVED WALLET COUPONS */}
-                      {savedCoupons.length > 0 && (
+                      {/* 🎫 USER ACTIVE WALLET COUPONS */}
+                      {activeSavedCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                             <div style={{ fontWeight: '800', color: '#4338ca', fontSize: '0.82rem' }}>
-                              🎫 My Wallet Coupons ({savedCoupons.length})
+                              🎫 My Wallet Coupons ({activeSavedCoupons.length})
                             </div>
                             <button
                               type="button"
@@ -1498,7 +1550,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {savedCoupons.map((sc) => {
+                            {activeSavedCoupons.map((sc) => {
                               const isApplied = appliedCoupon?.code === sc.code;
                               const validUntilDate = sc.validUntil ? new Date(sc.validUntil) : null;
                               const isExpired = validUntilDate && !isNaN(validUntilDate.getTime()) && validUntilDate < new Date();
@@ -1559,7 +1611,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </div>
                       )}
 
-                      {/* 🎟️ AVAILABLE SWEET & BULK COUPONS */}
+                      {/* 🎟️ AVAILABLE SWEET & BULK COUPONS (100% HIDES ALREADY USED / SAVED) */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1897,7 +1949,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
               {placedOrderDetails && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px', fontSize: '0.86rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Sub Total</span><strong>₹{formatMoney(placedOrderDetails.subTotal)}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Coupon Discount {placedOrderDetails.couponCode ? `(${placedOrderDetails.couponCode})` : ''}</span><span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Coupon Discount ${placedOrderDetails.couponCode ? `(${placedOrderDetails.couponCode})` : ''}</span><span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Multi-Pack Discount</span><span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping ({placedOrderDetails.shippingType})</span><span>₹{formatMoney(placedOrderDetails.shippingCharge)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax (GST)</span><span>₹{formatMoney(placedOrderDetails.taxAmount)}</span></div>
