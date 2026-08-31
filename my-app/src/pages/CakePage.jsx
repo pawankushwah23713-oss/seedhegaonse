@@ -54,7 +54,7 @@ export const getProductVariants = (product) => {
   return [
     {
       _id: 'v-500',
-      label: '500g (0.5 kg)',
+      label: '500g ',
       weight: '500g',
       price: basePrice,
       originalPrice: hasDiscount ? baseMrp : null,
@@ -62,7 +62,7 @@ export const getProductVariants = (product) => {
     },
     {
       _id: 'v-1000',
-      label: '1kg (1.0 kg)',
+      label: '1kg',
       weight: '1kg',
       price: Math.round(basePrice * 1.85),
       originalPrice: hasDiscount ? Math.round(baseMrp * 1.85) : null,
@@ -70,7 +70,7 @@ export const getProductVariants = (product) => {
     },
     {
       _id: 'v-2000',
-      label: '2kg Party Size',
+      label: '2kg',
       weight: '2kg',
       price: Math.round(basePrice * 3.5),
       originalPrice: hasDiscount ? Math.round(baseMrp * 3.5) : null,
@@ -772,7 +772,7 @@ const CakePage = ({ addToCart, addedToast }) => {
     }
 
     const activeVariant = variant || (p.variants && p.variants[0]) || {
-      label: '500g (0.5 kg)',
+      label: '500g',
       price: p.price
     };
     const variantPrice = Number(activeVariant.price || p.price);
