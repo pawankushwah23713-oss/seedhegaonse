@@ -33,7 +33,9 @@ const SHELF_MENUS = {
     title: '📖 About Us',
     links: [
       { to: '/AboutUs', label: '📖 Our Village Story', anchor: true },
-      { to: '/why-us', label: '🌟 Why Choose Us', anchor: true }
+      { to: '/why-us', label: '🌟 Why Choose Us', anchor: true },
+      { to: '/faq', label: ' Faq', anchor: true },
+
     ]
   }
 };
@@ -282,28 +284,6 @@ const Navbar = ({
                   <span className="brand-subtext">Pure Village Sweets & Bakes</span>
                 </div>
               </Link>
-
-              {/* Delivery Info + ❤️ WISHLIST ICON (pehle yahan "15 MINS" tha) */}
-              <div className="quick-delivery-widget">
-                <div className="delivery-time-badge">
-                  <button
-                    type="button"
-                    className="wishlist-quick-btn"
-                    onClick={() => navigate('/wishlist')}
-                    title="My Wishlist"
-                    aria-label="My Wishlist"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                    </svg>
-                    {wishlistCount > 0 && (
-                      <span className="wishlist-quick-count">{wishlistCount}</span>
-                    )}
-                  </button>
-                 
-                </div>
-                
-              </div>
             </div>
 
             {/* Desktop Only Search Bar (In Row 1 for screens > 768px) */}
@@ -326,8 +306,24 @@ const Navbar = ({
               </form>
             </div>
 
-            {/* Right Action Icons (Login/Account, Cart, Hamburger) */}
+            {/* Right Action Icons (Wishlist, Login/Account, Cart, Hamburger) */}
             <div className="header-action-group">
+
+              {/* ❤️ Wishlist Icon — hamesha profile ke pass, har device par */}
+              <button
+                type="button"
+                className="wishlist-header-btn"
+                onClick={() => navigate('/wishlist')}
+                title="My Wishlist"
+                aria-label="My Wishlist"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                {wishlistCount > 0 && (
+                  <span className="wishlist-header-count">{wishlistCount}</span>
+                )}
+              </button>
 
               {/* Login Pill or Profile Avatar */}
               {!isUserAuthenticated ? (

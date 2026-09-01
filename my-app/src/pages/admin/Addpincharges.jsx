@@ -21,7 +21,7 @@ const AdminPincodeManager = () => {
   // 🎁 Store settings (Gift Box + Tax)
   const [settings, setSettings] = useState({
     giftBoxEnabled: true,
-    giftBoxTitle: 'Gift Box Packaging',
+    giftBoxTitle: 'Gift Box wrap',
     giftBoxCharge: 50,
     productTaxPercent: 5,
     shippingTaxPercent: 5
@@ -51,7 +51,7 @@ const AdminPincodeManager = () => {
         const s = res.data.settings;
         setSettings({
           giftBoxEnabled: s.giftBoxEnabled !== false,
-          giftBoxTitle: s.giftBoxTitle || 'Gift Box Packaging',
+          giftBoxTitle: s.giftBoxTitle || 'Gift Box wrap',
           giftBoxCharge: s.giftBoxCharge ?? 50,
           productTaxPercent: s.productTaxPercent ?? 5,
           shippingTaxPercent: s.shippingTaxPercent ?? 5
@@ -121,7 +121,7 @@ const AdminPincodeManager = () => {
   };
 
   const handleDelete = async (p) => {
-    if (!window.confirm(`Pincode ${p.pincode} delete karein?`)) return;
+    if (!window.confirm(`Delete pincode ${p.pincode}?`)) return;
     setBusyId(p._id);
     try {
       const res = await axios.delete(`${API_BASE}/delivery/admin/pincode/${p._id}`);
@@ -169,7 +169,7 @@ const AdminPincodeManager = () => {
       setSettingsMsg({ msg: res.data.message || '✅ Saved!', type: 'success' });
     } catch (err) {
       setSettingsMsg({
-        msg: err.response?.data?.message || 'Settings save nahi hui. Dobara try karein.',
+        msg: err.response?.data?.message || 'Could not save settings. Please try again.',
         type: 'error'
       });
     } finally {
@@ -189,7 +189,7 @@ const AdminPincodeManager = () => {
         <div className="pincode-card-header">
           <div className="icon-badge">🎁</div>
           <h3>Gift Box & Tax Settings</h3>
-          <p>Gift packaging ka naam/price aur GST percent yahan se set karein</p>
+          <p>Set the gift packaging name/price and GST percentage here</p>
         </div>
 
         <form onSubmit={handleSettingsSave} className="pincode-form">
@@ -215,7 +215,7 @@ const AdminPincodeManager = () => {
               style={{ width: '18px', height: '18px', accentColor: '#15803d', cursor: 'pointer' }}
             />
             <span style={{ fontWeight: 700, color: settings.giftBoxEnabled ? '#047857' : '#64748b', fontSize: '0.9rem' }}>
-              🎁 Gift Box option cart me dikhao
+              🎁 Show Gift Box option in cart
             </span>
           </label>
 
@@ -224,7 +224,7 @@ const AdminPincodeManager = () => {
             <input
               type="text"
               className="pincode-input"
-              placeholder="e.g. Premium Gift Box Packaging"
+              placeholder="e.g. Premium Gift Box wrap"
               value={settings.giftBoxTitle}
               onChange={(e) => setSettingField('giftBoxTitle', e.target.value)}
             />
@@ -284,7 +284,7 @@ const AdminPincodeManager = () => {
           )}
 
           <p style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '10px', lineHeight: 1.5 }}>
-            Ye values cart me automatically apply hongi — gift box ka price aur GST dono yahin se control honge.
+            These values will be automatically applied in the cart — both the gift box price and GST will be controlled from here.
           </p>
         </form>
       </div>
@@ -294,7 +294,7 @@ const AdminPincodeManager = () => {
         <div className="pincode-card-header">
           <div className="icon-badge">📍</div>
           <h3>{editingId ? 'Edit Pincode Delivery Rate' : 'Pincode Delivery Manager'}</h3>
-          <p>{editingId ? 'Selected pincode ki detail update karein' : 'Set or update delivery charges based on user pincode'}</p>
+          <p>{editingId ? 'Update the details of the selected pincode' : 'Set or update delivery charges based on user pincode'}</p>
         </div>
 
         <form onSubmit={handleSave} className="pincode-form">
@@ -372,7 +372,7 @@ const AdminPincodeManager = () => {
         <div className="pincode-card-header">
           <div className="icon-badge">📋</div>
           <h3>All Serviceable Pincodes ({pincodeList.length})</h3>
-          <p>Yahan se kisi bhi pincode ko edit, on/off ya delete kar sakte hain</p>
+          <p>You can edit, turn on/off, or delete any pincode from here</p>
         </div>
 
         <div style={{ padding: '4px 0 8px' }}>
@@ -382,7 +382,7 @@ const AdminPincodeManager = () => {
             </div>
           ) : pincodeList.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-              Abhi koi pincode add nahi kiya gaya.
+              No pincode has been added yet.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -437,7 +437,7 @@ const AdminPincodeManager = () => {
                           whiteSpace: 'nowrap'
                         }}
                       >
-                        {busyId === p._id ? '...' : off ? '✅ ON karo' : '⛔ OFF karo'}
+                        {busyId === p._id ? '...' : off ? '✅ Turn ON' : '⛔ Turn OFF'}
                       </button>
 
                       <button

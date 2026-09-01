@@ -59,6 +59,7 @@ import ButterscotchPage from './pages/ButterscotchPage';
 import MyCoupons from './pages/MyCoupons';
 import BulkEnquiry from './pages/bulkpage';
 import AdminEnquiries from './pages/admin/AdminEnquiries';
+import Faq from './pages/Faq';
 // 🟢 Cart ko localStorage me save karne ki key
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
@@ -152,6 +153,10 @@ const AppContent = ({
         <Route
           path="/AboutUs"
           element={<AboutUs />}
+        />
+         <Route
+          path="/faq"
+          element={<Faq />}
         />
 
 

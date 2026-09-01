@@ -95,6 +95,14 @@ const AdminLayout = ({ user, onLogout }) => {
             📧 <span>bulk Inquiries</span>
           </NavLink>
 
+           <NavLink 
+            to="/admin/addpincharges" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>addpincode</span>
+          </NavLink>
+ 
           
         </nav>
 

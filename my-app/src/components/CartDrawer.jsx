@@ -138,7 +138,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
   const [storeSettings, setStoreSettings] = useState({
     giftBoxEnabled: true,
-    giftBoxTitle: 'Gift Box Packaging',
+    giftBoxTitle: 'Gift Box wrap',
     giftBoxCharge: 50,
     productTaxPercent: 5,
     shippingTaxPercent: 5,
@@ -147,7 +147,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   });
 
   const GIFT_BOX_CHARGE = Number(storeSettings.giftBoxCharge) || 0;
-  const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box Packaging';
+  const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box wrap';
   const PRODUCT_TAX_PERCENT = Number(storeSettings.productTaxPercent) || 0;
   const SHIPPING_TAX_PERCENT = Number(storeSettings.shippingTaxPercent) || 0;
   const FOUNDER_DELIVERY_CHARGE = 5000.00;
@@ -278,7 +278,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           const s = data.settings;
           setStoreSettings({
             giftBoxEnabled: s.giftBoxEnabled !== false,
-            giftBoxTitle: s.giftBoxTitle || 'Gift Box Packaging',
+            giftBoxTitle: s.giftBoxTitle || 'Gift Box wrap',
             giftBoxCharge: s.giftBoxCharge ?? 50,
             productTaxPercent: s.productTaxPercent ?? 5,
             shippingTaxPercent: s.shippingTaxPercent ?? 5,

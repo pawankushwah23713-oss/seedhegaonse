@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './CakePage.css';
 
 // 🟢 Backend API Base URL
@@ -553,6 +553,7 @@ const CakeProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, o
 
 const CakePage = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
+  const location = useLocation(); // 🟢 ADDED: read current URL (for ?search=...)
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -568,6 +569,14 @@ const CakePage = ({ addToCart, addedToast }) => {
     transformOrigin: 'center center',
     transform: 'scale(1)'
   });
+
+  // 🟢 ADDED: Navbar search se aane wala "?search=text" yahan se nikalte hain
+  const searchTerm = new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '';
+
+  // 🟢 ADDED: Search active hote hi purana category tab reset ho jaye
+  useEffect(() => {
+    if (searchTerm) setActiveTab('all');
+  }, [searchTerm]);
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -751,6 +760,12 @@ const CakePage = ({ addToCart, addedToast }) => {
   }, [heroSlides.length]);
 
   const filteredProducts = products.filter((p) => {
+    // 🟢 ADDED: SEARCH FILTER — sabse pehle check hota hai
+    if (searchTerm) {
+      const searchableText = `${p.name || ''} ${p.category || ''} ${p.originRegion || ''} ${p.description || ''}`.toLowerCase();
+      if (!searchableText.includes(searchTerm)) return false;
+    }
+
     if (activeTab === 'all') return true;
     if (activeTab === 'wishlist') return isWishlisted(p._id);
     const category = (p.category || '').toLowerCase();
@@ -1011,13 +1026,39 @@ const CakePage = ({ addToCart, addedToast }) => {
 
       {/* MAIN PRODUCTS SECTION */}
       <section id="cakes" className="ck-products-section ck-container ck-reveal">
-      
-          
+
+        {/* 🟢 ADDED: Search chal raha ho toh user ko dikhao kya search hua */}
+        {searchTerm && (
+          <div className="ck-section-heading-wrap" style={{ marginBottom: '14px' }}>
+            <h2 className="ck-main-heading" style={{ fontSize: '18px' }}>
+              🔍 Search results for "<span style={{ color: '#94191d' }}>{searchTerm}</span>"
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginLeft: '8px' }}>
+                ({sortedProducts.length} found)
+              </span>
+            </h2>
+          </div>
+        )}
 
         {/* PRODUCTS GRID */}
         {loading && products.length === 0 ? (
           <div className="ck-empty-loading-state">
             <p>🍰 Baking fresh delicious cakes...</p>
+          </div>
+        ) : sortedProducts.length === 0 ? (
+          <div className="ck-empty-loading-state">
+            <p>
+              {searchTerm ? `No cakes found for "${searchTerm}"` : 'No cakes found in this category!'}
+            </p>
+            <button
+              className="ck-primary-btn"
+              onClick={() => {
+                setActiveTab('all');
+                if (searchTerm) navigate('/cake');
+              }}
+              style={{ marginTop: '12px' }}
+            >
+              View All Cakes
+            </button>
           </div>
         ) : (
           <div className="ck-modern-product-grid">

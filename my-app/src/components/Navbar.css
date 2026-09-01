@@ -156,48 +156,6 @@
   min-width: 0;
 }
 
-/* ❤️ WISHLIST — MOBILE VERSION (delivery widget ke andar)
-   Desktop par chhupa rehta hai, kyunki wahan heart profile ke pass hai. */
-.wishlist-quick-btn {
-  display: none;
-  position: relative;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  border: none;
-  color: #94191d;
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 0;
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.wishlist-quick-btn:active {
-  transform: scale(0.95);
-}
-
-.wishlist-quick-count {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  background: #dc2626;
-  color: #ffffff;
-  font-size: 9px;
-  font-weight: 900;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid #94191d;
-  box-sizing: border-box;
-}
-
 .delivery-city {
   font-size: 12.5px;
   font-weight: 800;
@@ -287,7 +245,7 @@
   flex-shrink: 0;
 }
 
-/* ❤️ WISHLIST — LAPTOP / DESKTOP VERSION (profile icon ke bilkul pass)
+/* ❤️ WISHLIST — hamesha profile/login icon ke pass, har device par visible.
    Size profile avatar (34px) jaisa hi rakha hai taaki line straight lage. */
 .wishlist-header-btn {
   position: relative;
@@ -1054,15 +1012,6 @@
 
 /* 📱 Mobile & Small Tablets (<= 768px) */
 @media screen and (max-width: 768px) {
-  /* ❤️ Heart ab delivery widget me (mobile wali jagah), header wala hat jayega */
-  .wishlist-quick-btn {
-    display: flex;
-  }
-
-  .wishlist-header-btn {
-    display: none;
-  }
-
   /* Nav shelf ab hamburger drawer ki jagah laptop jaisa horizontal scroll bar banega */
   .desktop-navigation-shelf {
     display: block;
@@ -1198,9 +1147,9 @@
     padding-left: 6px;
   }
 
-  .wishlist-quick-btn {
-    width: 26px;
-    height: 26px;
+  .wishlist-header-btn {
+    width: 30px;
+    height: 30px;
   }
 
   .delivery-city {
@@ -1271,6 +1220,10 @@
     width: 30px;
     height: 30px;
     font-size: 12px;
+  }
+  .wishlist-header-btn {
+    width: 28px;
+    height: 28px;
   }
 }
 

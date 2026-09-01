@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './Homepage.css';
 import banner1 from '../assets/banner1.png';
 import banner2 from '../assets/banner2.png';
@@ -673,6 +673,7 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
 
 const Homepage = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
+  const location = useLocation(); // 🟢 ADDED: read current URL (for ?search=...)
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -690,6 +691,15 @@ const Homepage = ({ addToCart, addedToast }) => {
   });
 
   const [isImageDragging, setIsImageDragging] = useState(false);
+
+  // 🟢 ADDED: Navbar search se aane wala "?search=text" yahan se nikalte hain
+  const searchTerm = new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '';
+
+  // 🟢 ADDED: Search active hote hi purana category tab reset ho jaye,
+  // warna tab filter search results ko chhupa dega
+  useEffect(() => {
+    if (searchTerm) setActiveTab('all');
+  }, [searchTerm]);
 
   const handleMouseMove = (e) => {
     if (isImageDragging) return;
@@ -873,6 +883,12 @@ const Homepage = ({ addToCart, addedToast }) => {
   }, [heroSlides.length]);
 
   const filteredProducts = products.filter((p) => {
+    // 🟢 ADDED: SEARCH FILTER — sabse pehle check hota hai
+    if (searchTerm) {
+      const searchableText = `${p.name || ''} ${p.category || ''} ${p.originRegion || ''} ${p.description || ''}`.toLowerCase();
+      if (!searchableText.includes(searchTerm)) return false;
+    }
+
     if (activeTab === 'all') return true;
     if (activeTab === 'wishlist') return isWishlisted(p._id);
 
@@ -1156,8 +1172,18 @@ const Homepage = ({ addToCart, addedToast }) => {
       </section>
 
       <section id="products" className="sg-products-section sg-container sg-reveal">
-      
-          
+
+        {/* 🟢 ADDED: Search chal raha ho toh user ko dikhao kya search hua */}
+        {searchTerm && (
+          <div className="sg-section-heading-wrap" style={{ marginBottom: '14px' }}>
+            <h2 className="sg-main-heading" style={{ fontSize: '18px' }}>
+              🔍 Search results for "<span style={{ color: 'var(--primary-brand)' }}>{searchTerm}</span>"
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginLeft: '8px' }}>
+                ({sortedProducts.length} found)
+              </span>
+            </h2>
+          </div>
+        )}
 
         {loading && products.length === 0 ? (
           <div className="sg-empty-loading-state">
@@ -1166,8 +1192,21 @@ const Homepage = ({ addToCart, addedToast }) => {
           </div>
         ) : sortedProducts.length === 0 ? (
           <div className="sg-empty-category-card">
-            <h3>{activeTab === 'wishlist' ? 'Your Wishlist is Empty!' : 'No sweets found in this category!'}</h3>
-            <button className="sg-primary-btn" onClick={() => setActiveTab('all')} style={{ marginTop: '12px' }}>
+            <h3>
+              {searchTerm
+                ? `No results found for "${searchTerm}"`
+                : activeTab === 'wishlist'
+                  ? 'Your Wishlist is Empty!'
+                  : 'No sweets found in this category!'}
+            </h3>
+            <button
+              className="sg-primary-btn"
+              onClick={() => {
+                setActiveTab('all');
+                if (searchTerm) navigate('/');
+              }}
+              style={{ marginTop: '12px' }}
+            >
               Explore All Sweets
             </button>
           </div>

@@ -37,7 +37,7 @@ router.put('/settings', async (req, res) => {
       settings.giftBoxEnabled = b.giftBoxEnabled === true || b.giftBoxEnabled === 'true';
     }
     if (b.giftBoxTitle !== undefined) {
-      settings.giftBoxTitle = String(b.giftBoxTitle).trim() || 'Gift Box Packaging';
+      settings.giftBoxTitle = String(b.giftBoxTitle).trim() || 'Gift Box wrap';
     }
     if (b.giftBoxCharge !== undefined) {
       settings.giftBoxCharge = Math.max(0, Number(b.giftBoxCharge) || 0);
