@@ -687,11 +687,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       return;
     }
     if (shippingMode === 'delivery' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {
-      alert('⚠️ Delivery Pincode is Mandatory. Please enter a valid 6-digit Pincode to calculate delivery charges.');
+      alert('⚠️ Delivery Pincode is Mandatory. Please enter a valid 6-digit Pincode to  delivery charges.');
       return;
     }
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
-      alert('⚠️ Please enter a valid serviceable 6-digit Pincode to calculate delivery charges.');
+      alert('⚠️ Please enter a valid serviceable 6-digit Pincode to  delivery charges.');
       return;
     }
     if (shippingMode === 'founder' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {

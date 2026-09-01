@@ -7,10 +7,10 @@ const StoreSetting = require('../models/StoreSetting');
    🎁 STORE SETTINGS (Gift Box + Tax)
    GET  /api/delivery/settings
    PUT  /api/delivery/settings
-   ⚠️ Ye routes '/:id' wale routes se PEHLE hone chahiye.
+   ⚠️ These routes must be placed BEFORE '/:id' routes.
    ========================================================= */
 
-// Settings hamesha exist karein (na ho to default bana do)
+// Ensure settings always exist (create default if not found)
 const getOrCreateSettings = async () => {
   let settings = await StoreSetting.findOne({ key: 'global' });
   if (!settings) {
@@ -65,7 +65,7 @@ const handleSetPincode = async (req, res) => {
     const { pincode, city, deliveryCharge, isServiceable } = req.body;
 
     if (!pincode || deliveryCharge === undefined) {
-      return res.status(400).json({ success: false, message: 'Pincode aur Delivery Charge zaroori hai' });
+      return res.status(400).json({ success: false, message: 'Pincode and Delivery Charge are required.' });
     }
 
     const result = await DeliveryPincode.findOneAndUpdate(
@@ -84,11 +84,11 @@ const handleSetPincode = async (req, res) => {
   }
 };
 
-// Create / Upsert — dono routes handle honge
+// Create / Upsert — handles both endpoints
 router.post('/', handleSetPincode);
 router.post('/admin/set-pincode', handleSetPincode);
 
-// 📋 SAARE PINCODES KI LIST (admin panel ke liye)
+// 📋 GET ALL PINCODES (For Admin Panel)
 router.get('/admin/pincodes', async (req, res) => {
   try {
     const list = await DeliveryPincode.find().sort({ createdAt: -1 });
@@ -98,14 +98,14 @@ router.get('/admin/pincodes', async (req, res) => {
   }
 });
 
-// ✏️ UPDATE ek pincode (id se)
+// ✏️ UPDATE a single pincode (by ID)
 router.put('/admin/pincode/:id', async (req, res) => {
   try {
     const { pincode, city, deliveryCharge, isServiceable } = req.body;
 
     const entry = await DeliveryPincode.findById(req.params.id);
     if (!entry) {
-      return res.status(404).json({ success: false, message: 'Pincode entry nahi mili' });
+      return res.status(404).json({ success: false, message: 'Pincode entry not found.' });
     }
 
     if (pincode !== undefined) entry.pincode = String(pincode).trim();
@@ -118,9 +118,9 @@ router.put('/admin/pincode/:id', async (req, res) => {
     await entry.save();
     res.json({ success: true, message: '✅ Pincode updated successfully!', data: entry });
   } catch (error) {
-    // Duplicate pincode par clean message
+    // Duplicate pincode error handler
     if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: 'Ye pincode pehle se list me hai.' });
+      return res.status(400).json({ success: false, message: 'This pincode already exists in the list.' });
     }
     res.status(500).json({ success: false, message: error.message });
   }
@@ -131,7 +131,7 @@ router.patch('/admin/pincode/:id/toggle', async (req, res) => {
   try {
     const entry = await DeliveryPincode.findById(req.params.id);
     if (!entry) {
-      return res.status(404).json({ success: false, message: 'Pincode entry nahi mili' });
+      return res.status(404).json({ success: false, message: 'Pincode entry not found.' });
     }
 
     entry.isServiceable = !entry.isServiceable;
@@ -139,7 +139,7 @@ router.patch('/admin/pincode/:id/toggle', async (req, res) => {
 
     res.json({
       success: true,
-      message: entry.isServiceable ? '✅ Delivery ON kar di gayi' : '⛔ Delivery OFF kar di gayi',
+      message: entry.isServiceable ? '✅ Delivery service enabled.' : '⛔ Delivery service disabled.',
       data: entry
     });
   } catch (error) {
@@ -147,12 +147,12 @@ router.patch('/admin/pincode/:id/toggle', async (req, res) => {
   }
 });
 
-// 🗑️ DELETE ek pincode
+// 🗑️ DELETE a pincode
 router.delete('/admin/pincode/:id', async (req, res) => {
   try {
     const deleted = await DeliveryPincode.findByIdAndDelete(req.params.id);
     if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Pincode entry nahi mili' });
+      return res.status(404).json({ success: false, message: 'Pincode entry not found.' });
     }
     res.json({ success: true, message: '🗑️ Pincode deleted successfully!' });
   } catch (error) {
@@ -161,14 +161,14 @@ router.delete('/admin/pincode/:id', async (req, res) => {
 });
 
 /* =========================================================
-   👤 USER API — pincode par delivery charge check
+   👤 USER API — Check delivery charge by pincode
    ========================================================= */
 router.post('/check-delivery-charge', async (req, res) => {
   try {
     const { pincode } = req.body;
 
     if (!pincode) {
-      return res.status(400).json({ success: false, message: 'Pincode enter karein' });
+      return res.status(400).json({ success: false, message: 'Please enter a pincode.' });
     }
 
     const pincodeData = await DeliveryPincode.findOne({ pincode: String(pincode).trim() });
@@ -177,7 +177,7 @@ router.post('/check-delivery-charge', async (req, res) => {
       return res.status(404).json({
         success: false,
         isServiceable: false,
-        message: 'Sorry, is pincode par delivery available nahi hai.',
+        message: 'Sorry, delivery is not available for this pincode.',
         deliveryCharge: 0
       });
     }
