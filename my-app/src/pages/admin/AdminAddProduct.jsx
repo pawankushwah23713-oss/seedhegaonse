@@ -35,7 +35,7 @@ const defaultForm = {
   inStock: true // 🟢 STOCK STATUS
 };
 
-// 🌐 BULK OFFER PANEL KA DEFAULT STATE
+// 🌐 BULK OFFER PANEL DEFAULT STATE
 const defaultBulkOffer = {
   category: 'all',
   mode: 'replace', // replace | append | remove
@@ -92,7 +92,7 @@ const AdminAllInOneProducts = () => {
     }));
   };
 
-  // 🟢 STOCK TOGGLE (form ke andar)
+  // 🟢 STOCK TOGGLE (inside form)
   const setStockStatus = (value) => {
     setFormData((prev) => ({ ...prev, inStock: value }));
   };
@@ -146,7 +146,7 @@ const AdminAllInOneProducts = () => {
   };
 
   // ==========================================
-  // 🌐 BULK OFFER HANDLERS (sab products ke liye)
+  // 🌐 BULK OFFER HANDLERS (for all products)
   // ==========================================
   const setBulkField = (field, value) => {
     setBulkOffer((prev) => ({ ...prev, [field]: value }));
@@ -169,7 +169,7 @@ const AdminAllInOneProducts = () => {
     setBulkOffer((prev) => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
   };
 
-  // Kitne products affect honge
+  // Count of affected products
   const affectedCount = bulkOffer.category === 'all'
     ? products.length
     : products.filter((p) => p.category === bulkOffer.category).length;
@@ -183,15 +183,15 @@ const AdminAllInOneProducts = () => {
       bulkOffer.applyFreeDelivery;
 
     if (!anySelected) {
-      setMsg({ text: '⚠️ Kam se kam ek offer type ka checkbox tick karein.', type: 'error' });
+      setMsg({ text: '⚠️ Please select at least one offer type checkbox.', type: 'error' });
       return;
     }
 
-    const scopeText = bulkOffer.category === 'all' ? 'SAARE' : `"${bulkOffer.category}" category ke`;
+    const scopeText = bulkOffer.category === 'all' ? 'ALL' : `"${bulkOffer.category}" category`;
     const modeText =
-      bulkOffer.mode === 'remove' ? 'HATA' : bulkOffer.mode === 'append' ? 'ADD KAR' : 'REPLACE KAR';
+      bulkOffer.mode === 'remove' ? 'REMOVED FROM' : bulkOffer.mode === 'append' ? 'ADDED TO' : 'REPLACED ON';
 
-    if (!window.confirm(`Ye offers ${scopeText} ${affectedCount} products par ${modeText} diye jayenge. Confirm?`)) {
+    if (!window.confirm(`These offers will be ${modeText} ${affectedCount} (${scopeText}) products. Confirm?`)) {
       return;
     }
 
@@ -211,11 +211,11 @@ const AdminAllInOneProducts = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Bulk offer apply failed');
 
-      setMsg({ text: data.message || '🎉 Bulk offers applied!', type: 'success' });
+      setMsg({ text: data.message || '🎉 Bulk offers applied successfully!', type: 'success' });
       fetchProducts();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      setMsg({ text: err.message || 'Bulk offer apply karne me error aaya.', type: 'error' });
+      setMsg({ text: err.message || 'Error occurred while applying bulk offers.', type: 'error' });
     } finally {
       setBulkLoading(false);
     }
@@ -260,7 +260,7 @@ const AdminAllInOneProducts = () => {
       quantityDiscounts: existingQtyDiscounts,
       giftTiers: existingGiftTiers,
       isFreeDelivery: !!p.isFreeDelivery,
-      inStock: p.inStock !== false // 🟢 purana product bhi default In Stock
+      inStock: p.inStock !== false // 🟢 Existing product defaults to In Stock
     });
 
     setImagePreview(p.image ? (p.image.startsWith('http') ? p.image : `${API_BASE.replace('/api', '')}${p.image}`) : null);
@@ -287,7 +287,7 @@ const AdminAllInOneProducts = () => {
         if (['giftTiers', 'couponsList', 'quantityDiscounts'].includes(key)) {
           data.append(key, JSON.stringify(formData[key]));
         } else if (key === 'inStock' || key === 'isFreeDelivery') {
-          // 🟢 Boolean ko hamesha 'true' / 'false' string bana kar bhejo
+          // 🟢 Send boolean as 'true' / 'false' string
           data.append(key, formData[key] ? 'true' : 'false');
         } else {
           data.append(key, formData[key]);
@@ -311,22 +311,22 @@ const AdminAllInOneProducts = () => {
       if (!res.ok) throw new Error(resData.message || 'Operation failed');
 
       setMsg({
-        text: editingId ? '🎉 Product & All Dynamic Slabs updated!' : '🎉 New product & Slabs saved successfully!',
+        text: editingId ? '🎉 Product & Dynamic Slabs updated successfully!' : '🎉 New product & Slabs saved successfully!',
         type: 'success'
       });
 
       handleCancelEdit();
       fetchProducts();
     } catch (err) {
-      setMsg({ text: err.message || 'Error occurred', type: 'error' });
+      setMsg({ text: err.message || 'An error occurred', type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  // 🟢 LIST ME SE 1-CLICK STOCK TOGGLE (In Stock <-> Out of Stock)
+  // 🟢 1-CLICK STOCK TOGGLE in List (In Stock <-> Out of Stock)
   const handleQuickStockToggle = async (p) => {
-    const nextValue = p.inStock === false; // abhi out hai to true karo
+    const nextValue = p.inStock === false;
     setStockBusyId(p._id);
     try {
       const data = new FormData();
@@ -343,7 +343,7 @@ const AdminAllInOneProducts = () => {
 
       setProducts((prev) => prev.map((item) => (item._id === p._id ? { ...item, inStock: nextValue } : item)));
       setMsg({
-        text: nextValue ? `✅ "${p.name}" ab IN STOCK hai` : `⛔ "${p.name}" ab OUT OF STOCK hai`,
+        text: nextValue ? `✅ "${p.name}" is now IN STOCK` : `⛔ "${p.name}" is now OUT OF STOCK`,
         type: 'success'
       });
     } catch (err) {
@@ -361,7 +361,7 @@ const AdminAllInOneProducts = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        setMsg({ text: '🗑️ Product deleted', type: 'success' });
+        setMsg({ text: '🗑️ Product deleted successfully', type: 'success' });
         fetchProducts();
       }
     } catch (err) {
@@ -379,7 +379,7 @@ const AdminAllInOneProducts = () => {
             {editingId ? '✏️ Edit Sweet & Dynamic Multi-Offer Rules' : '➕ Add Sweet & Unlimited Custom Offers'}
           </h1>
           <p style={{ margin: '5px 0 0', color: '#64748b' }}>
-            Create and manage stock status, multiple discounts, pack quantity offers, secret coupons and free gifts in one form!
+            Create and manage stock status, multiple discounts, pack quantity offers, secret coupons, and free gifts in one form!
           </p>
         </div>
         {editingId && (
@@ -396,7 +396,7 @@ const AdminAllInOneProducts = () => {
       )}
 
       {/* ==================================================== */}
-      {/* 🌐 BULK OFFERS — SAB PRODUCTS PAR EK SAATH            */}
+      {/* 🌐 BULK OFFERS — APPLY TO MULTIPLE PRODUCTS AT ONCE    */}
       {/* ==================================================== */}
       <div style={{ background: '#fff', border: '2px solid #94191d', borderRadius: '12px', marginBottom: '30px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(148,25,29,0.10)' }}>
         <div
@@ -404,9 +404,9 @@ const AdminAllInOneProducts = () => {
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '16px 20px', background: '#94191d', color: '#fff', cursor: 'pointer' }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>🌐 Bulk Offers — Sab Products Par Ek Saath</h2>
+            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>🌐 Bulk Offers — Apply to Multiple Products</h2>
             <p style={{ margin: '4px 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
-              Ek hi baar me sabhi (ya kisi ek category ke) sweets par discount, coupons, pack offers, free gifts aur free delivery lagayein.
+              Apply discounts, coupons, pack offers, free gifts, and free delivery to all or specific category products at once.
             </p>
           </div>
           <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>{bulkPanelOpen ? '▲' : '▼'}</span>
@@ -418,9 +418,9 @@ const AdminAllInOneProducts = () => {
             {/* SCOPE + MODE */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', background: '#fdf5f5', padding: '15px', borderRadius: '8px', border: '1px solid #f3d5d5' }}>
               <div>
-                <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#94191d' }}>Kis par lagana hai?</label>
+                <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#94191d' }}>Apply To</label>
                 <select value={bulkOffer.category} onChange={(e) => setBulkField('category', e.target.value)} style={inputStyle}>
-                  <option value="all">🍬 All Products (Saare Sweets)</option>
+                  <option value="all">🍬 All Products</option>
                   {CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>{c.label} only</option>
                   ))}
@@ -430,22 +430,22 @@ const AdminAllInOneProducts = () => {
               <div>
                 <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#94191d' }}>Mode</label>
                 <select value={bulkOffer.mode} onChange={(e) => setBulkField('mode', e.target.value)} style={inputStyle}>
-                  <option value="replace">♻️ Replace — purane offers hata kar naye lagao</option>
-                  <option value="append">➕ Add — purane offers ke saath jodo</option>
-                  <option value="remove">🗑️ Remove — selected offers hata do</option>
+                  <option value="replace">♻️ Replace — overwrite existing offers</option>
+                  <option value="append">➕ Add — keep existing and add new offers</option>
+                  <option value="remove">🗑️ Remove — remove selected offer types</option>
                 </select>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                 <div style={{ background: '#94191d', color: '#fff', padding: '10px 12px', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                  {affectedCount} products affect honge
+                  {affectedCount} products will be affected
                 </div>
               </div>
             </div>
 
             {isRemoveMode && (
               <div style={{ marginTop: '12px', background: '#fef2f2', border: '1px dashed #dc2626', color: '#b91c1c', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600' }}>
-                🗑️ Remove mode: neeche jo bhi checkbox tick karenge, us type ke offers in products se hata diye jayenge. Values matter nahi karti.
+                🗑️ Remove mode: Selected offer types will be removed from these products. Values entered below will be ignored.
               </div>
             )}
 
@@ -453,7 +453,7 @@ const AdminAllInOneProducts = () => {
             <div style={{ marginTop: '20px', border: '1px solid #fde68a', borderRadius: '8px', overflow: 'hidden' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', padding: '12px 15px', cursor: 'pointer', fontWeight: '700', color: '#b45309' }}>
                 <input type="checkbox" checked={bulkOffer.applyDiscount} onChange={(e) => setBulkField('applyDiscount', e.target.checked)} style={checkboxStyle} />
-                ⏳ Discount (%) sab par lagao
+                ⏳ Apply Discount (%)
               </label>
 
               {bulkOffer.applyDiscount && !isRemoveMode && (
@@ -463,7 +463,7 @@ const AdminAllInOneProducts = () => {
                     <input type="number" min="0" max="100" placeholder="e.g. 15" value={bulkOffer.discountPercent} onChange={(e) => setBulkField('discountPercent', e.target.value)} style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#b45309' }}>Valid Until (khali chhodenge to no expiry)</label>
+                    <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#b45309' }}>Valid Until (leave empty for no expiry)</label>
                     <input type="datetime-local" value={bulkOffer.discountValidUntil} onChange={(e) => setBulkField('discountValidUntil', e.target.value)} style={inputStyle} />
                   </div>
                 </div>
@@ -475,7 +475,7 @@ const AdminAllInOneProducts = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '12px 15px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#6d28d9' }}>
                   <input type="checkbox" checked={bulkOffer.applyCoupons} onChange={(e) => setBulkField('applyCoupons', e.target.checked)} style={checkboxStyle} />
-                  🎟️ Coupons sab par lagao
+                  🎟️ Apply Coupons
                 </label>
                 {bulkOffer.applyCoupons && !isRemoveMode && (
                   <button type="button" onClick={() => addBulkArrayRow('couponsList', { code: '', discountType: 'flat', discountValue: '', minSpend: '0', validUntil: '' })} style={{ ...smallBtnStyle, background: '#7c3aed' }}>
@@ -525,7 +525,7 @@ const AdminAllInOneProducts = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff7ed', padding: '12px 15px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#c2410c' }}>
                   <input type="checkbox" checked={bulkOffer.applyQtyDiscounts} onChange={(e) => setBulkField('applyQtyDiscounts', e.target.checked)} style={checkboxStyle} />
-                  📦 Quantity / Pack Discounts sab par lagao
+                  📦 Apply Quantity / Pack Discounts
                 </label>
                 {bulkOffer.applyQtyDiscounts && !isRemoveMode && (
                   <button type="button" onClick={() => addBulkArrayRow('quantityDiscounts', { minQty: '', discountPercent: '' })} style={{ ...smallBtnStyle, background: '#ea580c' }}>
@@ -560,7 +560,7 @@ const AdminAllInOneProducts = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '12px 15px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#1e40af' }}>
                   <input type="checkbox" checked={bulkOffer.applyGifts} onChange={(e) => setBulkField('applyGifts', e.target.checked)} style={checkboxStyle} />
-                  🎁 Free Gifts sab par lagao
+                  🎁 Apply Free Gifts
                 </label>
                 {bulkOffer.applyGifts && !isRemoveMode && (
                   <button type="button" onClick={() => addBulkArrayRow('giftTiers', { minSpend: '', giftTitle: '', giftImage: '' })} style={{ ...smallBtnStyle, background: '#2563eb' }}>
@@ -594,14 +594,14 @@ const AdminAllInOneProducts = () => {
             <div style={{ marginTop: '15px', border: '1px solid #bbf7d0', borderRadius: '8px', overflow: 'hidden' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f0fdf4', padding: '12px 15px', cursor: 'pointer', fontWeight: '700', color: '#047857' }}>
                 <input type="checkbox" checked={bulkOffer.applyFreeDelivery} onChange={(e) => setBulkField('applyFreeDelivery', e.target.checked)} style={checkboxStyle} />
-                🚚 Free Delivery sab par {isRemoveMode ? 'hatao' : 'lagao'}
+                🚚 {isRemoveMode ? 'Remove' : 'Apply'} Free Delivery
               </label>
 
               {bulkOffer.applyFreeDelivery && !isRemoveMode && (
                 <div style={{ padding: '12px 15px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#334155', cursor: 'pointer' }}>
                     <input type="checkbox" checked={bulkOffer.isFreeDelivery} onChange={(e) => setBulkField('isFreeDelivery', e.target.checked)} style={checkboxStyle} />
-                    Free Delivery ON rakho (uncheck karenge to OFF ho jayegi)
+                    Enable Free Delivery (uncheck to disable)
                   </label>
                 </div>
               )}
@@ -641,7 +641,7 @@ const AdminAllInOneProducts = () => {
               </button>
 
               <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                Ye offers har product me save honge, isliye homepage aur cart me automatically dikhenge.
+                These offers are saved directly to each product and will automatically reflect on the store and cart.
               </span>
             </div>
           </div>
@@ -658,7 +658,7 @@ const AdminAllInOneProducts = () => {
             <input type="text" name="name" required placeholder="e.g. Pure Desi Ghee Besan Laddu" value={formData.name} onChange={handleChange} style={inputStyle} />
           </div>
           <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Origin Region / Gaon *</label>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Origin Region *</label>
             <input type="text" name="originRegion" required placeholder="e.g. Kanpur, UP" value={formData.originRegion} onChange={handleChange} style={inputStyle} />
           </div>
           <div>
@@ -724,8 +724,8 @@ const AdminAllInOneProducts = () => {
 
           <span style={{ fontSize: '0.85rem', color: '#475569' }}>
             {formData.inStock
-              ? 'Ye sweet website par normally dikhegi aur cart me add ho sakegi.'
-              : 'Ye sweet homepage par blur dikhegi aur "Out of Stock" ki wajah se cart me add nahi hogi.'}
+              ? 'This item will be visible normally on the store and can be added to the cart.'
+              : 'This item will appear as "Out of Stock" and cannot be added to the cart.'}
           </span>
         </div>
 
@@ -974,7 +974,7 @@ const AdminAllInOneProducts = () => {
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {stockBusyId === p._id ? '...' : outOfStock ? '✅ In Stock karo' : '⛔ Out of Stock karo'}
+                    {stockBusyId === p._id ? '...' : outOfStock ? '✅ Mark In Stock' : '⛔ Mark Out of Stock'}
                   </button>
 
                   <button onClick={() => handleEditClick(p)} style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
