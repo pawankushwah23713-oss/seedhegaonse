@@ -138,7 +138,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
   const [storeSettings, setStoreSettings] = useState({
     giftBoxEnabled: true,
-    giftBoxTitle: 'Gift Box wrap',
+    giftBoxTitle: 'Gift Box Packaging',
     giftBoxCharge: 50,
     productTaxPercent: 5,
     shippingTaxPercent: 5,
@@ -147,7 +147,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   });
 
   const GIFT_BOX_CHARGE = Number(storeSettings.giftBoxCharge) || 0;
-  const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box wrap';
+  const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box Packaging';
   const PRODUCT_TAX_PERCENT = Number(storeSettings.productTaxPercent) || 0;
   const SHIPPING_TAX_PERCENT = Number(storeSettings.shippingTaxPercent) || 0;
   const FOUNDER_DELIVERY_CHARGE = 5000.00;
@@ -278,7 +278,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           const s = data.settings;
           setStoreSettings({
             giftBoxEnabled: s.giftBoxEnabled !== false,
-            giftBoxTitle: s.giftBoxTitle || 'Gift Box wrap',
+            giftBoxTitle: s.giftBoxTitle || 'Gift Box Packaging',
             giftBoxCharge: s.giftBoxCharge ?? 50,
             productTaxPercent: s.productTaxPercent ?? 5,
             shippingTaxPercent: s.shippingTaxPercent ?? 5,
@@ -545,7 +545,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const bulkDiscount = round2(itemQtyDiscountsTotal);
 
-  // 🎟️ POOL ALL AVAILABLE SWEET COUPONS (100% HIDES ALREADY USED OR SAVED WALLET COUPONS)
+  // Pool all available coupons (Filters out already used or saved wallet coupons)
   const availableCoupons = useMemo(() => {
     const list = [];
     const seen = new Set();
@@ -554,7 +554,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
     const addCoupon = (c, sourceName) => {
       const code = String(c?.code || '').trim().toUpperCase();
-      // ❌ COMPLETELY HIDE: If used in past OR already in user's active wallet
       if (!code || seen.has(code) || usedSet.has(code) || savedSet.has(code)) return;
       seen.add(code);
 
@@ -572,7 +571,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         isExpired,
         isUnlocked: !isExpired && effectiveCartTotal >= minSpend,
         remaining: round2(Math.max(0, minSpend - effectiveCartTotal)),
-        productName: sourceName || 'All Sweets Offer'
+        productName: sourceName || 'All Products Offer'
       });
     };
 
@@ -581,9 +580,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       ensureArray(item.couponsList).forEach((c) => addCoupon(c, item.name));
     });
 
-    // 2. From All Store Sweets (Bulk)
+    // 2. From Store Products
     storeProducts.forEach((p) => {
-      ensureArray(p.couponsList).forEach((c) => addCoupon(c, p.name || 'Store Sweet'));
+      ensureArray(p.couponsList).forEach((c) => addCoupon(c, p.name || 'Store Item'));
     });
 
     // 3. From Global settings
@@ -592,7 +591,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     return list;
   }, [enrichedCartItems, storeProducts, storeSettings.globalCoupons, effectiveCartTotal, usedCoupons, activeSavedCoupons]);
 
-  // 🎁 UNIFIED FREE GIFT TIERS
+  // Unified Free Gift Tiers
   const giftTierRows = useMemo(() => {
     const allGifts = [];
     const seenGiftKeys = new Set();
@@ -620,9 +619,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       ensureArray(item.giftTiers).forEach((gt) => addGift(gt, item.name));
     });
 
-    // 2. From All Store Sweets (Bulk offers)
+    // 2. From Store Products
     storeProducts.forEach((p) => {
-      ensureArray(p.giftTiers).forEach((gt) => addGift(gt, p.name || 'Sweets Offer'));
+      ensureArray(p.giftTiers).forEach((gt) => addGift(gt, p.name || 'Store Offer'));
     });
 
     // 3. From Global settings
@@ -688,7 +687,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       return;
     }
     if (shippingMode === 'delivery' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {
-      alert('⚠️ Delivery Pincode is Mandatory. Please enter a valid 6-digit Pincode to check and calculate delivery charges.');
+      alert('⚠️ Delivery Pincode is Mandatory. Please enter a valid 6-digit Pincode to calculate delivery charges.');
       return;
     }
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
@@ -718,7 +717,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     const upper = rawCode.trim().toUpperCase();
     setCouponCode(upper);
 
-    // ❌ STRICT 1 USER 1 TIME CHECK
+    // Strict 1 user 1 time check
     const isAlreadyUsed = usedCoupons.some((u) => String(u || '').trim().toUpperCase() === upper);
     if (isAlreadyUsed) {
       return setCouponMsg({
@@ -891,7 +890,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
 
     if (paymentMethod === 'UPI' && !upiRef.trim()) {
-      setError('⚠️ Please enter the UPI transaction / reference ID after making the payment.');
+      setError('⚠️ Please enter the UPI transaction / reference ID after completing the payment.');
       return;
     }
 
@@ -979,9 +978,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         await saveAddressToProfile(token);
       }
 
-      // =========================================================================
-      // 1. ONE-TIME CONSUMPTION: Mark used coupon and permanently lock it
-      // =========================================================================
+      // 1. One-time consumption: Mark used coupon and lock it
       let updatedUsedList = [...usedCoupons];
 
       if (appliedCoupon?.code) {
@@ -1010,9 +1007,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         }
       }
 
-      // =========================================================================
-      // 2. SAVE REWARD COUPONS (Filters out any coupon ever used)
-      // =========================================================================
+      // 2. Save reward coupons (Filter out any coupon ever used)
       const usedSet = new Set(updatedUsedList.map((u) => String(u).toUpperCase()));
 
       const nonExpiredFetchedCoupons = availableCoupons.filter(
@@ -1190,14 +1185,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.65fr 1fr', gap: isMobile ? '16px' : '24px', alignItems: 'start' }}>
 
-                {/* 👈 LEFT COLUMN */}
+                {/* LEFT COLUMN */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                   {/* Product List Card */}
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                     <div style={{ padding: '14px 18px', borderBottom: '2px solid #b91c1c' }}>
                       <span style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a' }}>
-                        Shop name : <strong style={{ color: '#0f172a' }}>Seedhe Gaon Se</strong>
+                        Store Name : <strong style={{ color: '#0f172a' }}>Seedhe Gaon Se</strong>
                       </span>
                     </div>
 
@@ -1278,7 +1273,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     </div>
                   </div>
 
-                  {/* 🎁 FREE GIFTS ROADMAP */}
+                  {/* FREE GIFTS ROADMAP */}
                   {giftTierRows.length > 0 && (
                     <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                       <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.88rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1331,7 +1326,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
                 </div>
 
-                {/* 👉 RIGHT COLUMN */}
+                {/* RIGHT COLUMN */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
 
@@ -1531,7 +1526,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </span>
                       </div>
 
-                      {/* 🎫 USER ACTIVE WALLET COUPONS */}
+                      {/* USER ACTIVE WALLET COUPONS */}
                       {activeSavedCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1609,11 +1604,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </div>
                       )}
 
-                      {/* 🎟️ AVAILABLE SWEET & BULK COUPONS (100% HIDES ALREADY USED / SAVED) */}
+                      {/* AVAILABLE STORE & BULK COUPONS */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
-                            🎟️ Available Sweets Coupons & Offers
+                            🎟️ Available Coupons & Offers
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1689,7 +1684,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         onClick={() => handleApplyCoupon()}
                         style={{ width: '100%', padding: '10px', background: '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer' }}
                       >
-                        Apply code
+                        Apply Code
                       </button>
                       {couponMsg.text && (
                         <div style={{ fontSize: '0.78rem', color: couponMsg.type === 'success' ? '#059669' : '#dc2626', fontWeight: 'bold', marginTop: '4px' }}>
@@ -1704,7 +1699,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         onClick={handleClose}
                         style={{ padding: '12px 8px', background: '#881337', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '800', fontSize: '0.85rem', cursor: 'pointer' }}
                       >
-                        ⏪ Continue shopping
+                        ⏪ Continue Shopping
                       </button>
 
                       <button
@@ -1727,13 +1722,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
               <div style={{ fontSize: '48px', marginBottom: '10px' }}>🔐</div>
               <h3 style={{ color: '#94191d', margin: '0 0 8px', fontSize: '1.3rem' }}>Login Required</h3>
               <p style={{ color: '#64748b', fontSize: '0.92rem', lineHeight: '1.5', margin: '0 0 20px' }}>
-                Please login to your account or register to confirm your order.
+                Please log in to your account or register to confirm your order.
               </p>
               <button
                 onClick={() => { handleClose(); navigate('/auth'); }}
                 style={{ width: '100%', padding: '12px', background: '#94191d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginBottom: '10px' }}
               >
-                🔑 Login / Sign In to Continue
+                🔑 Log In / Sign In to Continue
               </button>
               <button
                 onClick={() => setStep('cart')}
@@ -1759,7 +1754,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     <span style={{ fontSize: '1.05rem', fontWeight: '700', color: '#0f172a' }}>Shipping Address</span>
                   </div>
 
-                  <label style={labelStyle}>Contact person name <span style={{ color: '#b91c1c' }}>*</span></label>
+                  <label style={labelStyle}>Contact Person Name <span style={{ color: '#b91c1c' }}>*</span></label>
                   <input type="text" required placeholder="Enter your full name" value={shippingAddress.name} onChange={(e) => setShippingAddress({ ...shippingAddress, name: e.target.value })} style={inputStyle} />
 
                   <label style={labelStyle}>Phone (10 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
@@ -1777,7 +1772,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                   <textarea required rows="3" placeholder="House / Flat No., Street, Building Name" value={shippingAddress.address} onChange={(e) => setShippingAddress({ ...shippingAddress, address: e.target.value })} style={{ ...inputStyle, minHeight: '70px', resize: 'vertical' }} />
 
                   <label style={labelStyle}>Landmark / Floor / House Details <span style={{ color: '#b91c1c' }}>*</span></label>
-                  <input type="text" required placeholder="e.g. Near Shiv Temple, 2nd Floor, Landlord Name" value={shippingAddress.landmark} onChange={(e) => setShippingAddress({ ...shippingAddress, landmark: e.target.value })} style={inputStyle} />
+                  <input type="text" required placeholder="e.g. Near City Center, 2nd Floor" value={shippingAddress.landmark} onChange={(e) => setShippingAddress({ ...shippingAddress, landmark: e.target.value })} style={inputStyle} />
 
                   <label style={labelStyle}>State / Union Territory <span style={{ color: '#b91c1c' }}>*</span></label>
                   <select required value={shippingAddress.state} onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })} style={inputStyle}>
@@ -1790,7 +1785,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                   <label style={labelStyle}>City <span style={{ color: '#b91c1c' }}>*</span></label>
                   <input type="text" required placeholder="e.g. Noida, Delhi" value={shippingAddress.city} onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })} style={inputStyle} />
 
-                  <label style={labelStyle}>Zip code (6 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
+                  <label style={labelStyle}>Zip Code (6 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
                   <input type="text" maxLength="6" required placeholder="Enter 6-digit zip code" value={shippingAddress.pincode} onChange={handlePincodeChange} style={inputStyle} />
 
                   <label style={labelStyle}>Country <span style={{ color: '#b91c1c' }}>*</span></label>
@@ -1852,7 +1847,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                       <label style={labelStyle}>City <span style={{ color: '#b91c1c' }}>*</span></label>
                       <input type="text" required={!sameAsShipping} value={billingAddress.city} onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })} style={inputStyle} />
 
-                      <label style={labelStyle}>Zip code (6 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
+                      <label style={labelStyle}>Zip Code (6 Digits) <span style={{ color: '#b91c1c' }}>*</span></label>
                       <input type="text" maxLength="6" required={!sameAsShipping} placeholder="Enter 6-digit zip code" value={billingAddress.pincode} onChange={(e) => setBillingAddress({ ...billingAddress, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })} style={inputStyle} />
                     </div>
                   )}
@@ -1909,7 +1904,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
             </div>
           )}
 
-          {/* 🎉 SUCCESS SCREEN */}
+          {/* SUCCESS SCREEN */}
           {step === 'success' && (
             <div style={{ maxWidth: '680px', margin: '0 auto', background: '#fff', padding: isSmallMobile ? '16px 14px' : '24px 28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
 
@@ -1924,7 +1919,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                 </p>
               </div>
 
-              {/* 📦 ITEMS LIST */}
+              {/* ITEMS LIST */}
               {placedOrderDetails && (
                 <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
                   <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '2px solid #b91c1c', fontWeight: '800', fontSize: '0.88rem', color: '#0f172a' }}>
@@ -1943,11 +1938,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                 </div>
               )}
 
-              {/* 💰 PRICE BREAKDOWN */}
+              {/* PRICE BREAKDOWN */}
               {placedOrderDetails && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px', fontSize: '0.86rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Sub Total</span><strong>₹{formatMoney(placedOrderDetails.subTotal)}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Coupon Discount ${placedOrderDetails.couponCode ? `(${placedOrderDetails.couponCode})` : ''}</span><span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Coupon Discount {placedOrderDetails.couponCode ? `(${placedOrderDetails.couponCode})` : ''}</span><span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Multi-Pack Discount</span><span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping ({placedOrderDetails.shippingType})</span><span>₹{formatMoney(placedOrderDetails.shippingCharge)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax (GST)</span><span>₹{formatMoney(placedOrderDetails.taxAmount)}</span></div>
@@ -1965,7 +1960,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                 </div>
               )}
 
-              {/* 🎁 REWARD COUPONS (Only New Non-Used Coupons) */}
+              {/* REWARD COUPONS */}
               {unlockedOrderCoupons.length > 0 && (
                 <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', border: '2px dashed #d97706', borderRadius: '10px', padding: '16px', marginBottom: '18px', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.15rem', marginBottom: '4px' }}>🎉 <strong>Coupons Saved to Your Wallet!</strong></div>
@@ -2005,7 +2000,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                 </div>
               )}
 
-              {/* 📍 DELIVERY DETAILS */}
+              {/* DELIVERY DETAILS */}
               {placedOrderDetails && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px' }}>
                   <h4 style={{ margin: '0 0 10px', fontSize: '0.92rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
