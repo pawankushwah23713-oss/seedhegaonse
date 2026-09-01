@@ -46,28 +46,41 @@ const SHELF_MENUS = {
    ⚠️ Order important hai: pehle zyada specific (cake sub-category),
    uske baad general ('cake') — warna "truffle cake" bhi /cake par
    chala jayega.
+
+   🟢 FIX: Sweets ke saare sub-category keywords (laddu/peda/petha/
+   halwa/barfi/specials) ab dedicated (missing) pages par nahi,
+   balki homepage ('/') par jaate hain — jahan humara accurate
+   tiered search (filterProductsBySearch) already poore product
+   catalog par kaam karta hai. Sirf yeh paths change kiye gaye hain,
+   baaki kuch nahi chheda gaya.
    ========================================================== */
 const SEARCH_ROUTES = [
-  // 🎂 Cake sub-categories (sabse specific)
-  { path: '/cakes/chocolate-truffle', keywords: ['chocolate truffle', 'dutch truffle', 'truffle', 'chocolate', 'choco', 'dutch'] },
-  { path: '/cakes/red-velvet', keywords: ['red velvet', 'redvelvet', 'velvet'] },
-  { path: '/cakes/fresh-fruit', keywords: ['fresh fruit', 'fruit cake', 'fruit', 'pineapple', 'mango', 'strawberry', 'exotic'] },
-  { path: '/cakes/cheesecake', keywords: ['cheesecake', 'cheese cake', 'cheese', 'blueberry'] },
-  { path: '/cakes/bento-mini', keywords: ['bento', 'mini cake', 'mini', 'small cake'] },
-  { path: '/cakes/butterscotch', keywords: ['butterscotch', 'butter scotch', 'caramel', 'crunch'] },
+  // 🎂 Cake sub-categories — 🟢 FIX: ab /cake (existing page) par jaate hain,
+  // kyunki /cakes/chocolate-truffle, /cakes/red-velvet, etc. jaise dedicated
+  // pages exist hi nahi karte. CakePage.jsx ka tiered search (filterProductsBySearch)
+  // in keywords ko poore cake catalog me sahi tarah handle kar lega.
+  { path: '/cake', keywords: ['chocolate truffle', 'dutch truffle', 'truffle', 'chocolate', 'choco', 'dutch'] },
+  { path: '/cake', keywords: ['red velvet', 'redvelvet', 'velvet'] },
+  { path: '/cake', keywords: ['fresh fruit', 'fruit cake', 'fruit', 'pineapple', 'mango', 'strawberry', 'exotic'] },
+  { path: '/cake', keywords: ['cheesecake', 'cheese cake', 'cheese', 'blueberry'] },
+  { path: '/cake', keywords: ['bento', 'mini cake', 'mini', 'small cake'] },
+  { path: '/cake', keywords: ['butterscotch', 'butter scotch', 'caramel', 'crunch'] },
 
-  // 🎂 General cakes
+  // 🎂 General cakes — UNCHANGED
   { path: '/cake', keywords: ['cake', 'cakes', 'bakery', 'bake', 'pastry', 'birthday', 'anniversary', 'photo cake', 'egg less', 'eggless'] },
 
-  // 🍬 Sweets categories
-  { path: '/laddu', keywords: ['laddu', 'ladoo', 'motichoor', 'motichur', 'besan', 'boondi'] },
-  { path: '/peda', keywords: ['peda', 'pedha', 'mathura', 'malai peda', 'khoya'] },
-  { path: '/petha', keywords: ['petha', 'angoori', 'agra'] },
-  { path: '/halwa', keywords: ['halwa', 'halva', 'moong', 'sohan', 'karachi', 'gajar'] },
-  { path: '/barfi', keywords: ['barfi', 'burfi', 'katli', 'kaju', 'milk cake', 'milkcake', 'kalakand'] },
-  { path: '/specials', keywords: ['special', 'ghewar', 'ghevar', 'rasgulla', 'gulab jamun', 'jamun', 'festive', 'rabdi', 'imarti'] },
+  // 🍬 Sweets categories — 🟢 FIX: ab homepage ('/') par jaate hain, kyunki
+  // /laddu, /peda, /petha, /halwa, /barfi, /specials jaise dedicated pages
+  // exist hi nahi karte (isliye poora category dump ho raha tha). Homepage
+  // ka tiered search in keywords ko sahi tarah handle kar lega.
+  { path: '/', keywords: ['laddu', 'ladoo', 'motichoor', 'motichur', 'besan', 'boondi'] },
+  { path: '/', keywords: ['peda', 'pedha', 'mathura', 'malai peda', 'khoya'] },
+  { path: '/', keywords: ['petha', 'angoori', 'agra'] },
+  { path: '/', keywords: ['halwa', 'halva', 'moong', 'sohan', 'karachi', 'gajar'] },
+  { path: '/', keywords: ['barfi', 'burfi', 'katli', 'kaju', 'milk cake', 'milkcake', 'kalakand'] },
+  { path: '/', keywords: ['special', 'ghewar', 'ghevar', 'rasgulla', 'gulab jamun', 'jamun', 'festive', 'rabdi', 'imarti'] },
 
-  // 🎁 Other pages
+  // 🎁 Other pages — UNCHANGED
   { path: '/bulk-gifting', keywords: ['bulk', 'gift', 'gifting', 'hamper', 'corporate', 'wholesale', 'shaadi', 'wedding', 'diwali box'] },
   { path: '/my-orders', keywords: ['my order', 'my orders', 'order status', 'track order', 'order'] },
   { path: '/wishlist', keywords: ['wishlist', 'wish list', 'favourite', 'favorite', 'saved'] },

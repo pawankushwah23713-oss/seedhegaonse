@@ -253,6 +253,119 @@ const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
   };
 };
 
+// 🟢 ADDED — FUZZY / TYPO-TOLERANT MATCH HELPERS
+// Yeh sirf tab kaam aate hain jab exact substring/token match (Tier 1-6)
+// kisi bhi field me nahi milta — jaise "laddoo" (double o) type karne par,
+// jabki product me "Ladoo" / category "ladoo" hai. Levenshtein edit-distance
+// se chhote spelling farak (typo, extra/missing letter) ko tolerate karte hain.
+const levenshteinDistance = (a, b) => {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j - 1], dp[i][j - 1], dp[i - 1][j]);
+      }
+    }
+  }
+  return dp[m][n];
+};
+
+// Do words "kaafi close" hain kya (typo tolerance), word/token length ke
+// hisaab se threshold adjust hota hai taaki chhote words par galat match na ho
+const isFuzzyMatch = (word, token) => {
+  if (!word || !token) return false;
+  if (word === token) return true;
+  const maxLen = Math.max(word.length, token.length);
+  if (maxLen <= 3) return false; // bahut chhote words par fuzzy match risky hai
+  const threshold = maxLen <= 5 ? 1 : maxLen <= 8 ? 2 : 3;
+  return levenshteinDistance(word, token) <= threshold;
+};
+
+// 🟢 UNIVERSAL PRODUCT SEARCH — TIERED PRIORITY MATCHING
+// Pehle EXACT/CLOSE product name match dhundta hai — agar mil jaye toh
+// SIRF wahi dikhega (baaki loose/broad matches ignore ho jaate hain).
+// Tabhi jab koi name-match na mile, tab category/description/price jaise
+// broader fields me search hota hai. Isse "Pure Desi Ghee Motichoor Ladoo"
+// type karne par sirf wahi ek product aayega, sare laddu nahi.
+//
+// Tier 1 = exact name match (best)
+// Tier 2 = name me poora phrase substring ki tarah mila
+// Tier 3 = name ke andar sare words mile (order matters nahi)
+// Tier 4 = category exact match
+// Tier 5 = poora phrase category/origin/description me mila
+// Tier 6 = sare words kahin bhi (name+category+origin+description+price) mile
+// Tier 7 = 🟢 name ke words se typo/spelling-variant fuzzy match (e.g. "laddoo" ~ "Ladoo")
+// Tier 8 = 🟢 category/origin/description/variant words se fuzzy match
+// Tier 0 = koi match nahi
+const getSearchMatchTier = (product, term) => {
+  if (!term) return 0;
+
+  const name = String(product.name || '').toLowerCase();
+  const category = String(product.category || '').toLowerCase();
+  const origin = String(product.originRegion || '').toLowerCase();
+  const description = String(product.description || '').toLowerCase();
+  const priceStr = String(product.price ?? '');
+  const tokens = term.split(/\s+/).filter(Boolean);
+
+  if (name === term) return 1;
+  if (name.includes(term)) return 2;
+
+  const nameTokensMatch = tokens.length > 0 && tokens.every((t) => name.includes(t));
+  if (nameTokensMatch) return 3;
+
+  if (category === term) return 4;
+  if (category.includes(term) || origin.includes(term) || description.includes(term)) return 5;
+
+  const variants = getProductVariants(product);
+  const variantText = variants
+    .map((v) => `${v.label || ''} ${v.weight || ''} ${v.price || ''}`)
+    .join(' ')
+    .toLowerCase();
+
+  const broadHaystack = `${name} ${category} ${origin} ${description} ${priceStr} ${product.originalPrice ?? ''} ${variantText}`;
+  const allTokensMatchBroadly = tokens.length > 0 && tokens.every((t) => broadHaystack.includes(t));
+  if (allTokensMatchBroadly) return 6;
+
+  // 🟢 Tier 7 — Fuzzy match sirf product name ke words ke against
+  const nameWords = name.split(/\s+/).filter(Boolean);
+  const nameFuzzyMatch = tokens.length > 0 && tokens.every((t) => nameWords.some((w) => isFuzzyMatch(w, t)));
+  if (nameFuzzyMatch) return 7;
+
+  // 🟢 Tier 8 — Fuzzy match broader fields (category/origin/description/variants) ke against
+  const broadWords = broadHaystack.split(/\s+/).filter(Boolean);
+  const broadFuzzyMatch = tokens.length > 0 && tokens.every((t) => broadWords.some((w) => isFuzzyMatch(w, t)));
+  if (broadFuzzyMatch) return 8;
+
+  return 0;
+};
+
+// 🟢 Product list ko search term ke against filter karta hai — sirf sabse
+// "best" (sabse chhota tier number) match group ko return karta hai, taaki
+// exact name match milne par baaki loose matches dab na jayein screen par.
+const filterProductsBySearch = (products, rawSearchTerm) => {
+  const term = String(rawSearchTerm || '').trim().toLowerCase();
+  if (!term) return products;
+
+  const scored = products
+    .map((p) => ({ product: p, tier: getSearchMatchTier(p, term) }))
+    .filter((entry) => entry.tier > 0);
+
+  if (scored.length === 0) return [];
+
+  const bestTier = Math.min(...scored.map((entry) => entry.tier));
+  return scored.filter((entry) => entry.tier === bestTier).map((entry) => entry.product);
+};
+
 const WISHLIST_KEY = 'seedhegaonse_wishlist';
 const loadWishlist = () => {
   try {
@@ -882,37 +995,33 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
-  const filteredProducts = products.filter((p) => {
-    // 🟢 ADDED: SEARCH FILTER — sabse pehle check hota hai
-    if (searchTerm) {
-      const searchableText = `${p.name || ''} ${p.category || ''} ${p.originRegion || ''} ${p.description || ''}`.toLowerCase();
-      if (!searchableText.includes(searchTerm)) return false;
-    }
+  const filteredProducts = searchTerm
+    ? filterProductsBySearch(products, searchTerm) // 🟢 search active ho toh sirf best-match products (tab ka koi asar nahi)
+    : products.filter((p) => {
+        if (activeTab === 'all') return true;
+        if (activeTab === 'wishlist') return isWishlisted(p._id);
 
-    if (activeTab === 'all') return true;
-    if (activeTab === 'wishlist') return isWishlisted(p._id);
+        const category = (p.category || '').toLowerCase();
+        const name = (p.name || '').toLowerCase();
+        const combined = `${category} ${name}`;
 
-    const category = (p.category || '').toLowerCase();
-    const name = (p.name || '').toLowerCase();
-    const combined = `${category} ${name}`;
-
-    switch (activeTab) {
-      case 'ladoo':
-        return category === 'ladoo' || combined.includes('ladoo') || combined.includes('laddu') || combined.includes('motichoor') || combined.includes('besan');
-      case 'peda':
-        return category === 'peda' || combined.includes('peda') || combined.includes('pedha') || combined.includes('mathura');
-      case 'petha':
-        return category === 'petha' || combined.includes('petha') || combined.includes('agra') || combined.includes('angoori');
-      case 'halwa':
-        return category === 'halwa' || combined.includes('halwa') || combined.includes('sohan') || combined.includes('karachi');
-      case 'barfi':
-        return category === 'barfi' || combined.includes('barfi') || combined.includes('burfi') || combined.includes('katli') || combined.includes('kaju') || combined.includes('milk cake');
-      case 'special':
-        return category === 'special' || combined.includes('special') || combined.includes('ghewar') || combined.includes('ghevar') || combined.includes('rasgulla') || combined.includes('gulab jamun');
-      default:
-        return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
-    }
-  });
+        switch (activeTab) {
+          case 'ladoo':
+            return category === 'ladoo' || combined.includes('ladoo') || combined.includes('laddu') || combined.includes('motichoor') || combined.includes('besan');
+          case 'peda':
+            return category === 'peda' || combined.includes('peda') || combined.includes('pedha') || combined.includes('mathura');
+          case 'petha':
+            return category === 'petha' || combined.includes('petha') || combined.includes('agra') || combined.includes('angoori');
+          case 'halwa':
+            return category === 'halwa' || combined.includes('halwa') || combined.includes('sohan') || combined.includes('karachi');
+          case 'barfi':
+            return category === 'barfi' || combined.includes('barfi') || combined.includes('burfi') || combined.includes('katli') || combined.includes('kaju') || combined.includes('milk cake');
+          case 'special':
+            return category === 'special' || combined.includes('special') || combined.includes('ghewar') || combined.includes('ghevar') || combined.includes('rasgulla') || combined.includes('gulab jamun');
+          default:
+            return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
+        }
+      });
 
   // 🟢 In Stock products pehle, Out of Stock neeche
   const sortedProducts = [...filteredProducts].sort((a, b) => {
@@ -920,6 +1029,16 @@ const Homepage = ({ addToCart, addedToast }) => {
     const bOut = isOutOfStock(b) ? 1 : 0;
     return aOut - bOut;
   });
+
+  // 🟢 ADDED: Agar search ka koi bhi match na mile (0 results), toh user ko
+  // "0 found" empty state dikhne ki jagah khud-ba-khud related page (yahi
+  // page, search clear karke) par redirect ho jaye — poora catalog dikhega.
+  useEffect(() => {
+    if (searchTerm && !loading && sortedProducts.length === 0) {
+      navigate(location.pathname, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, loading, sortedProducts.length]);
 
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
     // 🟢 Out of stock item kabhi cart me nahi jayega

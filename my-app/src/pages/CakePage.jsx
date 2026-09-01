@@ -163,6 +163,67 @@ const DUMMY_CAKES = [
 
 const FALLBACK_CAKE_IMG = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=600&auto=format&fit=crop';
 
+// 🟢 UNIVERSAL PRODUCT SEARCH — TIERED PRIORITY MATCHING
+// Pehle EXACT/CLOSE product name match dhundta hai — agar mil jaye toh
+// SIRF wahi dikhega (baaki loose/broad matches ignore ho jaate hain).
+// Tabhi jab koi name-match na mile, tab category/description/price jaise
+// broader fields me search hota hai.
+//
+// Tier 1 = exact name match (best)
+// Tier 2 = name me poora phrase substring ki tarah mila
+// Tier 3 = name ke andar sare words mile (order matters nahi)
+// Tier 4 = category exact match
+// Tier 5 = poora phrase category/origin/description me mila
+// Tier 6 = sare words kahin bhi (name+category+origin+description+price) mile
+// Tier 0 = koi match nahi
+const getSearchMatchTier = (product, term) => {
+  if (!term) return 0;
+
+  const name = String(product.name || '').toLowerCase();
+  const category = String(product.category || '').toLowerCase();
+  const origin = String(product.originRegion || '').toLowerCase();
+  const description = String(product.description || '').toLowerCase();
+  const priceStr = String(product.price ?? '');
+  const tokens = term.split(/\s+/).filter(Boolean);
+
+  if (name === term) return 1;
+  if (name.includes(term)) return 2;
+
+  const nameTokensMatch = tokens.length > 0 && tokens.every((t) => name.includes(t));
+  if (nameTokensMatch) return 3;
+
+  if (category === term) return 4;
+  if (category.includes(term) || origin.includes(term) || description.includes(term)) return 5;
+
+  const variants = getProductVariants(product);
+  const variantText = variants
+    .map((v) => `${v.label || ''} ${v.weight || ''} ${v.price || ''}`)
+    .join(' ')
+    .toLowerCase();
+
+  const broadHaystack = `${name} ${category} ${origin} ${description} ${priceStr} ${product.originalPrice ?? ''} ${variantText}`;
+  const allTokensMatchBroadly = tokens.length > 0 && tokens.every((t) => broadHaystack.includes(t));
+  if (allTokensMatchBroadly) return 6;
+
+  return 0;
+};
+
+// 🟢 Product list ko search term ke against filter karta hai — sirf sabse
+// "best" (sabse chhota tier number) match group ko return karta hai.
+const filterProductsBySearch = (products, rawSearchTerm) => {
+  const term = String(rawSearchTerm || '').trim().toLowerCase();
+  if (!term) return products;
+
+  const scored = products
+    .map((p) => ({ product: p, tier: getSearchMatchTier(p, term) }))
+    .filter((entry) => entry.tier > 0);
+
+  if (scored.length === 0) return [];
+
+  const bestTier = Math.min(...scored.map((entry) => entry.tier));
+  return scored.filter((entry) => entry.tier === bestTier).map((entry) => entry.product);
+};
+
 const getAuthToken = () => {
   try {
     const directToken = localStorage.getItem('token') ||
@@ -759,25 +820,31 @@ const CakePage = ({ addToCart, addedToast }) => {
     return () => clearInterval(slideInterval);
   }, [heroSlides.length]);
 
-  const filteredProducts = products.filter((p) => {
-    // 🟢 ADDED: SEARCH FILTER — sabse pehle check hota hai
-    if (searchTerm) {
-      const searchableText = `${p.name || ''} ${p.category || ''} ${p.originRegion || ''} ${p.description || ''}`.toLowerCase();
-      if (!searchableText.includes(searchTerm)) return false;
-    }
-
-    if (activeTab === 'all') return true;
-    if (activeTab === 'wishlist') return isWishlisted(p._id);
-    const category = (p.category || '').toLowerCase();
-    const name = (p.name || '').toLowerCase();
-    return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
-  });
+  const filteredProducts = searchTerm
+    ? filterProductsBySearch(products, searchTerm) // 🟢 search active ho toh sirf best-match products (tab ka koi asar nahi)
+    : products.filter((p) => {
+        if (activeTab === 'all') return true;
+        if (activeTab === 'wishlist') return isWishlisted(p._id);
+        const category = (p.category || '').toLowerCase();
+        const name = (p.name || '').toLowerCase();
+        return category.includes(activeTab.toLowerCase()) || name.includes(activeTab.toLowerCase());
+      });
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     const aOut = isOutOfStock(a) ? 1 : 0;
     const bOut = isOutOfStock(b) ? 1 : 0;
     return aOut - bOut;
   });
+
+  // 🟢 ADDED: Agar search ka koi bhi match na mile (0 results), toh user ko
+  // "0 found" empty state dikhne ki jagah khud-ba-khud related page (yahi
+  // page, search clear karke) par redirect ho jaye — poora cake catalog dikhega.
+  useEffect(() => {
+    if (searchTerm && !loading && sortedProducts.length === 0) {
+      navigate(location.pathname, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, loading, sortedProducts.length]);
 
   const handleCakeAddToCart = (p, qty = 1, variant = null) => {
     if (isOutOfStock(p)) {
