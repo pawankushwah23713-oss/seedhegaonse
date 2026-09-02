@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
-import dummy4 from '../assets/dumy4.png';
-import dummy6 from '../assets/dumy6.png';
 
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
@@ -45,53 +43,9 @@ export const getProductVariants = (product) => {
   ];
 };
 
-const DUMMY_BARFIS = [
-  {
-    _id: 'dummy-4',
-    isDummy: true,
-    name: 'Diamond Silver Foil Kaju Katli',
-    category: 'barfi',
-    originRegion: 'Delhi NCR',
-    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark and optimal sweetness for every festival.',
-    price: 950,
-    originalPrice: 950,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy4,
-    inStock: true
-  },
-  {
-    _id: 'dummy-6',
-    isDummy: true,
-    name: 'Alwar Famous Danedar Milk Cake',
-    category: 'barfi',
-    originRegion: 'Alwar',
-    description: 'Rich, caramelized brown grainy milk fudge prepared from slow-simmered fresh whole buffalo milk with no additives.',
-    price: 540,
-    originalPrice: 540,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy6,
-    inStock: true
-  },
-  {
-    _id: 'dummy-barfi-3',
-    isDummy: true,
-    name: 'Royal Pista Malai Barfi',
-    category: 'barfi',
-    originRegion: 'Hisar',
-    description: 'Silky smooth khoya layers blended with rich California pistachios and cardamom.',
-    price: 580,
-    originalPrice: 580,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy4,
-    inStock: true
-  }
-];
+// 🟢 REMOVED: DUMMY_BARFIS fallback array (dummy4 / dummy6 images) —
+// ab sirf backend/API se fetch hue REAL products hi dikhenge, koi bhi
+// dummy/fallback image ya product screen par nahi aayega.
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
@@ -179,6 +133,9 @@ const BarfiPage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 🟢 FIX: Ab sirf API se fetch hue barfi products set hote hain.
+  // Backend fail ho ya khaali response aaye, products list khaali (empty)
+  // rahegi — koi dummy/fallback image ab kabhi nahi dikhegi.
   useEffect(() => {
     const fetchLiveBarfis = async () => {
       try {
@@ -187,14 +144,12 @@ const BarfiPage = ({ addToCart, addedToast }) => {
         const data = await res.json();
         if (res.ok && Array.isArray(data) && data.length > 0) {
           const barfiItems = data.filter(isBarfiProduct);
-          const apiIds = new Set(barfiItems.map((p) => p._id?.toString()));
-          const nonDup = DUMMY_BARFIS.filter((d) => !apiIds.has(d._id?.toString()));
-          setProducts([...barfiItems, ...nonDup]);
+          setProducts(barfiItems);
         } else {
-          setProducts(DUMMY_BARFIS);
+          setProducts([]);
         }
       } catch (err) {
-        setProducts(DUMMY_BARFIS);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -388,8 +343,12 @@ const BarfiPage = ({ addToCart, addedToast }) => {
       </section>
 
       <section className="sg-products-section sg-container">
-        {loading && products.length === 0 ? (
+        {loading ? (
           <div className="sg-empty-loading-state"><div className="sg-spinner"></div><h3>🔶 Loading royal barfis...</h3></div>
+        ) : products.length === 0 ? (
+          <div className="sg-empty-category-card">
+            <h3>No barfi products available right now!</h3>
+          </div>
         ) : (
           <div className="sg-modern-product-grid">
             {products.map((p) => {

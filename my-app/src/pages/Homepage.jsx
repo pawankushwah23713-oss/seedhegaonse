@@ -3,13 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import './Homepage.css';
 import banner1 from '../assets/banner1.png';
 import banner2 from '../assets/banner2.png';
-import dummy1 from '../assets/dumy1.png';
-import dummy2 from '../assets/dumy2.png';
-import dummy3 from '../assets/dumy3.png';
-import dummy4 from '../assets/dumy4.png';
-import dummy5 from '../assets/dumy5.png';
-import dummy6 from '../assets/dumy6.png';
-import dummy7 from '../assets/dumy7.png';
 
 // 🟢 Backend API Base URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
@@ -65,115 +58,6 @@ export const getProductVariants = (product) => {
     }
   ];
 };
-
-// 🟢 Dummy Products (isDummy: true & 0 Discount/Offers)
-const DUMMY_PRODUCTS = [
-  {
-    _id: 'dummy-1',
-    isDummy: true,
-    name: 'Pure Desi Ghee Motichoor Ladoo',
-    category: 'ladoo',
-    originRegion: 'Jodhpur',
-    description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios. Prepared fresh daily using traditional village methods.',
-    price: 480,
-    originalPrice: 480,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy1,
-    inStock: true
-  },
-  {
-    _id: 'dummy-2',
-    isDummy: true,
-    name: 'Traditional Mathura Peda',
-    category: 'peda',
-    originRegion: 'Mathura',
-    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours, sourced directly from the holy city of Mathura.',
-    price: 520,
-    originalPrice: 520,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy2,
-    inStock: true
-  },
-  {
-    _id: 'dummy-3',
-    isDummy: true,
-    name: 'Royal Agra Kesar Angoori Petha',
-    category: 'petha',
-    originRegion: 'Agra',
-    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron and subtle rose water essence.',
-    price: 360,
-    originalPrice: 360,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy3,
-    inStock: true
-  },
-  {
-    _id: 'dummy-4',
-    isDummy: true,
-    name: 'Diamond Silver Foil Kaju Katli',
-    category: 'barfi',
-    originRegion: 'Delhi NCR',
-    description: 'Premium quality Goan cashews crafted with authentic edible pure silver vark and optimal sweetness for every festival.',
-    price: 950,
-    originalPrice: 950,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy4,
-    inStock: true
-  },
-  {
-    _id: 'dummy-5',
-    isDummy: true,
-    name: 'Jaipuri Malai Rabdi Ghewar',
-    category: 'special',
-    originRegion: 'Jaipur',
-    description: 'Crispy honeycomb disc soaked in saffron sugar syrup and topped with rich, thick cardamom rabdi and roasted dry fruits.',
-    price: 650,
-    originalPrice: 650,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy5,
-    inStock: true
-  },
-  {
-    _id: 'dummy-6',
-    isDummy: true,
-    name: 'Alwar Famous Danedar Milk Cake',
-    category: 'barfi',
-    originRegion: 'Alwar',
-    description: 'Rich, caramelized brown grainy milk fudge prepared from slow-simmered fresh whole buffalo milk with no additives.',
-    price: 540,
-    originalPrice: 540,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy6,
-    inStock: true
-  },
-  {
-    _id: 'dummy-7',
-    isDummy: true,
-    name: 'Hisar ki Special Malai Peda',
-    category: 'peda',
-    originRegion: 'Hisar',
-    description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s renowned dairy heartland.',
-    price: 540,
-    originalPrice: 540,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy7,
-    inStock: true
-  }
-];
 
 // Helper to get JWT Token
 const getAuthToken = () => {
@@ -863,16 +747,15 @@ const Homepage = ({ addToCart, addedToast }) => {
         const data = await res.json();
         console.log(data);
 
-        if (res.ok && Array.isArray(data) && data.length > 0) {
-          const apiProductIds = new Set(data.map((p) => p._id?.toString()));
-          const nonDuplicateDummies = DUMMY_PRODUCTS.filter((d) => !apiProductIds.has(d._id?.toString()));
-          setProducts([...data, ...nonDuplicateDummies]);
+        // 🟢 Ab sirf backend se fetch ki hui asli products hi dikhengi — koi dummy fallback nahi
+        if (res.ok && Array.isArray(data)) {
+          setProducts(data);
         } else {
-          setProducts(DUMMY_PRODUCTS);
+          setProducts([]);
         }
       } catch (err) {
-        console.warn('Backend offline, using fallback dummy products:', err);
-        setProducts(DUMMY_PRODUCTS);
+        console.warn('Backend offline, no products to show:', err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }

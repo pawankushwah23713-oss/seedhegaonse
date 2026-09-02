@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
-import dummy2 from '../assets/dumy2.png';
-import dummy7 from '../assets/dumy7.png';
 
 // 🟢 Backend API Base URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
@@ -76,55 +74,6 @@ export const getProductVariants = (product) => {
     }
   ];
 };
-
-// 🟢 Dedicated Peda Dummy Items
-const DUMMY_PEDAS = [
-  {
-    _id: 'dummy-2',
-    isDummy: true,
-    name: 'Traditional Mathura Peda',
-    category: 'peda',
-    originRegion: 'Mathura',
-    description: 'Slow-roasted authentic khoya infused with aromatic cardamom and traditional flavours, sourced directly from the holy city of Mathura.',
-    price: 520,
-    originalPrice: 520,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy2,
-    inStock: true
-  },
-  {
-    _id: 'dummy-7',
-    isDummy: true,
-    name: 'Hisar ki Special Malai Peda',
-    category: 'peda',
-    originRegion: 'Hisar',
-    description: 'Fresh cream & rich caramelized milk treat straight from Haryana’s renowned dairy heartland.',
-    price: 540,
-    originalPrice: 540,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy7,
-    inStock: true
-  },
-  {
-    _id: 'dummy-peda-3',
-    isDummy: true,
-    name: 'Shahi Kesar Elaichi Doodh Peda',
-    category: 'peda',
-    originRegion: 'Vrindavan',
-    description: 'Made with concentrated pure buffalo milk, Kashmiri saffron threads, crushed cardamom and garnished with pistachios.',
-    price: 560,
-    originalPrice: 560,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy2,
-    inStock: true
-  }
-];
 
 const getAuthToken = () => {
   try {
@@ -675,6 +624,9 @@ const PedaPage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 🟢 FIX: Ab sirf backend se fetch kiye hue real peda products hi dikhenge.
+  // Koi dummy/fallback data nahi — agar backend me kuch nahi milta ya
+  // fetch fail ho jaata hai, toh list khaali rahegi (empty state dikhega).
   useEffect(() => {
     const fetchLivePedas = async () => {
       try {
@@ -682,18 +634,16 @@ const PedaPage = ({ addToCart, addedToast }) => {
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
 
-        if (res.ok && Array.isArray(data) && data.length > 0) {
+        if (res.ok && Array.isArray(data)) {
           // Filter out ONLY peda items from backend API
           const pedaApiItems = data.filter(isPedaProduct);
-          const apiIds = new Set(pedaApiItems.map((p) => p._id?.toString()));
-          const nonDupDummies = DUMMY_PEDAS.filter((d) => !apiIds.has(d._id?.toString()));
-          setProducts([...pedaApiItems, ...nonDupDummies]);
+          setProducts(pedaApiItems);
         } else {
-          setProducts(DUMMY_PEDAS);
+          setProducts([]);
         }
       } catch (err) {
-        console.warn('Backend offline, using fallback dummy pedas:', err);
-        setProducts(DUMMY_PEDAS);
+        console.warn('Backend offline, unable to load pedas:', err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
-import dummy5 from '../assets/dumy5.png';
 
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
@@ -43,53 +42,9 @@ export const getProductVariants = (product) => {
   ];
 };
 
-const DUMMY_HALWAS = [
-  {
-    _id: 'dummy-halwa-1',
-    isDummy: true,
-    name: 'Pure Desi Ghee Moong Dal Halwa',
-    category: 'halwa',
-    originRegion: 'Rajasthan',
-    description: 'Slow-roasted yellow lentils cooked in 100% pure cow ghee with rich saffron, mawa, cashew & almond flakes.',
-    price: 490,
-    originalPrice: 490,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy5,
-    inStock: true
-  },
-  {
-    _id: 'dummy-halwa-2',
-    isDummy: true,
-    name: 'Old Delhi Famous Royal Sohan Halwa',
-    category: 'halwa',
-    originRegion: 'Old Delhi',
-    description: 'Crisp, dense, golden caramelized wheat germ sweet disc topped with premium pistachios and walnuts.',
-    price: 540,
-    originalPrice: 540,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy5,
-    inStock: true
-  },
-  {
-    _id: 'dummy-halwa-3',
-    isDummy: true,
-    name: 'Bombay Karachi Bombay Halwa (Dry Fruit)',
-    category: 'halwa',
-    originRegion: 'Mumbai',
-    description: 'Chewy, colorful, glossy ghee-rich cornstarch treat loaded with crunchy melon seeds, cashews and cardamom.',
-    price: 420,
-    originalPrice: 420,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy5,
-    inStock: true
-  }
-];
+// 🟢 REMOVED: DUMMY_HALWAS fallback array (dummy5 image) — ab sirf
+// backend/API se fetch hue REAL products hi dikhenge, koi bhi
+// dummy/fallback image ya product screen par nahi aayega.
 
 const getAuthToken = () => {
   try {
@@ -187,6 +142,9 @@ const HalwaPage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 🟢 FIX: Ab sirf API se fetch hue halwa products set hote hain.
+  // Backend fail ho ya khaali response aaye, products list khaali (empty)
+  // rahegi — koi dummy/fallback image ab kabhi nahi dikhegi.
   useEffect(() => {
     const fetchLiveHalwas = async () => {
       try {
@@ -195,14 +153,12 @@ const HalwaPage = ({ addToCart, addedToast }) => {
         const data = await res.json();
         if (res.ok && Array.isArray(data) && data.length > 0) {
           const halwaItems = data.filter(isHalwaProduct);
-          const apiIds = new Set(halwaItems.map((p) => p._id?.toString()));
-          const nonDup = DUMMY_HALWAS.filter((d) => !apiIds.has(d._id?.toString()));
-          setProducts([...halwaItems, ...nonDup]);
+          setProducts(halwaItems);
         } else {
-          setProducts(DUMMY_HALWAS);
+          setProducts([]);
         }
       } catch (err) {
-        setProducts(DUMMY_HALWAS);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -396,8 +352,12 @@ const HalwaPage = ({ addToCart, addedToast }) => {
       </section>
 
       <section className="sg-products-section sg-container">
-        {loading && products.length === 0 ? (
+        {loading ? (
           <div className="sg-empty-loading-state"><div className="sg-spinner"></div><h3>🥣 Loading fresh halwas...</h3></div>
+        ) : products.length === 0 ? (
+          <div className="sg-empty-category-card">
+            <h3>No halwa products available right now!</h3>
+          </div>
         ) : (
           <div className="sg-modern-product-grid">
             {products.map((p) => {

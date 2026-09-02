@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
-import dummy5 from '../assets/dumy5.png';
 
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
@@ -44,54 +43,6 @@ export const getProductVariants = (product) => {
     { _id: 'v-1000', label: '1kg', weight: '1kg', price: Math.round(basePrice * 1.9), originalPrice: hasDiscount ? Math.round(baseMrp * 1.9) : null, discount: discountVal }
   ];
 };
-
-const DUMMY_SPECIALS = [
-  {
-    _id: 'dummy-5',
-    isDummy: true,
-    name: 'Jaipuri Malai Rabdi Ghewar',
-    category: 'special',
-    originRegion: 'Jaipur',
-    description: 'Crispy honeycomb disc soaked in saffron sugar syrup and topped with rich, thick cardamom rabdi and roasted dry fruits.',
-    price: 650,
-    originalPrice: 650,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy5,
-    inStock: true
-  },
-  {
-    _id: 'dummy-special-2',
-    isDummy: true,
-    name: 'Royal Kesariya Rasgulla Box',
-    category: 'special',
-    originRegion: 'Kolkata',
-    description: 'Spongy soft cottage cheese balls soaked in saffron & cardamom infused light rose sugar syrup.',
-    price: 380,
-    originalPrice: 380,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy5,
-    inStock: true
-  },
-  {
-    _id: 'dummy-special-3',
-    isDummy: true,
-    name: 'Shahi Mawa Stuffed Gulab Jamun',
-    category: 'special',
-    originRegion: 'Varanasi',
-    description: 'Soft golden-fried mawa spheres stuffed with pistachios and soaked in saffron syrup.',
-    price: 420,
-    originalPrice: 420,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy5,
-    inStock: true
-  }
-];
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
@@ -179,22 +130,24 @@ const SpecialsPage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 🟢 FIX: Ab sirf backend se fetch kiye hue real special products hi dikhenge.
+  // Koi dummy/fallback data nahi — agar backend me kuch nahi milta ya fetch
+  // fail ho jaata hai, toh list khaali rahegi (empty state dikhega).
   useEffect(() => {
     const fetchLiveSpecials = async () => {
       try {
         setLoading(true);
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
-        if (res.ok && Array.isArray(data) && data.length > 0) {
+        if (res.ok && Array.isArray(data)) {
           const specialItems = data.filter(isSpecialsProduct);
-          const apiIds = new Set(specialItems.map((p) => p._id?.toString()));
-          const nonDup = DUMMY_SPECIALS.filter((d) => !apiIds.has(d._id?.toString()));
-          setProducts([...specialItems, ...nonDup]);
+          setProducts(specialItems);
         } else {
-          setProducts(DUMMY_SPECIALS);
+          setProducts([]);
         }
       } catch (err) {
-        setProducts(DUMMY_SPECIALS);
+        console.warn('Backend offline, unable to load specials:', err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -390,6 +343,13 @@ const SpecialsPage = ({ addToCart, addedToast }) => {
       <section className="sg-products-section sg-container">
         {loading && products.length === 0 ? (
           <div className="sg-empty-loading-state"><div className="sg-spinner"></div><h3>⭐ Loading festive specials...</h3></div>
+        ) : products.length === 0 ? (
+          <div className="sg-empty-category-card">
+            <h3>No Specials currently available!</h3>
+            <button className="sg-primary-btn" onClick={() => navigate('/')} style={{ marginTop: '12px' }}>
+              Explore All Sweets
+            </button>
+          </div>
         ) : (
           <div className="sg-modern-product-grid">
             {products.map((p) => {

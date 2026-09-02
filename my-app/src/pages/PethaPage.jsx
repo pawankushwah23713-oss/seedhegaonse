@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
-import dummy3 from '../assets/dumy3.png';
 
 // 🟢 Backend API Base URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
@@ -74,55 +73,6 @@ export const getProductVariants = (product) => {
     }
   ];
 };
-
-// 🟢 Dedicated Petha Dummy Items
-const DUMMY_PETHAS = [
-  {
-    _id: 'dummy-3',
-    isDummy: true,
-    name: 'Royal Agra Kesar Angoori Petha',
-    category: 'petha',
-    originRegion: 'Agra',
-    description: 'Juicy, soft, translucent sweet pumpkin bites infused with natural Kashmiri saffron and subtle rose water essence.',
-    price: 360,
-    originalPrice: 360,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy3,
-    inStock: true
-  },
-  {
-    _id: 'dummy-petha-2',
-    isDummy: true,
-    name: 'Traditional Agra Classic Dry Petha',
-    category: 'petha',
-    originRegion: 'Agra',
-    description: 'Crisp on the outside and wonderfully juicy inside, crafted using authentic ash gourd (winter melon) and purified sugar syrup.',
-    price: 320,
-    originalPrice: 320,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy3,
-    inStock: true
-  },
-  {
-    _id: 'dummy-petha-3',
-    isDummy: true,
-    name: 'Shahi Gulab Paan Stuffed Petha',
-    category: 'petha',
-    originRegion: 'Agra',
-    description: 'Exquisite green paan-shaped petha bites stuffed with rich gulkand, crushed dry fruits and natural aromatic mouth-fresheners.',
-    price: 450,
-    originalPrice: 450,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy3,
-    inStock: true
-  }
-];
 
 const getAuthToken = () => {
   try {
@@ -673,6 +623,9 @@ const PethaPage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 🟢 FIX: Ab sirf backend se fetch kiye hue real petha products hi dikhenge.
+  // Koi dummy/fallback data nahi — agar backend me kuch nahi milta ya fetch
+  // fail ho jaata hai, toh list khaali rahegi (empty state dikhega).
   useEffect(() => {
     const fetchLivePethas = async () => {
       try {
@@ -680,18 +633,16 @@ const PethaPage = ({ addToCart, addedToast }) => {
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
 
-        if (res.ok && Array.isArray(data) && data.length > 0) {
+        if (res.ok && Array.isArray(data)) {
           // Filter out ONLY petha items from backend API
           const pethaApiItems = data.filter(isPethaProduct);
-          const apiIds = new Set(pethaApiItems.map((p) => p._id?.toString()));
-          const nonDupDummies = DUMMY_PETHAS.filter((d) => !apiIds.has(d._id?.toString()));
-          setProducts([...pethaApiItems, ...nonDupDummies]);
+          setProducts(pethaApiItems);
         } else {
-          setProducts(DUMMY_PETHAS);
+          setProducts([]);
         }
       } catch (err) {
-        console.warn('Backend offline, using fallback dummy pethas:', err);
-        setProducts(DUMMY_PETHAS);
+        console.warn('Backend offline, unable to load pethas:', err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }

@@ -7,12 +7,41 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
+const SERVER_HOST = API_BASE.replace('/api', '');
+
+// 🟢 ADDED: Baaki pages jaisa hi image URL resolver — agar backend sirf
+// relative path bheje (jaise "/uploads/x.png") toh usse pura server URL
+// bana deta hai. Full http(s) URL ho toh waisa hi rehne deta hai.
+const getImageUrl = (imagePath) => {
+  if (!imagePath) {
+    return 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?q=80&w=600&auto=format&fit=crop';
+  }
+  if (
+    imagePath.startsWith('http://') ||
+    imagePath.startsWith('https://') ||
+    imagePath.startsWith('data:') ||
+    imagePath.startsWith('blob:') ||
+    imagePath.startsWith('/src/') ||
+    imagePath.startsWith('/assets/')
+  ) {
+    return imagePath;
+  }
+  const cleanPath = imagePath.replace(/\\/g, '/');
+  const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  return `${SERVER_HOST}${normalizedPath}`;
+};
+
+// 🟢 ADDED: image load fail hone par (broken URL / server down) dikhne
+// wala fallback — taaki blank/broken icon kabhi na dikhe
+const FALLBACK_CHEESECAKE_IMG = 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?q=80&w=600&auto=format&fit=crop';
+
 const CheesecakePage = ({ addToCart }) => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🟢 DIRECT BACKEND FETCH: Sirf 'cheesecake' category fetch hogi
+  // 🟢 DIRECT BACKEND FETCH: Sirf 'cheesecake' category fetch hogi —
+  // koi dummy/fallback product list nahi hai, sirf REAL API data.
   useEffect(() => {
     const fetchCheesecakes = async () => {
       try {
@@ -21,9 +50,12 @@ const CheesecakePage = ({ addToCart }) => {
         const data = await res.json();
         if (res.ok && Array.isArray(data)) {
           setProducts(data.filter(item => item.category?.toLowerCase().includes('cheesecake')));
+        } else {
+          setProducts([]);
         }
       } catch (err) {
         console.error("Cheesecakes fetch error:", err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -52,7 +84,12 @@ const CheesecakePage = ({ addToCart }) => {
             {products.map((cake) => (
               <div key={cake._id} className="ck-product-card">
                 <div className="ck-card-media-box">
-                  <img src={cake.image} alt={cake.name} className="ck-card-product-img" />
+                  <img
+                    src={getImageUrl(cake.image)}
+                    alt={cake.name}
+                    className="ck-card-product-img"
+                    onError={(e) => { e.target.src = FALLBACK_CHEESECAKE_IMG; }}
+                  />
                 </div>
                 <div className="ck-card-body">
                   <h3 className="ck-card-title">{cake.name}</h3>

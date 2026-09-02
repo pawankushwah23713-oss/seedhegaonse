@@ -1,64 +1,116 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './BestSellingProducts.css';
-import image from "../assets/dumy1.png";
-import image1 from '../assets/dumy2.png';
-import image2 from '../assets/dumy3.png';
-import image3 from '../assets/dumy4.png';
-import image4 from '../assets/dumy5.png';
 
+// 🟢 Backend API Base URL (same pattern as other pages)
+const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
+  ? process.env.REACT_APP_API_URL.replace('/auth', '')
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
-const bestSellingProductsData = [
-  {
-    id: 1,
-    name: 'HISAR KA MALAI PEDA',
-    image: image,
-    rating: 5,
-    reviewsCount: 2,
-    price: 320.00,
-  },
-  {
-    id: 2,
-    name: 'BAGHPAT (TATIRI) KI DES...',
-    image: image1,
-    rating: 0,
-    reviewsCount: 0,
-    price: 400.00,
-  },
-  {
-    id: 3,
-    name: 'ALWAR KA MILK CAKE',
-    image: image2,
-    rating: 0,
-    reviewsCount: 0,
-    price: 340.00,
-  },
-  {
-    id: 4,
-    name: 'ROHTAK KA PALANGTOD KAL...',
-    image: image3,
-    rating: 0,
-    reviewsCount: 0,
-    price: 430.00,
-  },
-  {
-    id: 5,
-    name: 'JIND KI DOODH BARFI',
-    image: image4,
-    rating: 5,
-    reviewsCount: 1,
-    price: 360.00,
-  },
-];
+const SERVER_HOST = API_BASE.replace('/api', '');
+
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop';
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return FALLBACK_IMG;
+  if (
+    imagePath.startsWith('http://') ||
+    imagePath.startsWith('https://') ||
+    imagePath.startsWith('data:') ||
+    imagePath.startsWith('blob:') ||
+    imagePath.startsWith('/src/') ||
+    imagePath.startsWith('/assets/')
+  ) {
+    return imagePath;
+  }
+  const cleanPath = imagePath.replace(/\\/g, '/');
+  const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  return `${SERVER_HOST}${normalizedPath}`;
+};
+
+// 🟢 Normalize a raw backend product/cake into the shape this page needs
+const normalizeProduct = (p) => {
+  const rating = Number(p.rating ?? p.avgRating ?? p.averageRating ?? 0);
+  const reviewsCount = Number(p.reviewsCount ?? p.numReviews ?? (Array.isArray(p.reviews) ? p.reviews.length : 0)) || 0;
+  const price = Number(p.price) || 0;
+  const createdAt = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+  const unitsSold = Number(p.unitsSold ?? p.salesCount ?? p.totalSold ?? 0) || 0;
+
+  return {
+    id: p._id,
+    name: String(p.name || 'Store Item').toUpperCase(),
+    image: getImageUrl(p.image),
+    rating: Math.max(0, Math.min(5, Math.round(rating))),
+    reviewsCount,
+    price,
+    createdAt,
+    unitsSold,
+    isBestSeller: Boolean(p.isBestSeller || p.bestSeller),
+    slug: p.slug || p._id
+  };
+};
 
 const BestSellingProducts = () => {
+  const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState('Latest');
 
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
-  };
+  // 🟢 Fetch real products & cakes from backend, keep only best-sellers
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchBestSellers = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const [resProducts, resCakes] = await Promise.allSettled([
+          fetch(`${API_BASE}/products`),
+          fetch(`${API_BASE}/cakes`)
+        ]);
+
+        const combined = [];
+
+        const pull = async (result) => {
+          if (result.status === 'fulfilled' && result.value.ok) {
+            const data = await result.value.json();
+            if (Array.isArray(data)) combined.push(...data);
+          }
+        };
+
+        await pull(resProducts);
+        await pull(resCakes);
+
+        if (cancelled) return;
+
+        const normalized = combined.map(normalizeProduct);
+
+        // 🟢 "Best Selling" = items explicitly flagged by backend
+        // (isBestSeller/bestSeller), or ranked by actual units sold if the
+        // backend tracks that. Falls back to showing everything if neither
+        // signal exists yet, so the page never looks broken/empty on a
+        // fresh store.
+        const flagged = normalized.filter((p) => p.isBestSeller);
+        const bySales = normalized.filter((p) => p.unitsSold > 0);
+        const bestSellers = flagged.length > 0 ? flagged : bySales.length > 0 ? bySales : normalized;
+
+        setProducts(bestSellers);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Unable to load best-selling products:', err);
+          setError('Unable to load products right now. Please try again shortly.');
+          setProducts([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchBestSellers();
+    return () => { cancelled = true; };
+  }, []);
 
   // Helper to render 5 stars (filled or outlined based on rating)
   const renderStars = (rating) => {
@@ -71,6 +123,24 @@ const BestSellingProducts = () => {
       </span>
     ));
   };
+
+  // 🟢 Sorting actually works now, based on the selected dropdown option
+  const sortedProducts = useMemo(() => {
+    const list = [...products];
+    switch (sortBy) {
+      case 'PriceLowHigh':
+        return list.sort((a, b) => a.price - b.price);
+      case 'PriceHighLow':
+        return list.sort((a, b) => b.price - a.price);
+      case 'A to Z Order':
+        return list.sort((a, b) => a.name.localeCompare(b.name));
+      case 'Z to A Order':
+        return list.sort((a, b) => b.name.localeCompare(a.name));
+      case 'Latest':
+      default:
+        return list.sort((a, b) => b.createdAt - a.createdAt);
+    }
+  }, [products, sortBy]);
 
   return (
     <div className="bestselling-products-page">
@@ -85,7 +155,9 @@ const BestSellingProducts = () => {
       <main className="catalog-container">
         {/* Filter / Sort Top Bar */}
         <div className="catalog-toolbar">
-          <span className="items-count">{bestSellingProductsData.length} Items found</span>
+          <span className="items-count">
+            {loading ? 'Loading...' : `${sortedProducts.length} Items found`}
+          </span>
           <div className="sort-wrapper">
             <label htmlFor="sort-select" className="sort-label">
               Sort by
@@ -106,42 +178,60 @@ const BestSellingProducts = () => {
         </div>
 
         {/* Product Grid */}
-        <div className="product-grid">
-          {bestSellingProductsData.map((product) => (
-            <div key={product.id} className="product-card">
-              {/* Product Image */}
-              <div className="product-image-box">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="product-img"
-                  loading="lazy"
-                />
-              </div>
-
-              {/* Product Info */}
-              <div className="product-details">
-                <h3 className="product-title" title={product.name}>
-                  {product.name}
-                </h3>
-
-                {/* Rating */}
-                <div className="product-rating">
-                  <span className="stars-wrapper">{renderStars(product.rating)}</span>
-                  <span className="reviews-count">({product.reviewsCount})</span>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
+            🔥 Loading best-selling products...
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#dc2626', fontWeight: 600 }}>
+            {error}
+          </div>
+        ) : sortedProducts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
+            No best-selling products available right now.
+          </div>
+        ) : (
+          <div className="product-grid">
+            {sortedProducts.map((product) => (
+              <div
+                key={product.id}
+                className="product-card"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/product/${product.slug}`)}
+              >
+                {/* Product Image */}
+                <div className="product-image-box">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="product-img"
+                    loading="lazy"
+                    onError={(e) => { e.target.src = FALLBACK_IMG; }}
+                  />
                 </div>
 
-                {/* Price */}
-                <div className="product-price">
-                  ₹{product.price.toFixed(2)}
+                {/* Product Info */}
+                <div className="product-details">
+                  <h3 className="product-title" title={product.name}>
+                    {product.name}
+                  </h3>
+
+                  {/* Rating */}
+                  <div className="product-rating">
+                    <span className="stars-wrapper">{renderStars(product.rating)}</span>
+                    <span className="reviews-count">({product.reviewsCount})</span>
+                  </div>
+
+                  {/* Price */}
+                  <div className="product-price">
+                    ₹{product.price.toFixed(2)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
-
-     
     </div>
   );
 };

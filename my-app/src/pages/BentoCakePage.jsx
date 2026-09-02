@@ -7,12 +7,42 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
 
+const SERVER_HOST = API_BASE.replace('/api', '');
+
+// 🟢 ADDED: Baaki pages (Homepage/CakePage/BarfiPage) jaisa hi image URL
+// resolver — agar backend sirf relative path bheje (jaise "/uploads/x.png")
+// toh usse pura server URL bana deta hai. Full http(s) URL ho toh waisa hi
+// rehne deta hai.
+const getImageUrl = (imagePath) => {
+  if (!imagePath) {
+    return 'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?q=80&w=600&auto=format&fit=crop';
+  }
+  if (
+    imagePath.startsWith('http://') ||
+    imagePath.startsWith('https://') ||
+    imagePath.startsWith('data:') ||
+    imagePath.startsWith('blob:') ||
+    imagePath.startsWith('/src/') ||
+    imagePath.startsWith('/assets/')
+  ) {
+    return imagePath;
+  }
+  const cleanPath = imagePath.replace(/\\/g, '/');
+  const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  return `${SERVER_HOST}${normalizedPath}`;
+};
+
+// 🟢 ADDED: image load fail hone par (broken URL / server down) dikhne
+// wala fallback — taaki blank/broken icon kabhi na dikhe
+const FALLBACK_BENTO_IMG = 'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?q=80&w=600&auto=format&fit=crop';
+
 const BentoCakePage = ({ addToCart }) => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🟢 DIRECT BACKEND FETCH: Sirf 'bento' category fetch hogi
+  // 🟢 DIRECT BACKEND FETCH: Sirf 'bento' category fetch hogi —
+  // koi dummy/fallback product list nahi hai, sirf REAL API data.
   useEffect(() => {
     const fetchBentoCakes = async () => {
       try {
@@ -21,9 +51,12 @@ const BentoCakePage = ({ addToCart }) => {
         const data = await res.json();
         if (res.ok && Array.isArray(data)) {
           setProducts(data.filter(item => item.category?.toLowerCase().includes('bento')));
+        } else {
+          setProducts([]);
         }
       } catch (err) {
         console.error("Bento cakes fetch error:", err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -52,7 +85,12 @@ const BentoCakePage = ({ addToCart }) => {
             {products.map((cake) => (
               <div key={cake._id} className="ck-product-card">
                 <div className="ck-card-media-box">
-                  <img src={cake.image} alt={cake.name} className="ck-card-product-img" />
+                  <img
+                    src={getImageUrl(cake.image)}
+                    alt={cake.name}
+                    className="ck-card-product-img"
+                    onError={(e) => { e.target.src = FALLBACK_BENTO_IMG; }}
+                  />
                 </div>
                 <div className="ck-card-body">
                   <h3 className="ck-card-title">{cake.name}</h3>

@@ -191,9 +191,15 @@ const ChocolateTrufflePage = ({ addToCart, addedToast }) => {
         if (res.ok && Array.isArray(data)) {
           // Strict check: sirf chocolate wale hi state me rahenge
           setProducts(data.filter(item => item.category?.toLowerCase().includes('chocolate')));
+        } else {
+          // 🟢 FIX: res.ok false ho (API error status) toh bhi products
+          // ko empty rakho — pehle is case me state stale/undefined reh
+          // jaati thi kyunki sirf catch block hi handle karta tha.
+          setProducts([]);
         }
       } catch (err) {
         console.error("Chocolate cakes fetch failed:", err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }

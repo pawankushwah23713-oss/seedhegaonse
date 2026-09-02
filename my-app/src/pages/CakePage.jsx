@@ -79,88 +79,6 @@ export const getProductVariants = (product) => {
   ];
 };
 
-// 🟢 Dummy Cake Fallback Products
-const DUMMY_CAKES = [
-  {
-    _id: 'dummy-cake-1',
-    isDummy: true,
-    name: 'Belgian Dark Chocolate Truffle Cake',
-    category: 'chocolate',
-    originRegion: 'Fresh Bakehouse',
-    description: 'Layers of moist dark chocolate sponge filled with rich, silky Belgian ganache and glazed with chocolate glaze.',
-    price: 549,
-    originalPrice: 549,
-    discountPercent: 0,
-    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=600&auto=format&fit=crop',
-    inStock: true
-  },
-  {
-    _id: 'dummy-cake-2',
-    isDummy: true,
-    name: 'Classic Red Velvet Cream Cheese Cake',
-    category: 'redvelvet',
-    originRegion: 'Master Chef Special',
-    description: 'Velvety crimson sponge paired with authentic Philadelphia style cream cheese frosting and fine red velvet crumbs.',
-    price: 599,
-    originalPrice: 599,
-    discountPercent: 0,
-    image: 'https://images.unsplash.com/photo-1586788680434-30d324b2d46f?q=80&w=600&auto=format&fit=crop',
-    inStock: true
-  },
-  {
-    _id: 'dummy-cake-3',
-    isDummy: true,
-    name: 'Exotic Fresh Seasonal Fruit Cake',
-    category: 'fruit',
-    originRegion: 'Farm Fresh',
-    description: 'Light vanilla sponge layered with freshly whipped cream and loaded with hand-cut kiwis, apples, oranges, and strawberries.',
-    price: 520,
-    originalPrice: 520,
-    discountPercent: 0,
-    image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?q=80&w=600&auto=format&fit=crop',
-    inStock: true
-  },
-  {
-    _id: 'dummy-cake-4',
-    isDummy: true,
-    name: 'New York Baked Blueberry Cheesecake',
-    category: 'cheesecake',
-    originRegion: 'Gourmet Selection',
-    description: 'Traditional slow-baked rich cheesecake on a buttery graham cracker crust topped with thick wild blueberry compote.',
-    price: 750,
-    originalPrice: 750,
-    discountPercent: 0,
-    image: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?q=80&w=600&auto=format&fit=crop',
-    inStock: true
-  },
-  {
-    _id: 'dummy-cake-5',
-    isDummy: true,
-    name: 'Crunchy Caramel Butterscotch Cake',
-    category: 'butterscotch',
-    originRegion: 'Daily Fresh Oven',
-    description: 'Golden sponge layered with home-cooked brown sugar butterscotch sauce and caramelized cashew praline crunch.',
-    price: 479,
-    originalPrice: 479,
-    discountPercent: 0,
-    image: 'https://images.unsplash.com/photo-1542826438-bd32f43d626f?q=80&w=600&auto=format&fit=crop',
-    inStock: true
-  },
-  {
-    _id: 'dummy-cake-6',
-    isDummy: true,
-    name: 'Pastel Korean Heart Bento Cake',
-    category: 'bento',
-    originRegion: 'Trending Korean Design',
-    description: 'Cute pocket-sized minimalist birthday cake decorated with pastel aesthetic buttercream design. Comes with candle & fork.',
-    price: 349,
-    originalPrice: 349,
-    discountPercent: 0,
-    image: 'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?q=80&w=600&auto=format&fit=crop',
-    inStock: true
-  }
-];
-
 const FALLBACK_CAKE_IMG = 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=600&auto=format&fit=crop';
 
 // 🟢 UNIVERSAL PRODUCT SEARCH — TIERED PRIORITY MATCHING
@@ -684,15 +602,15 @@ const CakePage = ({ addToCart, addedToast }) => {
         setLoading(true);
         const res = await fetch(`${API_BASE}/cakes`);
         const data = await res.json();
-        if (res.ok && Array.isArray(data) && data.length > 0) {
-          const apiIds = new Set(data.map((c) => c._id?.toString()));
-          const nonDupDummies = DUMMY_CAKES.filter((d) => !apiIds.has(d._id?.toString()));
-          setProducts([...data, ...nonDupDummies]);
+
+        // 🟢 Ab sirf backend se fetch kiye hue asli cakes hi dikhenge — koi dummy fallback nahi
+        if (res.ok && Array.isArray(data)) {
+          setProducts(data);
         } else {
-          setProducts(DUMMY_CAKES);
+          setProducts([]);
         }
       } catch {
-        setProducts(DUMMY_CAKES);
+        setProducts([]);
       } finally {
         setLoading(false);
       }

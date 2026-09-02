@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Homepage.css';
-import dummy1 from '../assets/dumy1.png';
 
 // 🟢 Backend API Base URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
@@ -77,54 +76,9 @@ export const getProductVariants = (product) => {
   ];
 };
 
-// 🟢 Dedicated Laddu Dummy Items
-const DUMMY_LADDUS = [
-  {
-    _id: 'dummy-1',
-    isDummy: true,
-    name: 'Pure Desi Ghee Motichoor Ladoo',
-    category: 'ladoo',
-    originRegion: 'Jodhpur',
-    description: 'Melt-in-mouth tiny boondi pearls fried in 100% pure desi ghee & garnished with pistachios. Prepared fresh daily using traditional village methods.',
-    price: 480,
-    originalPrice: 480,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy1,
-    inStock: true
-  },
-  {
-    _id: 'dummy-laddu-2',
-    isDummy: true,
-    name: 'Shuddh Desi Ghee Besan Ladoo',
-    category: 'ladoo',
-    originRegion: 'Bikaner',
-    description: 'Slow-roasted coarse gram flour in fragrant cow ghee with dry fruits and crushed green cardamom.',
-    price: 440,
-    originalPrice: 440,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy1,
-    inStock: true
-  },
-  {
-    _id: 'dummy-laddu-3',
-    isDummy: true,
-    name: 'Shahi Dry Fruit Atta Gond Laddu',
-    category: 'ladoo',
-    originRegion: 'Punjab',
-    description: 'Traditional winter special immunity booster crafted with edible gum (gond), roasted whole wheat flour, almonds and pure desi ghee.',
-    price: 620,
-    originalPrice: 620,
-    discount: 0,
-    offerText: '',
-    offerImage: '',
-    image: dummy1,
-    inStock: true
-  }
-];
+// 🟢 REMOVED: DUMMY_LADDUS fallback array (dummy1 image) — ab sirf
+// backend/API se fetch hue REAL laddu products hi dikhenge, koi bhi
+// dummy/fallback image ya product screen par nahi aayega.
 
 const getAuthToken = () => {
   try {
@@ -675,6 +629,9 @@ const LadduPage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 🟢 FIX: Ab sirf API se fetch hue laddu products set hote hain.
+  // Backend fail ho ya khaali response aaye, products list khaali (empty)
+  // rahegi — koi dummy/fallback image ab kabhi nahi dikhegi.
   useEffect(() => {
     const fetchLiveLaddus = async () => {
       try {
@@ -685,15 +642,13 @@ const LadduPage = ({ addToCart, addedToast }) => {
         if (res.ok && Array.isArray(data) && data.length > 0) {
           // Filter out ONLY laddu items from backend API
           const ladduApiItems = data.filter(isLadduProduct);
-          const apiIds = new Set(ladduApiItems.map((p) => p._id?.toString()));
-          const nonDupDummies = DUMMY_LADDUS.filter((d) => !apiIds.has(d._id?.toString()));
-          setProducts([...ladduApiItems, ...nonDupDummies]);
+          setProducts(ladduApiItems);
         } else {
-          setProducts(DUMMY_LADDUS);
+          setProducts([]);
         }
       } catch (err) {
-        console.warn('Backend offline, using fallback dummy laddus:', err);
-        setProducts(DUMMY_LADDUS);
+        console.warn('Backend offline / fetch failed:', err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -952,7 +907,7 @@ const LadduPage = ({ addToCart, addedToast }) => {
 
       {/* Product Grid */}
       <section className="sg-products-section sg-container">
-        {loading && products.length === 0 ? (
+        {loading ? (
           <div className="sg-empty-loading-state">
             <div className="sg-spinner"></div>
             <h3>🟡 Loading fresh pure ghee laddus...</h3>
