@@ -1393,7 +1393,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     {isHomeDeliveryType && (
                       <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1.5px solid #b91c1c' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#b91c1c', display: 'block', marginBottom: '4px' }}>
-                          Delivery Pincode * <span style={{ color: '#dc2626', fontSize: '0.74rem' }}>(Mandatory for calculation)</span>
+                          Delivery Pincode  <span style={{ color: '#dc2626', fontSize: '0.74rem' }}></span>
                         </label>
                         <input
                           type="text"
