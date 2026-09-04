@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 // API Base URL (Backend Port 5000/3000 auto-detect)
 const API_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://orange-ape-497824.hostingersite.com/api');
 
 const AdminInquiries = () => {
   const [contacts, setContacts] = useState([]);

@@ -24,7 +24,7 @@ const BulkEnquiry = () => {
     setResponseMsg({ type: '', text: '' });
 
     try {
-      const response = await fetch('https://seedhegaonse-1.onrender.com/api/enquiry', {
+      const response = await fetch('https://orange-ape-497824.hostingersite.com/api/enquiry', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

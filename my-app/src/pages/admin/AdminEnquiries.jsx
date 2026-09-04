@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import './AdminEnquiries.css';
 
-const SOCKET_SERVER_URL = 'https://seedhegaonse-1.onrender.com';
-const API_BASE_URL = 'https://seedhegaonse-1.onrender.com/api/enquiry';
+const SOCKET_SERVER_URL = 'https://orange-ape-497824.hostingersite.com/';
+const API_BASE_URL = 'https://orange-ape-497824.hostingersite.com/api/enquiry';
 
 const AdminEnquiries = () => {
   const [enquiries, setEnquiries] = useState([]);

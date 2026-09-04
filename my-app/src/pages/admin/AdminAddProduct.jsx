@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://orange-ape-497824.hostingersite.com/api');
 
 const CATEGORIES = [
   { value: 'ladoo', label: 'Ladoo' },
@@ -372,18 +372,134 @@ const AdminAllInOneProducts = () => {
   const isRemoveMode = bulkOffer.mode === 'remove';
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '20px auto', padding: '20px', fontFamily: 'Segoe UI, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <div style={{ maxWidth: '1100px', margin: '15px auto', padding: '12px', fontFamily: 'Segoe UI, sans-serif', boxSizing: 'border-box' }}>
+      
+      {/* 📱 RESPONSIVE MEDIA STYLES */}
+      <style>{`
+        .resp-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+        .resp-grid-3 {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          gap: 15px;
+        }
+        .resp-grid-2 {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 15px;
+        }
+        .coupon-row {
+          display: grid;
+          grid-template-columns: 1.5fr 1fr 1fr 1fr 1.5fr auto;
+          gap: 10px;
+          align-items: center;
+        }
+        .qty-row {
+          display: grid;
+          grid-template-columns: 2fr 2fr auto;
+          gap: 12px;
+          align-items: center;
+        }
+        .gift-row {
+          display: grid;
+          grid-template-columns: 1.5fr 3fr auto;
+          gap: 12px;
+          align-items: center;
+        }
+        .product-card {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+        }
+        .product-card-left {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+          min-width: 0;
+        }
+        .product-card-actions {
+          display: flex;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .section-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 25px;
+          border-bottom: 2px solid #f1f5f9;
+          padding-bottom: 8px;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        
+        @media (max-width: 768px) {
+          .coupon-row {
+            grid-template-columns: 1fr 1fr;
+          }
+          .coupon-row > div:nth-child(5) {
+            grid-column: 1 / -1;
+          }
+          .qty-row {
+            grid-template-columns: 1fr 1fr;
+          }
+          .gift-row {
+            grid-template-columns: 1fr;
+          }
+          .product-card {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .product-card-actions {
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f1f5f9;
+          }
+          .product-card-actions button {
+            flex: 1 1 auto;
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .coupon-row {
+            grid-template-columns: 1fr;
+          }
+          .qty-row {
+            grid-template-columns: 1fr;
+          }
+          .product-card-left {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .product-card-left img {
+            width: 100% !important;
+            height: 160px !important;
+          }
+        }
+      `}</style>
+
+      {/* HEADER */}
+      <div className="resp-header">
         <div>
-          <h1 style={{ margin: 0, color: '#94191d' }}>
+          <h1 style={{ margin: 0, color: '#94191d', fontSize: 'clamp(1.25rem, 4vw, 1.8rem)' }}>
             {editingId ? '✏️ Edit Sweet & Dynamic Multi-Offer Rules' : '➕ Add Sweet & Unlimited Custom Offers'}
           </h1>
-          <p style={{ margin: '5px 0 0', color: '#64748b' }}>
+          <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: '0.9rem' }}>
             Create and manage stock status, multiple discounts, pack quantity offers, secret coupons, and free gifts in one form!
           </p>
         </div>
         {editingId && (
-          <button onClick={handleCancelEdit} style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+          <button onClick={handleCancelEdit} style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', flexShrink: 0 }}>
             ✕ Cancel Edit
           </button>
         )}
@@ -413,10 +529,10 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {bulkPanelOpen && (
-          <div style={{ padding: '20px' }}>
+          <div style={{ padding: 'clamp(12px, 3vw, 20px)' }}>
 
             {/* SCOPE + MODE */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', background: '#fdf5f5', padding: '15px', borderRadius: '8px', border: '1px solid #f3d5d5' }}>
+            <div className="resp-grid-3" style={{ background: '#fdf5f5', padding: '15px', borderRadius: '8px', border: '1px solid #f3d5d5' }}>
               <div>
                 <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#94191d' }}>Apply To</label>
                 <select value={bulkOffer.category} onChange={(e) => setBulkField('category', e.target.value)} style={inputStyle}>
@@ -457,7 +573,7 @@ const AdminAllInOneProducts = () => {
               </label>
 
               {bulkOffer.applyDiscount && !isRemoveMode && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', padding: '15px' }}>
+                <div className="resp-grid-2" style={{ padding: '15px' }}>
                   <div>
                     <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#b45309' }}>Discount (%)</label>
                     <input type="number" min="0" max="100" placeholder="e.g. 15" value={bulkOffer.discountPercent} onChange={(e) => setBulkField('discountPercent', e.target.value)} style={inputStyle} />
@@ -472,7 +588,7 @@ const AdminAllInOneProducts = () => {
 
             {/* 🎟️ BULK COUPONS */}
             <div style={{ marginTop: '15px', border: '1px solid #ddd6fe', borderRadius: '8px', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '12px 15px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '12px 15px', flexWrap: 'wrap', gap: '10px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#6d28d9' }}>
                   <input type="checkbox" checked={bulkOffer.applyCoupons} onChange={(e) => setBulkField('applyCoupons', e.target.checked)} style={checkboxStyle} />
                   🎟️ Apply Coupons
@@ -487,7 +603,7 @@ const AdminAllInOneProducts = () => {
               {bulkOffer.applyCoupons && !isRemoveMode && (
                 <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {bulkOffer.couponsList.map((c, idx) => (
-                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.5fr auto', gap: '10px', alignItems: 'center' }}>
+                    <div key={idx} className="coupon-row" style={{ background: '#faf5ff', padding: '10px', borderRadius: '8px' }}>
                       <div>
                         <label style={miniLabel('#6d28d9')}>Code</label>
                         <input type="text" placeholder="SGS50" value={c.code} onChange={(e) => handleBulkArrayChange('couponsList', idx, 'code', e.target.value)} style={inputStyle} />
@@ -522,7 +638,7 @@ const AdminAllInOneProducts = () => {
 
             {/* 📦 BULK QUANTITY DISCOUNTS */}
             <div style={{ marginTop: '15px', border: '1px solid #fed7aa', borderRadius: '8px', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff7ed', padding: '12px 15px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff7ed', padding: '12px 15px', flexWrap: 'wrap', gap: '10px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#c2410c' }}>
                   <input type="checkbox" checked={bulkOffer.applyQtyDiscounts} onChange={(e) => setBulkField('applyQtyDiscounts', e.target.checked)} style={checkboxStyle} />
                   📦 Apply Quantity / Pack Discounts
@@ -537,7 +653,7 @@ const AdminAllInOneProducts = () => {
               {bulkOffer.applyQtyDiscounts && !isRemoveMode && (
                 <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {bulkOffer.quantityDiscounts.map((q, idx) => (
-                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr auto', gap: '12px', alignItems: 'center' }}>
+                    <div key={idx} className="qty-row" style={{ background: '#fffaf5', padding: '10px', borderRadius: '8px' }}>
                       <div>
                         <label style={miniLabel('#c2410c')}>Min Packs / Qty</label>
                         <input type="number" placeholder="e.g. 2" value={q.minQty} onChange={(e) => handleBulkArrayChange('quantityDiscounts', idx, 'minQty', e.target.value)} style={inputStyle} />
@@ -557,7 +673,7 @@ const AdminAllInOneProducts = () => {
 
             {/* 🎁 BULK GIFTS */}
             <div style={{ marginTop: '15px', border: '1px solid #bfdbfe', borderRadius: '8px', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '12px 15px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '12px 15px', flexWrap: 'wrap', gap: '10px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: '700', color: '#1e40af' }}>
                   <input type="checkbox" checked={bulkOffer.applyGifts} onChange={(e) => setBulkField('applyGifts', e.target.checked)} style={checkboxStyle} />
                   🎁 Apply Free Gifts
@@ -572,7 +688,7 @@ const AdminAllInOneProducts = () => {
               {bulkOffer.applyGifts && !isRemoveMode && (
                 <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {bulkOffer.giftTiers.map((g, idx) => (
-                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr auto', gap: '12px', alignItems: 'center' }}>
+                    <div key={idx} className="gift-row" style={{ background: '#f8faff', padding: '10px', borderRadius: '8px' }}>
                       <div>
                         <label style={miniLabel('#1e40af')}>Min Spend (₹)</label>
                         <input type="number" placeholder="e.g. 1500" value={g.minSpend} onChange={(e) => handleBulkArrayChange('giftTiers', idx, 'minSpend', e.target.value)} style={inputStyle} />
@@ -622,7 +738,8 @@ const AdminAllInOneProducts = () => {
                   fontWeight: 'bold',
                   fontSize: '0.95rem',
                   cursor: bulkLoading ? 'wait' : 'pointer',
-                  opacity: bulkLoading ? 0.7 : 1
+                  opacity: bulkLoading ? 0.7 : 1,
+                  flexGrow: 1
                 }}
               >
                 {bulkLoading
@@ -640,7 +757,7 @@ const AdminAllInOneProducts = () => {
                 Reset Panel
               </button>
 
-              <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+              <span style={{ fontSize: '0.82rem', color: '#64748b', width: '100%' }}>
                 These offers are saved directly to each product and will automatically reflect on the store and cart.
               </span>
             </div>
@@ -648,11 +765,11 @@ const AdminAllInOneProducts = () => {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
+      <form onSubmit={handleSubmit} style={{ background: '#fff', padding: 'clamp(14px, 3vw, 24px)', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
 
         {/* 1. BASIC DETAILS */}
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', color: '#334155' }}>📦 1. Basic Sweet Details</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', marginTop: '12px' }}>
+        <div className="resp-grid-3" style={{ marginTop: '12px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Sweet Name *</label>
             <input type="text" name="name" required placeholder="e.g. Pure Desi Ghee Besan Laddu" value={formData.name} onChange={handleChange} style={inputStyle} />
@@ -730,7 +847,7 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {/* 3. PRICING */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', marginTop: '15px' }}>
+        <div className="resp-grid-3" style={{ marginTop: '15px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Base Selling Price (₹) *</label>
             <input type="number" name="price" required min="1" placeholder="e.g. 500" value={formData.price} onChange={handleChange} style={inputStyle} />
@@ -749,7 +866,7 @@ const AdminAllInOneProducts = () => {
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#d97706' }}>
           ⏳ 3. Limited Days Special Discount (Timeline Offer)
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', marginTop: '12px', background: '#fffbeb', padding: '15px', borderRadius: '8px' }}>
+        <div className="resp-grid-2" style={{ marginTop: '12px', background: '#fffbeb', padding: '15px', borderRadius: '8px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Special Discount (%)</label>
             <input type="number" name="discountPercent" min="0" max="100" placeholder="e.g. 15" value={formData.discountPercent} onChange={handleChange} style={inputStyle} />
@@ -761,7 +878,7 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {/* 5. MULTIPLE COUPONS */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+        <div className="section-head">
           <h3 style={{ margin: 0, color: '#7c3aed' }}>🎟️ 4. Product Secret Coupons (Add Multiple with +)</h3>
           <button type="button" onClick={addCoupon} style={{ ...smallBtnStyle, background: '#7c3aed' }}>
             ➕ Add Another Coupon
@@ -770,7 +887,7 @@ const AdminAllInOneProducts = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
           {formData.couponsList.map((c, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.5fr auto', gap: '10px', background: '#f5f3ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+            <div key={idx} className="coupon-row" style={{ background: '#f5f3ff', padding: '12px 15px', borderRadius: '8px' }}>
               <div>
                 <label style={miniLabel('#6d28d9')}>Coupon Code</label>
                 <input type="text" placeholder="e.g. LADDU50" value={c.code} onChange={(e) => handleCouponChange(idx, 'code', e.target.value)} style={inputStyle} />
@@ -802,7 +919,7 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {/* 6. MULTIPLE PACK DISCOUNTS */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+        <div className="section-head">
           <h3 style={{ margin: 0, color: '#ea580c' }}>📦 5. Quantity / Pack Discounts (Buy 2+, Buy 5+ with +)</h3>
           <button type="button" onClick={addQtyDiscount} style={{ ...smallBtnStyle, background: '#ea580c' }}>
             ➕ Add Qty Slab
@@ -811,7 +928,7 @@ const AdminAllInOneProducts = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
           {formData.quantityDiscounts.map((q, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr auto', gap: '12px', background: '#fff7ed', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+            <div key={idx} className="qty-row" style={{ background: '#fff7ed', padding: '12px 15px', borderRadius: '8px' }}>
               <div>
                 <label style={miniLabel('#c2410c')}>Min Packs / Qty (e.g. 2, 5)</label>
                 <input type="number" placeholder="e.g. 2" value={q.minQty} onChange={(e) => handleQtyDiscountChange(idx, 'minQty', e.target.value)} style={inputStyle} />
@@ -828,7 +945,7 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {/* 7. MULTIPLE FREE GIFTS */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+        <div className="section-head">
           <h3 style={{ margin: 0, color: '#2563eb' }}>🎁 6. Free Gifts on Spending Roadmap (Add Multiple with +)</h3>
           <button type="button" onClick={addGiftTier} style={{ ...smallBtnStyle, background: '#2563eb' }}>
             ➕ Add More Gift Tier
@@ -837,7 +954,7 @@ const AdminAllInOneProducts = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
           {formData.giftTiers.map((tier, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr auto', gap: '12px', background: '#eff6ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+            <div key={idx} className="gift-row" style={{ background: '#eff6ff', padding: '12px 15px', borderRadius: '8px' }}>
               <div>
                 <label style={miniLabel('#1e40af')}>Min Spend to Unlock Gift (₹)</label>
                 <input type="number" placeholder="e.g. 1500" value={tier.minSpend} onChange={(e) => handleGiftTierChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
@@ -864,8 +981,8 @@ const AdminAllInOneProducts = () => {
         {/* 9. IMAGE UPLOAD */}
         <div style={{ marginTop: '20px' }}>
           <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Product Photo {editingId ? '(Leave empty to keep current)' : '*'}</label>
-          <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '8px' }}>
-            <input type="file" accept="image/*" onChange={handleImageChange} required={!editingId} />
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+            <input type="file" accept="image/*" onChange={handleImageChange} required={!editingId} style={{ maxWidth: '100%' }} />
             {imagePreview && (
               <img src={imagePreview} alt="Preview" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd' }} />
             )}
@@ -873,8 +990,8 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {/* SUBMIT BUTTON */}
-        <div style={{ marginTop: '25px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button type="submit" disabled={loading} style={{ padding: '12px 28px', background: editingId ? '#059669' : '#94191d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
+        <div style={{ marginTop: '25px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="submit" disabled={loading} style={{ padding: '12px 28px', background: editingId ? '#059669' : '#94191d', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', flexGrow: 1 }}>
             {loading ? 'Processing...' : editingId ? '💾 Update Sweet Product' : '🚀 Save & Publish Sweet'}
           </button>
           {editingId && (
@@ -882,7 +999,7 @@ const AdminAllInOneProducts = () => {
               Cancel
             </button>
           )}
-          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: formData.inStock ? '#15803d' : '#dc2626' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: formData.inStock ? '#15803d' : '#dc2626', width: '100%' }}>
             {formData.inStock ? '✅ Saving as IN STOCK' : '⛔ Saving as OUT OF STOCK'}
           </span>
         </div>
@@ -890,7 +1007,7 @@ const AdminAllInOneProducts = () => {
 
       {/* 📋 PRODUCTS LIST */}
       <div>
-        <h2>📋 All Store Sweets & Active Dynamic Offers ({products.length})</h2>
+        <h2 style={{ fontSize: 'clamp(1.1rem, 3.5vw, 1.5rem)' }}>📋 All Store Sweets & Active Dynamic Offers ({products.length})</h2>
         <div style={{ display: 'grid', gap: '12px' }}>
           {products.map((p) => {
             const hasTimeline = p.discountPercent > 0 && (!p.discountValidUntil || new Date(p.discountValidUntil) > new Date());
@@ -901,8 +1018,8 @@ const AdminAllInOneProducts = () => {
             const outOfStock = p.inStock === false;
 
             return (
-              <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', background: outOfStock ? '#fff8f8' : '#fff', padding: '16px 20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `5px solid ${outOfStock ? '#dc2626' : editingId === p._id ? '#059669' : '#94191d'}` }}>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+              <div key={p._id} className="product-card" style={{ background: outOfStock ? '#fff8f8' : '#fff', padding: 'clamp(12px, 2.5vw, 16px)', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `5px solid ${outOfStock ? '#dc2626' : editingId === p._id ? '#059669' : '#94191d'}` }}>
+                <div className="product-card-left">
                   <img
                     src={imgSrc}
                     alt={p.name}
@@ -912,7 +1029,8 @@ const AdminAllInOneProducts = () => {
                       borderRadius: '8px',
                       objectFit: 'cover',
                       filter: outOfStock ? 'blur(2px) grayscale(0.8)' : 'none',
-                      opacity: outOfStock ? 0.7 : 1
+                      opacity: outOfStock ? 0.7 : 1,
+                      flexShrink: 0
                     }}
                   />
                   <div>
@@ -956,7 +1074,7 @@ const AdminAllInOneProducts = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+                <div className="product-card-actions">
                   {/* 🟢 1-CLICK STOCK TOGGLE */}
                   <button
                     onClick={() => handleQuickStockToggle(p)}

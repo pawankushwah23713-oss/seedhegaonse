@@ -68,7 +68,7 @@ const AdminLayout = ({ user, onLogout }) => {
             onClick={closeSidebar}
             className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
           >
-            🍬 <span>Manage Sweets</span>
+            🍬 <span>Add sweets</span>
           </NavLink>
 
           <NavLink 

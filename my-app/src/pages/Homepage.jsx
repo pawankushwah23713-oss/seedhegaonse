@@ -7,7 +7,7 @@ import banner2 from '../assets/banner2.png';
 // 🟢 Backend API Base URL
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://orange-ape-497824.hostingersite.com/api');
 
 const SERVER_HOST = API_BASE.replace('/api', '');
 

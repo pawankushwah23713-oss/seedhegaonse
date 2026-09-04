@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://orange-ape-497824.hostingersite.com/api');
 
 const defaultCakeForm = {
   name: '',
@@ -261,18 +261,134 @@ const AdminAllInOneCakes = () => {
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '20px auto', padding: '20px', fontFamily: 'Segoe UI, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <div style={{ maxWidth: '1100px', margin: '15px auto', padding: '12px', fontFamily: 'Segoe UI, sans-serif', boxSizing: 'border-box' }}>
+      
+      {/* 📱 RESPONSIVE CSS INJECTED */}
+      <style>{`
+        .resp-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+        .resp-grid-3 {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 15px;
+        }
+        .resp-grid-2 {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 15px;
+        }
+        .coupon-row {
+          display: grid;
+          grid-template-columns: 1.5fr 1fr 1fr 1fr 1.5fr auto;
+          gap: 10px;
+          align-items: center;
+        }
+        .qty-row {
+          display: grid;
+          grid-template-columns: 2fr 2fr auto;
+          gap: 12px;
+          align-items: center;
+        }
+        .gift-row {
+          display: grid;
+          grid-template-columns: 1.5fr 3fr auto;
+          gap: 12px;
+          align-items: center;
+        }
+        .cake-card {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+        }
+        .cake-card-left {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+          min-width: 0;
+        }
+        .cake-card-actions {
+          display: flex;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .section-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 25px;
+          border-bottom: 2px solid #f1f5f9;
+          padding-bottom: 8px;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+          .coupon-row {
+            grid-template-columns: 1fr 1fr;
+          }
+          .coupon-row > div:nth-child(5) {
+            grid-column: 1 / -1;
+          }
+          .qty-row {
+            grid-template-columns: 1fr 1fr;
+          }
+          .gift-row {
+            grid-template-columns: 1fr;
+          }
+          .cake-card {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .cake-card-actions {
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f1f5f9;
+          }
+          .cake-card-actions button {
+            flex: 1 1 auto;
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .coupon-row {
+            grid-template-columns: 1fr;
+          }
+          .qty-row {
+            grid-template-columns: 1fr;
+          }
+          .cake-card-left {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .cake-card-left img {
+            width: 100% !important;
+            height: 160px !important;
+          }
+        }
+      `}</style>
+
+      {/* HEADER */}
+      <div className="resp-header">
         <div>
-          <h1 style={{ margin: 0, color: '#e11d48' }}>
+          <h1 style={{ margin: 0, color: '#e11d48', fontSize: 'clamp(1.25rem, 4vw, 1.8rem)' }}>
             {editingId ? '✏️ Edit Bakery Cake & Multi-Offer Rules' : '🎂 Add Fresh Cake & Custom Bakery Offers'}
           </h1>
-          <p style={{ margin: '5px 0 0', color: '#64748b' }}>
+          <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: '0.9rem' }}>
             Manage bakery cakes, stock toggle, weight variants, special timeline discounts, custom coupons & gifts!
           </p>
         </div>
         {editingId && (
-          <button onClick={handleCancelEdit} style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+          <button onClick={handleCancelEdit} style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', flexShrink: 0 }}>
             ✕ Cancel Edit
           </button>
         )}
@@ -284,11 +400,11 @@ const AdminAllInOneCakes = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
+      <form onSubmit={handleSubmit} style={{ background: '#fff', padding: 'clamp(14px, 3vw, 24px)', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', marginBottom: '40px' }}>
 
         {/* 1. BASIC DETAILS */}
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', color: '#334155' }}>🎂 1. Basic Cake Details</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', marginTop: '12px' }}>
+        <div className="resp-grid-3" style={{ marginTop: '12px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Cake Name *</label>
             <input type="text" name="name" required placeholder="e.g. Belgian Dark Chocolate Truffle Cake" value={formData.name} onChange={handleChange} style={inputStyle} />
@@ -368,7 +484,7 @@ const AdminAllInOneCakes = () => {
         </div>
 
         {/* 3. PRICING */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', marginTop: '15px' }}>
+        <div className="resp-grid-3" style={{ marginTop: '15px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Base Price (500g) (₹) *</label>
             <input type="number" name="price" required min="1" placeholder="e.g. 549" value={formData.price} onChange={handleChange} style={inputStyle} />
@@ -387,7 +503,7 @@ const AdminAllInOneCakes = () => {
         <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#d97706' }}>
           ⏳ 3. Limited Days Special Discount (Timeline Offer)
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', marginTop: '12px', background: '#fffbeb', padding: '15px', borderRadius: '8px' }}>
+        <div className="resp-grid-2" style={{ marginTop: '12px', background: '#fffbeb', padding: '15px', borderRadius: '8px' }}>
           <div>
             <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Special Discount (%)</label>
             <input type="number" name="discountPercent" min="0" max="100" placeholder="e.g. 10" value={formData.discountPercent} onChange={handleChange} style={inputStyle} />
@@ -399,7 +515,7 @@ const AdminAllInOneCakes = () => {
         </div>
 
         {/* 5. MULTIPLE COUPONS */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+        <div className="section-head">
           <h3 style={{ margin: 0, color: '#7c3aed' }}>🎟️ 4. Cake Secret Coupons</h3>
           <button type="button" onClick={addCoupon} style={{ padding: '6px 14px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
             ➕ Add Another Coupon
@@ -408,7 +524,7 @@ const AdminAllInOneCakes = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
           {formData.couponsList.map((c, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.5fr auto', gap: '10px', background: '#f5f3ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+            <div key={idx} className="coupon-row" style={{ background: '#f5f3ff', padding: '12px 15px', borderRadius: '8px' }}>
               <div>
                 <label style={{ fontWeight: '600', fontSize: '0.8rem', color: '#6d28d9' }}>Coupon Code</label>
                 <input type="text" placeholder="e.g. CAKE100" value={c.code} onChange={(e) => handleCouponChange(idx, 'code', e.target.value)} style={inputStyle} />
@@ -440,7 +556,7 @@ const AdminAllInOneCakes = () => {
         </div>
 
         {/* 6. QUANTITY DISCOUNT */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+        <div className="section-head">
           <h3 style={{ margin: 0, color: '#ea580c' }}>📦 5. Quantity / Multi-Cake Discounts</h3>
           <button type="button" onClick={addQtyDiscount} style={{ padding: '6px 14px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
             ➕ Add Qty Slab
@@ -449,7 +565,7 @@ const AdminAllInOneCakes = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
           {formData.quantityDiscounts.map((q, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr auto', gap: '12px', background: '#fff7ed', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+            <div key={idx} className="qty-row" style={{ background: '#fff7ed', padding: '12px 15px', borderRadius: '8px' }}>
               <div>
                 <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#c2410c' }}>Min Cakes (e.g. 2, 3)</label>
                 <input type="number" placeholder="e.g. 2" value={q.minQty} onChange={(e) => handleQtyDiscountChange(idx, 'minQty', e.target.value)} style={inputStyle} />
@@ -466,7 +582,7 @@ const AdminAllInOneCakes = () => {
         </div>
 
         {/* 7. FREE GIFTS */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '25px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
+        <div className="section-head">
           <h3 style={{ margin: 0, color: '#2563eb' }}>🎁 6. Free Gifts on Spending Tiers</h3>
           <button type="button" onClick={addGiftTier} style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
             ➕ Add More Gift Tier
@@ -475,7 +591,7 @@ const AdminAllInOneCakes = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
           {formData.giftTiers.map((tier, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr auto', gap: '12px', background: '#eff6ff', padding: '12px 15px', borderRadius: '8px', alignItems: 'center' }}>
+            <div key={idx} className="gift-row" style={{ background: '#eff6ff', padding: '12px 15px', borderRadius: '8px' }}>
               <div>
                 <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#1e40af' }}>Min Spend to Unlock Gift (₹)</label>
                 <input type="number" placeholder="e.g. 1200" value={tier.minSpend} onChange={(e) => handleGiftTierChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
@@ -502,8 +618,8 @@ const AdminAllInOneCakes = () => {
         {/* 9. IMAGE UPLOAD */}
         <div style={{ marginTop: '20px' }}>
           <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Cake Photo {editingId ? '(Leave empty to keep current)' : '*'}</label>
-          <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '8px' }}>
-            <input type="file" accept="image/*" onChange={handleImageChange} required={!editingId} />
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+            <input type="file" accept="image/*" onChange={handleImageChange} required={!editingId} style={{ maxWidth: '100%' }} />
             {imagePreview && (
               <img src={imagePreview} alt="Preview" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd' }} />
             )}
@@ -511,8 +627,8 @@ const AdminAllInOneCakes = () => {
         </div>
 
         {/* SUBMIT BUTTON */}
-        <div style={{ marginTop: '25px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button type="submit" disabled={loading} style={{ padding: '12px 28px', background: editingId ? '#059669' : '#e11d48', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
+        <div style={{ marginTop: '25px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="submit" disabled={loading} style={{ padding: '12px 28px', background: editingId ? '#059669' : '#e11d48', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', flexGrow: 1 }}>
             {loading ? 'Processing...' : editingId ? '💾 Update Cake' : '🚀 Save & Publish Cake'}
           </button>
           {editingId && (
@@ -520,7 +636,7 @@ const AdminAllInOneCakes = () => {
               Cancel
             </button>
           )}
-          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: formData.inStock ? '#15803d' : '#dc2626' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: formData.inStock ? '#15803d' : '#dc2626', width: '100%' }}>
             {formData.inStock ? '✅ Saving as IN STOCK' : '⛔ Saving as OUT OF STOCK'}
           </span>
         </div>
@@ -528,7 +644,7 @@ const AdminAllInOneCakes = () => {
 
       {/* 📋 CAKES LIST */}
       <div>
-        <h2>📋 All Bakery Cakes & Dynamic Offers ({cakes.length})</h2>
+        <h2 style={{ fontSize: 'clamp(1.1rem, 3.5vw, 1.5rem)' }}>📋 All Bakery Cakes & Dynamic Offers ({cakes.length})</h2>
         <div style={{ display: 'grid', gap: '12px' }}>
           {cakes.map((c) => {
             const hasTimeline = c.discountPercent > 0 && (!c.discountValidUntil || new Date(c.discountValidUntil) > new Date());
@@ -539,8 +655,8 @@ const AdminAllInOneCakes = () => {
             const outOfStock = c.inStock === false;
 
             return (
-              <div key={c._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', background: outOfStock ? '#fff8f8' : '#fff', padding: '16px 20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `5px solid ${outOfStock ? '#dc2626' : editingId === c._id ? '#059669' : '#e11d48'}` }}>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+              <div key={c._id} className="cake-card" style={{ background: outOfStock ? '#fff8f8' : '#fff', padding: 'clamp(12px, 2.5vw, 16px)', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: `5px solid ${outOfStock ? '#dc2626' : editingId === c._id ? '#059669' : '#e11d48'}` }}>
+                <div className="cake-card-left">
                   <img
                     src={imgSrc}
                     alt={c.name}
@@ -550,7 +666,8 @@ const AdminAllInOneCakes = () => {
                       borderRadius: '8px',
                       objectFit: 'cover',
                       filter: outOfStock ? 'blur(2px) grayscale(0.8)' : 'none',
-                      opacity: outOfStock ? 0.7 : 1
+                      opacity: outOfStock ? 0.7 : 1,
+                      flexShrink: 0
                     }}
                   />
                   <div>
@@ -593,7 +710,7 @@ const AdminAllInOneCakes = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+                <div className="cake-card-actions">
                   <button
                     onClick={() => handleQuickStockToggle(c)}
                     disabled={stockBusyId === c._id}

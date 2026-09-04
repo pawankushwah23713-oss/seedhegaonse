@@ -8,7 +8,7 @@ const API_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_UR
   ? (process.env.REACT_APP_API_URL.endsWith('/auth') ? process.env.REACT_APP_API_URL : `${process.env.REACT_APP_API_URL}/auth`)
   : (import.meta.env?.VITE_API_URL 
       ? (import.meta.env.VITE_API_URL.endsWith('/auth') ? import.meta.env.VITE_API_URL : `${import.meta.env.VITE_API_URL}/auth`)
-      : 'https://seedhegaonse-1.onrender.com/api/auth'); // Production fallback API URL
+      : 'https://orange-ape-497824.hostingersite.com/api/auth'); // Production fallback API URL
 
 const Auth = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
