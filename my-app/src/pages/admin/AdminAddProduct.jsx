@@ -537,9 +537,7 @@ const AdminAllInOneProducts = () => {
                 <label style={{ fontWeight: '700', fontSize: '0.85rem', color: '#94191d' }}>Apply To</label>
                 <select value={bulkOffer.category} onChange={(e) => setBulkField('category', e.target.value)} style={inputStyle}>
                   <option value="all">🍬 All Products</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label} only</option>
-                  ))}
+                  
                 </select>
               </div>
 
@@ -863,120 +861,24 @@ const AdminAllInOneProducts = () => {
         </div>
 
         {/* 4. TIMELINE DISCOUNT */}
-        <h3 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '8px', marginTop: '25px', color: '#d97706' }}>
-          ⏳ 3. Limited Days Special Discount (Timeline Offer)
-        </h3>
-        <div className="resp-grid-2" style={{ marginTop: '12px', background: '#fffbeb', padding: '15px', borderRadius: '8px' }}>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Special Discount (%)</label>
-            <input type="number" name="discountPercent" min="0" max="100" placeholder="e.g. 15" value={formData.discountPercent} onChange={handleChange} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', color: '#b45309' }}>Offer Valid Until (Expiry Date)</label>
-            <input type="datetime-local" name="discountValidUntil" value={formData.discountValidUntil} onChange={handleChange} style={inputStyle} />
-          </div>
-        </div>
+       
 
         {/* 5. MULTIPLE COUPONS */}
-        <div className="section-head">
-          <h3 style={{ margin: 0, color: '#7c3aed' }}>🎟️ 4. Product Secret Coupons (Add Multiple with +)</h3>
-          <button type="button" onClick={addCoupon} style={{ ...smallBtnStyle, background: '#7c3aed' }}>
-            ➕ Add Another Coupon
-          </button>
-        </div>
+       
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-          {formData.couponsList.map((c, idx) => (
-            <div key={idx} className="coupon-row" style={{ background: '#f5f3ff', padding: '12px 15px', borderRadius: '8px' }}>
-              <div>
-                <label style={miniLabel('#6d28d9')}>Coupon Code</label>
-                <input type="text" placeholder="e.g. LADDU50" value={c.code} onChange={(e) => handleCouponChange(idx, 'code', e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={miniLabel('#6d28d9')}>Type</label>
-                <select value={c.discountType} onChange={(e) => handleCouponChange(idx, 'discountType', e.target.value)} style={inputStyle}>
-                  <option value="flat">Flat (₹)</option>
-                  <option value="percentage">% Percent</option>
-                </select>
-              </div>
-              <div>
-                <label style={miniLabel('#6d28d9')}>Value</label>
-                <input type="number" placeholder="50" value={c.discountValue} onChange={(e) => handleCouponChange(idx, 'discountValue', e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={miniLabel('#6d28d9')}>Min Spend (₹)</label>
-                <input type="number" placeholder="500" value={c.minSpend} onChange={(e) => handleCouponChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={miniLabel('#6d28d9')}>Expiry Date</label>
-                <input type="datetime-local" value={c.validUntil} onChange={(e) => handleCouponChange(idx, 'validUntil', e.target.value)} style={inputStyle} />
-              </div>
-              {formData.couponsList.length > 1 && (
-                <button type="button" onClick={() => removeCoupon(idx)} style={removeBtnStyle} title="Remove">✕</button>
-              )}
-            </div>
-          ))}
-        </div>
+        
 
         {/* 6. MULTIPLE PACK DISCOUNTS */}
-        <div className="section-head">
-          <h3 style={{ margin: 0, color: '#ea580c' }}>📦 5. Quantity / Pack Discounts (Buy 2+, Buy 5+ with +)</h3>
-          <button type="button" onClick={addQtyDiscount} style={{ ...smallBtnStyle, background: '#ea580c' }}>
-            ➕ Add Qty Slab
-          </button>
-        </div>
+        
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-          {formData.quantityDiscounts.map((q, idx) => (
-            <div key={idx} className="qty-row" style={{ background: '#fff7ed', padding: '12px 15px', borderRadius: '8px' }}>
-              <div>
-                <label style={miniLabel('#c2410c')}>Min Packs / Qty (e.g. 2, 5)</label>
-                <input type="number" placeholder="e.g. 2" value={q.minQty} onChange={(e) => handleQtyDiscountChange(idx, 'minQty', e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={miniLabel('#c2410c')}>Extra Discount (% OFF)</label>
-                <input type="number" placeholder="e.g. 10" value={q.discountPercent} onChange={(e) => handleQtyDiscountChange(idx, 'discountPercent', e.target.value)} style={inputStyle} />
-              </div>
-              {formData.quantityDiscounts.length > 1 && (
-                <button type="button" onClick={() => removeQtyDiscount(idx)} style={removeBtnStyle} title="Remove">✕</button>
-              )}
-            </div>
-          ))}
-        </div>
-
+       =
         {/* 7. MULTIPLE FREE GIFTS */}
-        <div className="section-head">
-          <h3 style={{ margin: 0, color: '#2563eb' }}>🎁 6. Free Gifts on Spending Roadmap (Add Multiple with +)</h3>
-          <button type="button" onClick={addGiftTier} style={{ ...smallBtnStyle, background: '#2563eb' }}>
-            ➕ Add More Gift Tier
-          </button>
-        </div>
+       
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-          {formData.giftTiers.map((tier, idx) => (
-            <div key={idx} className="gift-row" style={{ background: '#eff6ff', padding: '12px 15px', borderRadius: '8px' }}>
-              <div>
-                <label style={miniLabel('#1e40af')}>Min Spend to Unlock Gift (₹)</label>
-                <input type="number" placeholder="e.g. 1500" value={tier.minSpend} onChange={(e) => handleGiftTierChange(idx, 'minSpend', e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={miniLabel('#1e40af')}>Free Gift Name / Title</label>
-                <input type="text" placeholder="e.g. Free 100g Mathura Peda Box" value={tier.giftTitle} onChange={(e) => handleGiftTierChange(idx, 'giftTitle', e.target.value)} style={inputStyle} />
-              </div>
-              {formData.giftTiers.length > 1 && (
-                <button type="button" onClick={() => removeGiftTier(idx)} style={removeBtnStyle} title="Remove">✕</button>
-              )}
-            </div>
-          ))}
-        </div>
+       
 
         {/* 8. FREE DELIVERY */}
-        <div style={{ marginTop: '18px', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: '#047857', cursor: 'pointer' }}>
-            <input type="checkbox" name="isFreeDelivery" checked={formData.isFreeDelivery} onChange={handleChange} style={checkboxStyle} />
-            🚚 Provide 100% FREE Delivery directly on this Sweet
-          </label>
-        </div>
+       
 
         {/* 9. IMAGE UPLOAD */}
         <div style={{ marginTop: '20px' }}>
