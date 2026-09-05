@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 // Variant Sub-schema (Weight, Price, Discounts, Available Qty, Stock Date)
 const variantSchema = new mongoose.Schema(
   {
-    weight: { type: String, trim: true, default: '' }, // e.g., "500g", "1kg"
+    weight: { type: String, trim: true, default: '' },
     price: { type: Number, default: 0 },
-    discountLumpsum: { type: Number, default: 0 }, // ₹ Flat discount
-    discountPercent: { type: Number, default: 0 },  // % Discount
-    quantityAvailable: { type: Number, default: 0 }, // If <= 0 -> Out of Stock
-    stockAvailableDate: { type: Date, default: null } // Date on which stock is available
+    discountLumpsum: { type: Number, default: 0 },
+    discountPercent: { type: Number, default: 0 },
+    quantityAvailable: { type: Number, default: 0 },
+    stockAvailableDate: { type: Date, default: null }
   },
   { _id: false }
 );
@@ -45,39 +45,31 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['ladoo', 'peda', 'petha', 'halwa', 'barfi', 'special']
+      default: 'ladoo'
     },
-    productRank: { type: Number, default: 0 },
-    latestProduct: { type: Boolean, default: false }, // Yes / No
+    productRank: { type: Number, default: 1 },
+    latestProduct: { type: Boolean, default: false },
     skuNo: { type: String, trim: true, default: '' },
     originRegion: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
 
-    // Attributes from Excel
-    shelfLife: { type: String, default: '' }, // e.g., "30 Days"
-    preservation: { type: String, default: '' }, // e.g., "Store in cool dry place"
-    desiGhee: { type: String, default: '' }, // e.g., "100% Pure Desi Ghee"
+    shelfLife: { type: String, default: '' },
+    preservation: { type: String, default: '' },
+    desiGhee: { type: String, default: '' },
     hygiene: { type: String, default: '' },
 
-    // Tax & Compliance
-    gstRate: { type: Number, default: 5 }, // GST %
+    gstRate: { type: Number, default: 5 },
     hsnCode: { type: String, default: '' },
 
-    // Dynamic Variants
     variants: { type: [variantSchema], default: [] },
-
-    // Fallback base pricing
-    price: { type: Number, required: true, min: 0 },
+    price: { type: Number, required: true, default: 0 },
     originalPrice: { type: Number, default: 0 },
 
-    // Multi-Image Array (Image 1, Image 2, Image 3)
     images: { type: [String], default: [] },
-    image: { type: String, default: '' }, // Fallback for backward compatibility
+    image: { type: String, default: '' },
 
-    // Stock Management
     inStock: { type: Boolean, default: true },
 
-    // Offers & Dynamic slabs
     discountPercent: { type: Number, default: 0 },
     discountValidUntil: { type: Date, default: null },
     couponsList: { type: [couponItemSchema], default: [] },
@@ -86,17 +78,19 @@ const productSchema = new mongoose.Schema(
     giftTiers: { type: [giftTierSchema], default: [] },
     isFreeDelivery: { type: Boolean, default: false }
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
-// Pre-save hook: Automatically evaluate inStock if variants exist
-productSchema.pre('save', function (next) {
+// 🟢 FIX: Modern Mongoose (v7/v8) compatible pre-save hook (NO next argument)
+productSchema.pre('save', function () {
   if (this.variants && this.variants.length > 0) {
     const totalQty = this.variants.reduce((acc, curr) => acc + (Number(curr.quantityAvailable) || 0), 0);
     this.inStock = totalQty > 0;
   }
-  next();
 });
 
-const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+const Product = mongoose.models && mongoose.models.Product
+  ? mongoose.models.Product
+  : mongoose.model('Product', productSchema);
+
 module.exports = Product;
