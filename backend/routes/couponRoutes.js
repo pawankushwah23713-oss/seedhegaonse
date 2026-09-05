@@ -26,7 +26,6 @@ const extractUserId = (req) => {
 const getUserCouponUsage = (user, codeUpper) => {
   if (!user) return 0;
 
-  // 1. History array me count check karein [{ code: 'SGS100', count: 3 }]
   if (Array.isArray(user.couponUsageHistory)) {
     const found = user.couponUsageHistory.find(
       (c) => String(c.code).trim().toUpperCase() === codeUpper
@@ -36,7 +35,6 @@ const getUserCouponUsage = (user, codeUpper) => {
     }
   }
 
-  // 2. Legacy string array check karein ['SGS50', 'SGS100']
   if (Array.isArray(user.usedCoupons)) {
     return user.usedCoupons.filter(
       (c) => String(c).trim().toUpperCase() === codeUpper
@@ -46,7 +44,7 @@ const getUserCouponUsage = (user, codeUpper) => {
   return 0;
 };
 
-// 🟢 NEW Helper: userId (ObjectId) / email / phone — kisi se bhi user dhundo
+// Helper: userId (ObjectId) / email / phone se user dhundo
 const findUserByIdentifier = async (identifier) => {
   if (!identifier) return null;
   const trimmed = String(identifier).trim();
@@ -78,7 +76,7 @@ const handleAddCoupon = async (req, res) => {
       percentageAmount,
       maxDiscountValue,
       isActive,
-      assignedUser // 🟢 optional - agar diya gaya to ye coupon sirf usi user ke liye lock ho jayega
+      assignedUser
     } = req.body;
 
     if (!code) {
@@ -90,7 +88,6 @@ const handleAddCoupon = async (req, res) => {
     const finalMaxPerUser =
       finalUsage === 'first_time' ? 1 : Number(maxUsagePerUser || finalUsage) || 1;
 
-    // 🟢 Agar assignedUser bheja gaya hai (userId/email/phone), to actual User document dhundo
     let assignedUserId = null;
     if (assignedUser) {
       const foundUser = await findUserByIdentifier(assignedUser);
@@ -157,7 +154,7 @@ router.get('/', async (req, res) => {
 });
 
 // =========================================================
-// ⚡ 3. SEED EXCEL SHEET COUPONS (SGS50, SGS100, SGS125)
+// ⚡ 3. SEED EXCEL SHEET COUPONS
 // =========================================================
 router.post('/seed-excel-coupons', async (req, res) => {
   try {
@@ -211,7 +208,7 @@ router.post('/seed-excel-coupons', async (req, res) => {
 });
 
 // =========================================================
-// 🔍 4. VERIFY COUPON (STRICT USAGE LIMIT + BASE VALUE + CAP)
+// 🔍 4. VERIFY COUPON
 // =========================================================
 router.post('/verify', async (req, res) => {
   try {
@@ -223,7 +220,6 @@ router.post('/verify', async (req, res) => {
     const upperCode = String(code).trim().toUpperCase();
     const cartAmount = Number(cartTotal) || 0;
 
-    // Database se coupon fetch karo ya Excel sheet se fallback lo
     let coupon = await Coupon.findOne({ code: upperCode, isActive: true }).lean();
 
     if (!coupon) {
@@ -242,17 +238,15 @@ router.post('/verify', async (req, res) => {
 
     const userId = extractUserId(req);
 
-    // 🛑 0. PRIVATE / ASSIGNED-USER COUPON CHECK (🟢 new)
     if (coupon.assignedUser) {
       if (!userId || String(coupon.assignedUser) !== String(userId)) {
         return res.status(403).json({
           success: false,
-          message: `⚠️ Coupon "${upperCode}" sirf ek specific user ke liye assign kiya gaya hai. Aap ise use nahi kar sakte.`
+          message: `⚠️ Coupon "${upperCode}" sirf ek specific user ke liye assign kiya gaya hai.`
         });
       }
     }
 
-    // 🛑 1. STRICT NO. OF TIMES USAGE LIMIT CHECK
     const maxAllowed =
       coupon.noOfTimesUse === 'first_time'
         ? 1
@@ -263,20 +257,18 @@ router.post('/verify', async (req, res) => {
       if (user) {
         const timesUsed = getUserCouponUsage(user, upperCode);
 
-        // Agar user ne limit cross kar di hai -> STRICT BLOCK
         if (timesUsed >= maxAllowed) {
           return res.status(400).json({
             success: false,
             message:
               coupon.noOfTimesUse === 'first_time' || maxAllowed === 1
-                ? `⚠️ Coupon "${upperCode}" sirf 1st Order (First Time) use ke liye valid tha. Aap ise pehle use kar chuke hain.`
+                ? `⚠️ Coupon "${upperCode}" sirf 1st Order use ke liye valid tha. Aap ise pehle use kar chuke hain.`
                 : `⚠️ Aap "${upperCode}" coupon ki limit (${maxAllowed} baar) poori kar chuke hain.`
           });
         }
       }
     }
 
-    // 🛑 2. BASE VALUE (MIN ORDER AMOUNT) CHECK
     if (cartAmount < (coupon.baseValue || 0)) {
       return res.status(400).json({
         success: false,
@@ -284,7 +276,6 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    // 🛑 3. DISCOUNT CALCULATION + MAX DISCOUNT CAP
     let calculatedDiscount = 0;
     if (coupon.discountType === 'percentage') {
       const raw = (cartAmount * (Number(coupon.percentageAmount) || 0)) / 100;
@@ -310,7 +301,7 @@ router.post('/verify', async (req, res) => {
 });
 
 // =========================================================
-// 📝 5. RECORD USAGE (+1) (Order place hone par call hoga)
+// 📝 5. RECORD USAGE (+1)
 // =========================================================
 router.post('/record-usage', async (req, res) => {
   try {
@@ -327,11 +318,9 @@ router.post('/record-usage', async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // 1. usedCoupons array me add karein
     if (!Array.isArray(user.usedCoupons)) user.usedCoupons = [];
     user.usedCoupons.push(upperCode);
 
-    // 2. couponUsageHistory me count +1 karein
     if (!Array.isArray(user.couponUsageHistory)) user.couponUsageHistory = [];
     const existingIndex = user.couponUsageHistory.findIndex(
       (c) => String(c.code).trim().toUpperCase() === upperCode
@@ -357,19 +346,17 @@ router.post('/record-usage', async (req, res) => {
 });
 
 // =========================================================
-// 🗑️ 6. DELETE COUPON (ID ya Code dono se delete karega)
+// 🗑️ 6. DELETE COUPON
 // =========================================================
 router.delete('/admin/:id', async (req, res) => {
   try {
     const { id } = req.params;
     let deleted = null;
 
-    // Agar MongoDB ObjectId hai
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
       deleted = await Coupon.findByIdAndDelete(id);
     }
 
-    // Agar code hai (e.g. SGS50)
     if (!deleted) {
       deleted = await Coupon.findOneAndDelete({ code: String(id).trim().toUpperCase() });
     }
@@ -385,10 +372,8 @@ router.delete('/admin/:id', async (req, res) => {
 });
 
 // =========================================================
-// 👛 7. 🟢 NEW: GET LOGGED-IN USER'S OWN WALLET BALANCE (Customer Endpoint)
+// 👛 7. GET LOGGED-IN USER'S OWN WALLET BALANCE
 // =========================================================
-// Frontend (MyCoupons.jsx) isko apne token ke saath call karega taaki
-// user apna khud ka wallet balance + history dekh sake.
 router.get('/my-wallet', async (req, res) => {
   try {
     const userId = extractUserId(req);
@@ -403,8 +388,8 @@ router.get('/my-wallet', async (req, res) => {
 
     return res.json({
       success: true,
-      walletBalance: user.walletBalance || 0,
-      walletHistory: (user.walletHistory || []).slice().reverse() // latest pehle
+      walletBalance: Number(user.walletBalance) || 0,
+      walletHistory: (user.walletHistory || []).slice().reverse()
     });
   } catch (err) {
     console.error('My wallet fetch error:', err);
@@ -413,14 +398,63 @@ router.get('/my-wallet', async (req, res) => {
 });
 
 // =========================================================
-// 👛 8a. 🟢 NEW: ADD WALLET CREDIT TO A SPECIFIC USER (Admin Endpoint)
+// 👛 8. 🟢 FIX: DEDUCT / DEBIT FROM LOGGED-IN USER'S WALLET (Order Checkout Call)
 // =========================================================
-// Ye coupon nahi hai — seedha us user ke wallet balance me paisa add karta hai,
-// jise wo user khud (bina kisi code ke) checkout par use kar sakta hai.
-//
-// NOTE: User model me ye fields hone chahiye (agar nahi hai to add kar lena):
-//   walletBalance: { type: Number, default: 0 }
-//   walletHistory: [{ amount: Number, note: String, addedBy: String, date: { type: Date, default: Date.now } }]
+router.post('/my-wallet/debit', async (req, res) => {
+  try {
+    const userId = extractUserId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized. Login required.' });
+    }
+
+    const debitAmount = Number(req.body.amount);
+    const { orderId, note } = req.body;
+
+    if (!debitAmount || debitAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid debit amount.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const currentBalance = Number(user.walletBalance) || 0;
+    if (currentBalance < debitAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient wallet balance. Current: ₹${currentBalance}, Requested: ₹${debitAmount}`
+      });
+    }
+
+    // 🛑 Deduct from wallet balance in MongoDB
+    user.walletBalance = Math.round((currentBalance - debitAmount) * 100) / 100;
+
+    // Record in transaction history
+    if (!Array.isArray(user.walletHistory)) user.walletHistory = [];
+    user.walletHistory.push({
+      amount: -debitAmount,
+      note: note || `Used in order #${orderId || ''}`,
+      addedBy: 'checkout',
+      date: new Date()
+    });
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: `₹${debitAmount} deducted from wallet successfully!`,
+      walletBalance: user.walletBalance
+    });
+  } catch (err) {
+    console.error('Wallet debit error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// =========================================================
+// 👛 9. ADD WALLET CREDIT TO A SPECIFIC USER (Admin Endpoint)
+// =========================================================
 router.post('/admin/wallet-credit', async (req, res) => {
   try {
     const { identifier, amount, note } = req.body;
@@ -428,13 +462,13 @@ router.post('/admin/wallet-credit', async (req, res) => {
     if (!identifier) {
       return res.status(400).json({
         success: false,
-        message: 'User identifier (userId, email, ya phone number) required hai.'
+        message: 'User identifier (userId, email, ya phone) required hai.'
       });
     }
 
     const creditAmount = Number(amount);
     if (!creditAmount || creditAmount <= 0) {
-      return res.status(400).json({ success: false, message: 'Valid amount (0 se zyada) dijiye.' });
+      return res.status(400).json({ success: false, message: 'Valid amount dijiye.' });
     }
 
     const user = await findUserByIdentifier(identifier);
@@ -475,7 +509,7 @@ router.post('/admin/wallet-credit', async (req, res) => {
 });
 
 // =========================================================
-// 👛 8b. 🟢 NEW: GET A USER'S WALLET BALANCE + HISTORY (Admin Endpoint)
+// 👛 10. GET A USER'S WALLET BALANCE + HISTORY (Admin Endpoint)
 // =========================================================
 router.get('/admin/wallet/:identifier', async (req, res) => {
   try {

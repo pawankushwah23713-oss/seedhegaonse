@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartDrawer.css';
@@ -141,7 +142,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
-  // 🎟️ Track count of how many times each coupon has been used { 'SGS100': 2, 'SGS50': 1 }
+  // 👛 WALLET STATES
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [isWalletUsed, setIsWalletUsed] = useState(false);
+
+  // 🎟️ Track count of how many times each coupon has been used
   const [couponUsageMap, setCouponUsageMap] = useState(() => {
     try {
       const cached = localStorage.getItem('sgs_coupon_usage_map');
@@ -211,6 +216,32 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   }, [shippingMode]);
 
+  // 👛 Fetch User Wallet Balance
+  useEffect(() => {
+    if (!isOpen) return;
+    const token = getAuthToken();
+    if (!token) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/coupons/my-wallet`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) {
+            setWalletBalance(Number(data.walletBalance) || 0);
+          }
+        }
+      } catch (err) {
+        console.error('Wallet fetch error:', err);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
   // Load coupon usage frequency from past orders & API
   useEffect(() => {
     if (!isOpen) return;
@@ -222,7 +253,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       try {
         const usageCounts = { ...couponUsageMap };
 
-        // 1. Fetch user orders to calculate true count of times used
         try {
           const resOrders = await fetch(`${API_BASE}/orders/my-orders`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -245,7 +275,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           console.error(e);
         }
 
-        // 2. Fetch backend my-coupons
         try {
           const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -578,13 +607,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const bulkDiscount = round2(itemQtyDiscountsTotal);
 
   // =========================================================================
-  // 🎟️ MULTI-USAGE COUPONS ENGINE (Matched with Backend Schema)
+  // 🎟️ MULTI-USAGE COUPONS ENGINE
   // =========================================================================
   const availableCoupons = useMemo(() => {
     const list = [];
     const seen = new Set();
 
-    // Default configuration matching your schema
     const defaultExcelCoupons = [
       {
         code: 'SGS50',
@@ -642,7 +670,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       const usedCount = couponUsageMap[code] || 0;
       const remainingUses = Math.max(0, maxUsage - usedCount);
 
-      // 🛑 Hide coupon ONLY if user has completely used up all allowed times
       if (usedCount >= maxUsage) return;
 
       const minSpend = parseNumericPrice(c.baseValue);
@@ -672,7 +699,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     return list;
   }, [storeSettings.globalCoupons, effectiveCartTotal, couponUsageMap]);
 
-  // ✅ Auto-recalculate or invalidate applied coupon when cart items change
   useEffect(() => {
     if (!appliedCoupon) return;
     const matched = availableCoupons.find((c) => c.code === appliedCoupon.code);
@@ -699,11 +725,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   }, [effectiveCartTotal, availableCoupons, appliedCoupon]);
 
-  // =========================================================================
-  // 🎁 EXCEL SHEET FREE GIFT RULE:
-  // Order (Base Value) Rs. 1500/- -> Free Gift Automatically show
-  // Order (Base Value) Rs. 2500/- -> First Free Gift Show Off and new Gift Show
-  // =========================================================================
   const freeGiftState = useMemo(() => {
     if (effectiveCartTotal >= 2500) {
       return {
@@ -754,9 +775,18 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const giftBoxAvailable = storeSettings.giftBoxEnabled && GIFT_BOX_CHARGE > 0;
   const giftBoxAmount = (giftBoxAvailable && isGiftBoxSelected) ? GIFT_BOX_CHARGE : 0;
 
-  const grandTotal = round2(
+  // Total payable before applying wallet balance
+  const totalBeforeWallet = round2(
     Math.max(0, taxableProductAmount + (shippingMode ? shippingCharge : 0) + totalTaxAmount + giftBoxAmount)
   );
+
+  // 👛 Dynamic Wallet Deduction
+  const walletDeduction = (isWalletUsed && walletBalance > 0)
+    ? round2(Math.min(walletBalance, totalBeforeWallet))
+    : 0;
+
+  // Final Grand Total after deducting Wallet Balance
+  const grandTotal = round2(Math.max(0, totalBeforeWallet - walletDeduction));
 
   const handleProceedToCheckout = () => {
     if (!shippingMode) {
@@ -793,7 +823,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     const upper = rawCode.trim().toUpperCase();
     setCouponCode(upper);
 
-    // Check usage limits locally first
     const matched = availableCoupons.find((c) => c.code === upper);
     const usedCount = couponUsageMap[upper] || 0;
     const maxAllowed = matched ? matched.maxUsage : 1;
@@ -823,7 +852,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       setAppliedCoupon({ code: data.code || upper, discount: serverDisc });
       setCouponMsg({ text: data.message || `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
     } catch {
-      // Local Sheet Rules Fallback
       if (matched) {
         if (effectiveCartTotal < matched.minSpend) {
           return setCouponMsg({
@@ -912,7 +940,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       return;
     }
 
-    if (paymentMethod === 'UPI' && !upiRef.trim()) {
+    // Only check UPI transaction reference if grandTotal > 0 and user opted for UPI
+    if (grandTotal > 0 && paymentMethod === 'UPI' && !upiRef.trim()) {
       setError('⚠️ Please enter the UPI transaction / reference ID after completing the payment.');
       return;
     }
@@ -950,6 +979,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
             ? 'Direct Store Pickup (Free)'
             : `Standard Home Delivery - Pincode: ${shippingAddress.pincode} (${shippingAddress.city}) [GST: ${currentShippingGstPercent}%]`;
 
+      const resolvedPaymentMethod = grandTotal === 0 && walletDeduction > 0 ? 'WALLET' : paymentMethod.toUpperCase();
+
       const orderPayload = {
         customer: {
           ...shippingAddress,
@@ -972,9 +1003,10 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         taxAmount: round2(totalTaxAmount),
         giftBoxCharge: round2(giftBoxAmount),
         giftBoxTitle: giftBoxAmount > 0 ? GIFT_BOX_TITLE : '',
+        walletAmountUsed: round2(walletDeduction),
         totalAmount: round2(grandTotal),
-        paymentMethod: paymentMethod.toUpperCase(),
-        upiTransactionId: upiRef
+        paymentMethod: resolvedPaymentMethod,
+        upiTransactionId: grandTotal > 0 ? upiRef : ''
       };
 
       const res = await fetch(`${API_BASE}/orders`, {
@@ -999,7 +1031,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         createdAt: new Date().toLocaleString('en-IN')
       });
 
-      // ✅ Increment Coupon Usage count on successful order
+      // Deduct wallet balance locally
+      if (walletDeduction > 0) {
+        setWalletBalance((prev) => Math.max(0, round2(prev - walletDeduction)));
+      }
+
+      // Increment Coupon Usage count on successful order
       if (appliedCoupon?.code) {
         const usedCode = appliedCoupon.code.toUpperCase();
         setCouponUsageMap((prev) => {
@@ -1027,7 +1064,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         }
       }
 
-      // Save address to user profile if opted
       if (shippingAddress.saveAddress) {
         try {
           const userObj = getSavedUser() || {};
@@ -1106,6 +1142,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           <tr><td>Shipping</td><td style="text-align:right;">₹${formatMoney(d.shippingCharge)}</td></tr>
           <tr><td>Tax (GST)</td><td style="text-align:right;">₹${formatMoney(d.taxAmount)}</td></tr>
           ${d.giftBoxCharge > 0 ? `<tr><td>${d.giftBoxTitle}</td><td style="text-align:right;">₹${formatMoney(d.giftBoxCharge)}</td></tr>` : ''}
+          ${d.walletAmountUsed > 0 ? `<tr><td style="color:#0284c7;font-weight:bold;">👛 Wallet Balance Used</td><td style="text-align:right;color:#0284c7;font-weight:bold;">- ₹${formatMoney(d.walletAmountUsed)}</td></tr>` : ''}
           <tr class="grand"><td>Grand Total</td><td style="text-align:right;">₹${formatMoney(d.totalAmount)}</td></tr>
         </table>
 
@@ -1281,8 +1318,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      
-                      {/* Tier 1: ₹1500 */}
                       <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 1 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 1 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 1 ? '#15803d' : '#475569' }}>
@@ -1309,7 +1344,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </div>
                       </div>
 
-                      {/* Tier 2: ₹2500 */}
                       <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 2 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 2 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 2 ? '#15803d' : '#475569' }}>
@@ -1439,7 +1473,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         <strong>₹{formatMoney(effectiveCartTotal)}</strong>
                       </div>
 
-                      {/* 🎁 Free Gift Active Status */}
                       {freeGiftState.activeTitle && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803d', fontWeight: '700' }}>
                           <span>🎁 Free Gift Unlocked</span>
@@ -1530,6 +1563,46 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                             + ₹{formatMoney(GIFT_BOX_CHARGE)}
                           </span>
                         </label>
+                      )}
+
+                      {/* 👛 WALLET CHECKBOX & TOGGLE */}
+                      {walletBalance > 0 && (
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '9px',
+                            padding: '10px 11px',
+                            borderRadius: '8px',
+                            background: isWalletUsed ? '#f0f9ff' : '#f8fafc',
+                            border: `1.5px solid ${isWalletUsed ? '#0284c7' : '#e2e8f0'}`,
+                            cursor: 'pointer',
+                            marginTop: '2px'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isWalletUsed}
+                            onChange={(e) => setIsWalletUsed(e.target.checked)}
+                            style={{ width: '17px', height: '17px', accentColor: '#0284c7', cursor: 'pointer', flexShrink: 0 }}
+                          />
+                          <span style={{ flex: 1, fontSize: '0.84rem', fontWeight: '700', color: isWalletUsed ? '#0369a1' : '#334155' }}>
+                            👛 Use Wallet Balance (₹{formatMoney(walletBalance)})
+                          </span>
+                          {isWalletUsed && walletDeduction > 0 && (
+                            <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0284c7', whiteSpace: 'nowrap' }}>
+                              - ₹{formatMoney(walletDeduction)}
+                            </span>
+                          )}
+                        </label>
+                      )}
+
+                      {/* 👛 Show Wallet Deduction Line Item if applied */}
+                      {isWalletUsed && walletDeduction > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: '700' }}>
+                          <span>👛 Wallet Amount Used</span>
+                          <span>- ₹{formatMoney(walletDeduction)}</span>
+                        </div>
                       )}
 
                       <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1799,39 +1872,47 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                 <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '20px', marginBottom: '20px' }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', margin: '0 0 12px' }}>💳 Payment Method</h3>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', border: `1.5px solid ${paymentMethod === 'COD' ? '#b91c1c' : '#cbd5e1'}`, borderRadius: '8px', cursor: 'pointer', background: paymentMethod === 'COD' ? '#fff5f5' : '#fff' }}>
-                      <input type="radio" name="paymentMethod" value="COD" checked={paymentMethod === 'COD'} onChange={() => setPaymentMethod('COD')} />
-                      <div>
-                        <strong>💵 Cash on Delivery</strong>
-                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>Pay on delivery</div>
-                      </div>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', border: `1.5px solid ${paymentMethod === 'UPI' ? '#b91c1c' : '#cbd5e1'}`, borderRadius: '8px', cursor: 'pointer', background: paymentMethod === 'UPI' ? '#fff5f5' : '#fff' }}>
-                      <input type="radio" name="paymentMethod" value="UPI" checked={paymentMethod === 'UPI'} onChange={() => setPaymentMethod('UPI')} />
-                      <div>
-                        <strong>📲 UPI Instant Pay</strong>
-                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>GPay / PhonePe / Paytm</div>
-                      </div>
-                    </label>
-                  </div>
-
-                  {paymentMethod === 'UPI' && (
-                    <div style={{ background: '#f0fdf4', border: '1px dashed #22c55e', padding: '14px', borderRadius: '8px', marginTop: '12px' }}>
-                      <a
-                        href={`upi://pay?pa=seedhegaonse@upi&pn=${encodeURIComponent('Seedhe Gaon Se')}&am=${grandTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order Payment')}`}
-                        style={{ display: 'inline-block', background: '#16a34a', color: '#fff', padding: '10px 16px', borderRadius: '6px', fontWeight: 'bold', textDecoration: 'none', marginBottom: '10px', fontSize: '0.88rem' }}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        📲 Click to Pay ₹{formatMoney(grandTotal)} via UPI
-                      </a>
-                      <div>
-                        <label style={labelStyle}>UPI Transaction / Reference ID <span style={{ color: '#b91c1c' }}>*</span></label>
-                        <input type="text" required placeholder="Enter UPI Ref ID" value={upiRef} onChange={(e) => setUpiRef(e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
-                      </div>
+                  {grandTotal === 0 && walletDeduction > 0 ? (
+                    <div style={{ background: '#f0fdf4', border: '1.5px solid #22c55e', padding: '14px', borderRadius: '8px', color: '#15803d', fontWeight: '700', fontSize: '0.92rem' }}>
+                      ✓ ₹{formatMoney(walletDeduction)} deducted from your Wallet. <strong>Your order is fully paid!</strong> No additional payment required.
                     </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', border: `1.5px solid ${paymentMethod === 'COD' ? '#b91c1c' : '#cbd5e1'}`, borderRadius: '8px', cursor: 'pointer', background: paymentMethod === 'COD' ? '#fff5f5' : '#fff' }}>
+                          <input type="radio" name="paymentMethod" value="COD" checked={paymentMethod === 'COD'} onChange={() => setPaymentMethod('COD')} />
+                          <div>
+                            <strong>💵 Cash on Delivery</strong>
+                            <div style={{ fontSize: '0.74rem', color: '#64748b' }}>Pay on delivery</div>
+                          </div>
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', border: `1.5px solid ${paymentMethod === 'UPI' ? '#b91c1c' : '#cbd5e1'}`, borderRadius: '8px', cursor: 'pointer', background: paymentMethod === 'UPI' ? '#fff5f5' : '#fff' }}>
+                          <input type="radio" name="paymentMethod" value="UPI" checked={paymentMethod === 'UPI'} onChange={() => setPaymentMethod('UPI')} />
+                          <div>
+                            <strong>📲 UPI Instant Pay</strong>
+                            <div style={{ fontSize: '0.74rem', color: '#64748b' }}>GPay / PhonePe / Paytm</div>
+                          </div>
+                        </label>
+                      </div>
+
+                      {paymentMethod === 'UPI' && (
+                        <div style={{ background: '#f0fdf4', border: '1px dashed #22c55e', padding: '14px', borderRadius: '8px', marginTop: '12px' }}>
+                          <a
+                            href={`upi://pay?pa=seedhegaonse@upi&pn=${encodeURIComponent('Seedhe Gaon Se')}&am=${grandTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order Payment')}`}
+                            style={{ display: 'inline-block', background: '#16a34a', color: '#fff', padding: '10px 16px', borderRadius: '6px', fontWeight: 'bold', textDecoration: 'none', marginBottom: '10px', fontSize: '0.88rem' }}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            📲 Click to Pay ₹{formatMoney(grandTotal)} via UPI
+                          </a>
+                          <div>
+                            <label style={labelStyle}>UPI Transaction / Reference ID <span style={{ color: '#b91c1c' }}>*</span></label>
+                            <input type="text" required placeholder="Enter UPI Ref ID" value={upiRef} onChange={(e) => setUpiRef(e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -1893,6 +1974,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax (GST)</span><span>₹{formatMoney(placedOrderDetails.taxAmount)}</span></div>
                   {placedOrderDetails.giftBoxCharge > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>{placedOrderDetails.giftBoxTitle}</span><span>₹{formatMoney(placedOrderDetails.giftBoxCharge)}</span></div>
+                  )}
+                  {placedOrderDetails.walletAmountUsed > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: 'bold' }}>
+                      <span>👛 Wallet Balance Used</span>
+                      <span>- ₹{formatMoney(placedOrderDetails.walletAmountUsed)}</span>
+                    </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px dashed #cbd5e1', paddingTop: '8px', marginTop: '4px' }}>
                     <span style={{ fontSize: '1.02rem', fontWeight: '800' }}>Grand Total</span>
