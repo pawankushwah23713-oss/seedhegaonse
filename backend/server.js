@@ -6,21 +6,21 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// 🟢 Route Imports
 const wishlistRoutes = require('./routes/wishlist');
 const paymentRoutes = require('./routes/payment.routes');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
-const orderRoutes = require('./routes/orderRoutes'); // 🟢 Order routes
+const orderRoutes = require('./routes/orderRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const giftRoutes = require('./routes/giftRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes'); 
-// 🟢 Enquiry Route Mount
 const enquiryRoutes = require('./routes/enquiryRoutes');
+const cakeRoutes = require('./routes/cakeRoutes');
 
 const app = express();
-const couponWalletRoutes = require('./routes/Couponwallet.routes');
 const server = http.createServer(app); // 🟢 Create HTTP server
 
 // 🟢 Socket.io with CORS Setup
@@ -65,22 +65,34 @@ app.use(
   express.static(path.join(__dirname, 'uploads'))
 );
 
-// API Routes
-app.use('/api/enquiry', enquiryRoutes);
-app.use('/api/delivery', deliveryRoutes);
-app.use('/api/contact', contactRoutes);
+// ==========================================
+// 🚀 API Routes
+// ==========================================
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);      // Orders with Realtime Socket
-app.use('/api/payment', paymentRoutes);   // Razorpay create-order + verify
-app.use('/api/wishlist', wishlistRoutes); // Wishlist Route
-app.use('/api/coupons', couponRoutes);
-app.use('/api/gifts', giftRoutes);
+app.use('/api/cakes', cakeRoutes);
+app.use('/api/orders', orderRoutes);        // Orders with Realtime Socket
+app.use('/api/delivery', deliveryRoutes);   // Pincode delivery charges & GST
+app.use('/api/coupons', couponRoutes);      // Single & Multi-use Coupons + Verify + Wallet
+app.use('/api/gifts', giftRoutes);          // Free Gifts & Gift Tiers
 app.use('/api/banners', bannerRoutes);
-// Cake Routes mount karne ke liye ye line add karein:
-app.use('/api/cakes', require('./routes/cakeRoutes'));
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/payment', paymentRoutes);     // Razorpay create-order + verify
+app.use('/api/contact', contactRoutes);
+app.use('/api/enquiry', enquiryRoutes);
 
-app.use('/api/coupons/my-coupons', couponWalletRoutes);
+// Optional: Agar aapne Couponwallet.routes.js alag rakha hai:
+try {
+  const couponWalletRoutes = require('./routes/Couponwallet.routes');
+  app.use('/api/coupon-wallet', couponWalletRoutes);
+} catch (e) {
+  // Couponwallet route optional hai agar couponRoutes me already handle ho raha hai
+}
+
+// Default Health Route
+app.get('/', (req, res) => {
+  res.send('🌿 Seedhe Gaon Se API Server is running smoothly!');
+});
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/seedhe_gaon_se';

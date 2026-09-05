@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartDrawer.css';
@@ -182,7 +181,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   // 📍 Pincode base delivery & dynamic GST states
   const [pincodeDeliveryCharge, setPincodeDeliveryCharge] = useState(null);
-  const [pincodeGstPercent, setPincodeGstPercent] = useState(null); // Dynamic GST based on Pincode
+  const [pincodeGstPercent, setPincodeGstPercent] = useState(null);
   const [pincodeStatusMsg, setPincodeStatusMsg] = useState('');
   const [isPincodeLoading, setIsPincodeLoading] = useState(false);
 
@@ -316,9 +315,10 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
     const loadOffers = async () => {
       try {
-        const [resProducts, resCakes] = await Promise.allSettled([
+        const [resProducts, resCakes, resCoupons] = await Promise.allSettled([
           fetch(`${API_BASE}/products`),
-          fetch(`${API_BASE}/cakes`)
+          fetch(`${API_BASE}/cakes`),
+          fetch(`${API_BASE}/coupons/available`)
         ]);
 
         const map = {};
@@ -356,6 +356,16 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         await processList(resProducts);
         await processList(resCakes);
 
+        if (resCoupons.status === 'fulfilled' && resCoupons.value.ok) {
+          const coupData = await resCoupons.value.json();
+          if (Array.isArray(coupData.coupons)) {
+            setStoreSettings((prev) => ({
+              ...prev,
+              globalCoupons: coupData.coupons
+            }));
+          }
+        }
+
         if (!cancelled) {
           setStoreProducts(allList);
           setProductOffers(map);
@@ -369,7 +379,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // Merge Cart Items with latest database offers
   const enrichedCartItems = useMemo(() => {
     return cartItems.map((item) => {
       const idKey = extractObjectId(item.productId) || extractObjectId(item.id) || String(item.productId || item.id || '');
@@ -451,7 +460,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const isHomeDeliveryType = shippingMode === 'delivery' || shippingMode === 'founder';
 
-  // 📍 Fetch Delivery Charge AND GST by Pincode
   const fetchDeliveryChargeByPincode = async (pin) => {
     if (!pin || pin.length !== 6) return;
     setIsPincodeLoading(true);
@@ -567,105 +575,83 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const bulkDiscount = round2(itemQtyDiscountsTotal);
 
+  // =========================================================================
+  // 🎟️ EXCEL SHEET COUPONS RULE (SGS50, SGS100, SGS125)
+  // =========================================================================
   const availableCoupons = useMemo(() => {
     const list = [];
     const seen = new Set();
     const usedSet = new Set(usedCoupons.map((u) => String(u || '').trim().toUpperCase()));
-    const savedSet = new Set(activeSavedCoupons.map((s) => String(s?.code || '').trim().toUpperCase()));
 
-    const addCoupon = (c, sourceName) => {
+    const defaultExcelCoupons = [
+      { code: 'SGS50', noOfTimesUse: 'first_time', minSpend: 500, discountType: 'flat', discountValue: 50, maxDiscountValue: 50, productName: 'Min Order ₹500 (First Time)' },
+      { code: 'SGS100', noOfTimesUse: '10', minSpend: 1500, discountType: 'percentage', discountValue: 5, maxDiscountValue: 100, productName: 'Min Order ₹1500 (5% OFF upto ₹100)' },
+      { code: 'SGS125', noOfTimesUse: '2', minSpend: 1000, discountType: 'percentage', discountValue: 10, maxDiscountValue: 75, productName: 'Min Order ₹1000 (10% OFF upto ₹75)' }
+    ];
+
+    const allSources = [
+      ...defaultExcelCoupons,
+      ...ensureArray(storeSettings.globalCoupons).map(c => ({
+        code: c.code,
+        minSpend: parseNumericPrice(c.baseValue || c.minSpend),
+        discountType: c.discountType === 'percentage' ? 'percentage' : 'flat',
+        discountValue: parseNumericPrice(c.percentageAmount || c.lumpsumAmount || c.discountValue),
+        maxDiscountValue: parseNumericPrice(c.maxDiscountValue || c.maxDiscount),
+        productName: c.code
+      }))
+    ];
+
+    allSources.forEach((c) => {
       const code = String(c?.code || '').trim().toUpperCase();
-      if (!code || seen.has(code) || usedSet.has(code) || savedSet.has(code)) return;
+      if (!code || seen.has(code) || usedSet.has(code)) return;
       seen.add(code);
 
-      const minSpend = parseNumericPrice(c.minSpend);
-      const validUntil = c.validUntil ? new Date(c.validUntil) : null;
-      const hasValidDate = validUntil && !isNaN(validUntil.getTime());
-      const isExpired = hasValidDate && validUntil < new Date();
+      const minSpend = parseNumericPrice(c.minSpend || c.baseValue);
+      const isUnlocked = effectiveCartTotal >= minSpend;
 
       list.push({
         code,
         discountType: c.discountType === 'percentage' ? 'percentage' : 'flat',
-        discountValue: parseNumericPrice(c.discountValue || c.discount || 0),
+        discountValue: parseNumericPrice(c.discountValue || 0),
+        maxDiscountValue: parseNumericPrice(c.maxDiscountValue || 0),
         minSpend,
-        validUntil: hasValidDate ? validUntil : null,
-        isExpired,
-        isUnlocked: !isExpired && effectiveCartTotal >= minSpend,
+        isUnlocked,
         remaining: round2(Math.max(0, minSpend - effectiveCartTotal)),
-        productName: sourceName || 'All Products Offer'
+        productName: c.productName || 'Special Offer'
       });
-    };
-
-    enrichedCartItems.forEach((item) => {
-      ensureArray(item.couponsList).forEach((c) => addCoupon(c, item.name));
     });
-
-    storeProducts.forEach((p) => {
-      ensureArray(p.couponsList).forEach((c) => addCoupon(c, p.name || 'Store Item'));
-    });
-
-    ensureArray(storeSettings.globalCoupons).forEach((c) => addCoupon(c, 'Store-wide Coupon'));
 
     return list;
-  }, [enrichedCartItems, storeProducts, storeSettings.globalCoupons, effectiveCartTotal, usedCoupons, activeSavedCoupons]);
+  }, [storeSettings.globalCoupons, effectiveCartTotal, usedCoupons]);
 
-  const giftTierRows = useMemo(() => {
-    const allGifts = [];
-    const seenGiftKeys = new Set();
-
-    const addGift = (gt, sourceName) => {
-      if (!gt) return;
-      const rawMin = gt.minSpend ?? gt.minOrder ?? gt.threshold ?? gt.minAmount ?? gt.spend ?? gt.amount ?? gt.orderValue;
-      const minSpend = parseNumericPrice(rawMin);
-      const giftTitle = String(gt.giftTitle || gt.title || gt.name || gt.giftName || gt.gift || '').trim();
-      if (!giftTitle) return;
-
-      const key = `${minSpend}_${giftTitle.toLowerCase()}`;
-      if (seenGiftKeys.has(key)) return;
-      seenGiftKeys.add(key);
-
-      allGifts.push({
-        minSpend,
-        giftTitle,
-        source: sourceName || 'Special Gift Offer'
-      });
-    };
-
-    enrichedCartItems.forEach((item) => {
-      ensureArray(item.giftTiers).forEach((gt) => addGift(gt, item.name));
-    });
-
-    storeProducts.forEach((p) => {
-      ensureArray(p.giftTiers).forEach((gt) => addGift(gt, p.name || 'Store Offer'));
-    });
-
-    ensureArray(storeSettings.globalGiftTiers).forEach((gt) => addGift(gt, 'Store Gift'));
-
-    allGifts.sort((a, b) => a.minSpend - b.minSpend);
-
-    const activeUnlockedTier = [...allGifts]
-      .reverse()
-      .find((t) => effectiveCartTotal >= t.minSpend && t.minSpend > 0);
-
-    return allGifts.map((gt, idx) => {
-      const isThisUnlocked = Boolean(
-        activeUnlockedTier &&
-        activeUnlockedTier.minSpend === gt.minSpend &&
-        activeUnlockedTier.giftTitle.toLowerCase() === gt.giftTitle.toLowerCase()
-      );
-      const remainingAmount = round2(Math.max(0, gt.minSpend - effectiveCartTotal));
-
+  // =========================================================================
+  // 🎁 EXCEL SHEET FREE GIFT RULE:
+  // Order (Base Value) Rs. 1500/- -> Free Gift Automatically show
+  // Order (Base Value) Rs. 2500/- -> First Free Gift Show Off and new Gift Show
+  // =========================================================================
+  const freeGiftState = useMemo(() => {
+    if (effectiveCartTotal >= 2500) {
       return {
-        key: `gift-tier-${idx}-${gt.minSpend}`,
-        productName: gt.source,
-        giftTitle: gt.giftTitle,
-        minSpend: gt.minSpend,
-        cartTotal: effectiveCartTotal,
-        isUnlocked: isThisUnlocked,
-        remaining: remainingAmount
+        activeTitle: 'Special Premium Gift (Tier 2)',
+        tier: 2,
+        isUnlocked: true,
+        message: '🎉 First Free Gift Show Off & New Gift Show!'
       };
-    });
-  }, [enrichedCartItems, storeProducts, storeSettings.globalGiftTiers, effectiveCartTotal]);
+    } else if (effectiveCartTotal >= 1500) {
+      return {
+        activeTitle: 'Delicious Sweets Gift Box (Tier 1)',
+        tier: 1,
+        isUnlocked: true,
+        message: '🎉 Free Gift Automatically show (Order > ₹1500)!'
+      };
+    }
+    return {
+      activeTitle: null,
+      tier: 0,
+      isUnlocked: false,
+      remainingForTier1: round2(1500 - effectiveCartTotal)
+    };
+  }, [effectiveCartTotal]);
 
   const isFreeDelivery = enrichedCartItems.some((i) => isTrueFlag(i.isFreeDelivery));
   let shippingCharge = 0;
@@ -682,7 +668,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const couponDiscount = round2(appliedCoupon ? parseNumericPrice(appliedCoupon.discount) : 0);
   const taxableProductAmount = round2(Math.max(0, effectiveCartTotal - couponDiscount - bulkDiscount));
 
-  // 📍 DYNAMIC SHIPPING GST CALCULATION (Uses Pincode-specific GST if available)
   const currentShippingGstPercent = (pincodeGstPercent !== null && pincodeGstPercent !== undefined)
     ? pincodeGstPercent
     : GLOBAL_SHIPPING_TAX_PERCENT;
@@ -733,51 +718,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     const upper = rawCode.trim().toUpperCase();
     setCouponCode(upper);
 
-    const isAlreadyUsed = usedCoupons.some((u) => String(u || '').trim().toUpperCase() === upper);
-    if (isAlreadyUsed) {
-      return setCouponMsg({
-        text: `⚠️ You have already used coupon "${upper}". Each coupon can only be used once per user.`,
-        type: 'error'
-      });
-    }
-
-    const matched = availableCoupons.find((c) => c.code === upper);
-    if (matched) {
-      if (effectiveCartTotal < matched.minSpend) {
-        return setCouponMsg({
-          text: `🔒 Add ₹${formatMoney(round2(matched.minSpend - effectiveCartTotal))} more to use ${upper} (min spend ₹${formatMoney(matched.minSpend)}).`,
-          type: 'error'
-        });
-      }
-      if (matched.isExpired) {
-        return setCouponMsg({ text: `⌛ Coupon ${upper} has expired.`, type: 'error' });
-      }
-
-      const finalDisc = matched.discountType === 'percentage'
-        ? round2((effectiveCartTotal * matched.discountValue) / 100)
-        : matched.discountValue;
-
-      setAppliedCoupon({ code: upper, discount: finalDisc });
-      return setCouponMsg({ text: `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
-    }
-
-    const savedMatched = activeSavedCoupons.find((sc) => String(sc.code || '').toUpperCase() === upper);
-    if (savedMatched) {
-      const minSpend = parseNumericPrice(savedMatched.minSpend);
-      if (effectiveCartTotal < minSpend) {
-        return setCouponMsg({
-          text: `🔒 Add ₹${formatMoney(round2(minSpend - effectiveCartTotal))} more to use ${upper} (min spend ₹${formatMoney(minSpend)}).`,
-          type: 'error'
-        });
-      }
-      const discVal = parseNumericPrice(savedMatched.discountValue);
-      const finalDisc = savedMatched.discountType === 'percentage'
-        ? round2((effectiveCartTotal * discVal) / 100)
-        : discVal;
-      setAppliedCoupon({ code: upper, discount: finalDisc });
-      return setCouponMsg({ text: `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
-    }
-
     try {
       const token = getAuthToken();
       const res = await fetch(`${API_BASE}/coupons/verify`, {
@@ -789,11 +729,34 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         body: JSON.stringify({ code: upper, cartTotal: effectiveCartTotal })
       });
       const data = await res.json();
-      if (!res.ok) return setCouponMsg({ text: data.message || 'Invalid or already used coupon code.', type: 'error' });
+      if (!res.ok) {
+        return setCouponMsg({ text: data.message || 'Invalid or already used coupon code.', type: 'error' });
+      }
       const serverDisc = round2(parseNumericPrice(data.discount));
       setAppliedCoupon({ code: data.code, discount: serverDisc });
       setCouponMsg({ text: data.message || 'Coupon applied successfully!', type: 'success' });
     } catch {
+      // Local Sheet Rules Fallback
+      const matched = availableCoupons.find((c) => c.code === upper);
+      if (matched) {
+        if (effectiveCartTotal < matched.minSpend) {
+          return setCouponMsg({
+            text: `🔒 Min Base Value ₹${matched.minSpend} required for ${upper}. Add ₹${formatMoney(round2(matched.minSpend - effectiveCartTotal))} more.`,
+            type: 'error'
+          });
+        }
+        let calcDisc = matched.discountType === 'percentage'
+          ? (effectiveCartTotal * matched.discountValue) / 100
+          : matched.discountValue;
+
+        if (matched.maxDiscountValue > 0) {
+          calcDisc = Math.min(calcDisc, matched.maxDiscountValue);
+        }
+
+        calcDisc = round2(calcDisc);
+        setAppliedCoupon({ code: upper, discount: calcDisc });
+        return setCouponMsg({ text: `🎉 Coupon ${upper} applied! (₹${calcDisc} OFF)`, type: 'success' });
+      }
       setCouponMsg({ text: 'Unable to verify coupon. Please try again.', type: 'error' });
     }
   };
@@ -802,51 +765,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     setAppliedCoupon(null);
     setCouponCode('');
     setCouponMsg({ text: '', type: '' });
-  };
-
-  const handleRemoveSavedCoupon = async (code) => {
-    const token = getAuthToken();
-    if (!token) {
-      setSavedCoupons((prev) => prev.filter((sc) => sc.code !== code));
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/coupons/my-coupons/${encodeURIComponent(code)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data.savedCoupons)) {
-        setSavedCoupons(data.savedCoupons);
-        localStorage.setItem('sgs_saved_coupons', JSON.stringify(data.savedCoupons));
-      } else {
-        setSavedCoupons((prev) => prev.filter((sc) => sc.code !== code));
-      }
-    } catch {
-      setSavedCoupons((prev) => prev.filter((sc) => sc.code !== code));
-    }
-  };
-
-  const saveAddressToProfile = async (token) => {
-    try {
-      const payload = new FormData();
-      payload.append('addressType', shippingAddress.addressType || 'Permanent');
-      payload.append('address', shippingAddress.address || '');
-      payload.append('landmark', shippingAddress.landmark || '');
-      payload.append('state', shippingAddress.state || '');
-      payload.append('city', shippingAddress.city || '');
-      payload.append('pincode', shippingAddress.pincode || '');
-      payload.append('country', shippingAddress.country || 'India');
-
-      await fetch(`${API_BASE}/auth/profile`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: payload
-      });
-    } catch (err) {
-      console.error('Unable to save address to profile:', err);
-    }
   };
 
   const handlePlaceOrder = async (e) => {
@@ -948,6 +866,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         deliveryZone: deliveryLabel,
         shippingType: shippingMode,
         orderItems: formattedCartItems,
+        freeGift: freeGiftState.activeTitle || '', // 🎁 Free Gift included in Order
         subTotal: round2(effectiveCartTotal),
         bulkDiscount: round2(bulkDiscount),
         couponDiscount: round2(couponDiscount),
@@ -986,80 +905,20 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         createdAt: new Date().toLocaleString('en-IN')
       });
 
-      if (shippingAddress.saveAddress) {
-        await saveAddressToProfile(token);
-      }
-
-      let updatedUsedList = [...usedCoupons];
-
+      // Record coupon usage
       if (appliedCoupon?.code) {
-        const usedCodeUpper = appliedCoupon.code.trim().toUpperCase();
-        updatedUsedList = [...new Set([...updatedUsedList.map((u) => String(u).toUpperCase()), usedCodeUpper])];
-
-        setUsedCoupons(updatedUsedList);
-        localStorage.setItem('sgs_used_coupons', JSON.stringify(updatedUsedList));
-
-        const updatedSaved = savedCoupons.filter(
-          (sc) => String(sc.code || '').trim().toUpperCase() !== usedCodeUpper
-        );
-        setSavedCoupons(updatedSaved);
-        localStorage.setItem('sgs_saved_coupons', JSON.stringify(updatedSaved));
-
         try {
-          await fetch(`${API_BASE}/coupons/my-coupons/${encodeURIComponent(usedCodeUpper)}`, {
-            method: 'DELETE',
+          await fetch(`${API_BASE}/coupons/record-usage`, {
+            method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`
-            }
+            },
+            body: JSON.stringify({ code: appliedCoupon.code })
           });
-        } catch (err) {
-          console.error('Failed to mark coupon used on backend:', err);
+        } catch (cErr) {
+          console.error(cErr);
         }
-      }
-
-      const usedSet = new Set(updatedUsedList.map((u) => String(u).toUpperCase()));
-
-      const nonExpiredFetchedCoupons = availableCoupons.filter(
-        (c) => !c.isExpired && !usedSet.has(String(c.code).toUpperCase())
-      );
-      setUnlockedOrderCoupons(nonExpiredFetchedCoupons);
-
-      if (nonExpiredFetchedCoupons.length > 0) {
-        let latestSavedFromDb = [...savedCoupons];
-
-        for (const c of nonExpiredFetchedCoupons) {
-          try {
-            const saveRes = await fetch(`${API_BASE}/coupons/my-coupons`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                code: c.code,
-                discountType: c.discountType || 'flat',
-                discountValue: Number(c.discountValue) || 0,
-                minSpend: Number(c.minSpend) || 0,
-                validUntil: c.validUntil ? c.validUntil : null,
-                productName: c.productName || 'Order Reward',
-                source: 'order-reward'
-              })
-            });
-
-            const saveData = await saveRes.json();
-            if (saveRes.ok && Array.isArray(saveData.savedCoupons)) {
-              latestSavedFromDb = saveData.savedCoupons.filter(
-                (sc) => !usedSet.has(String(sc?.code || '').toUpperCase())
-              );
-            }
-          } catch (singleSaveErr) {
-            console.error('Error saving coupon to MongoDB:', c.code, singleSaveErr);
-          }
-        }
-
-        setSavedCoupons(latestSavedFromDb);
-        localStorage.setItem('sgs_saved_coupons', JSON.stringify(latestSavedFromDb));
       }
 
       setStep('success');
@@ -1115,6 +974,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
         <table class="totals">
           <tr><td>Sub Total</td><td style="text-align:right;">₹${formatMoney(d.subTotal)}</td></tr>
+          ${d.freeGift ? `<tr><td style="color:#15803d;font-weight:bold;">🎁 Free Gift (Complimentary)</td><td style="text-align:right;color:#15803d;font-weight:bold;">${d.freeGift} (FREE)</td></tr>` : ''}
           <tr><td>Coupon Discount ${d.couponCode ? `(${d.couponCode})` : ''}</td><td style="text-align:right;">- ₹${formatMoney(d.couponDiscount)}</td></tr>
           <tr><td>Multi-Pack Discount</td><td style="text-align:right;">- ₹${formatMoney(d.bulkDiscount)}</td></tr>
           <tr><td>Shipping</td><td style="text-align:right;">₹${formatMoney(d.shippingCharge)}</td></tr>
@@ -1278,55 +1138,66 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     </div>
                   </div>
 
-                  {giftTierRows.length > 0 && (
-                    <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                      <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.88rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🎁</span> Free Gifts & Offers Roadmap
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {giftTierRows.map((gt) => (
-                          <div
-                            key={gt.key}
-                            style={{
-                              padding: '10px 12px',
-                              borderRadius: '8px',
-                              background: gt.isUnlocked ? '#f0fdf4' : '#ffffff',
-                              border: `1px solid ${gt.isUnlocked ? '#22c55e' : '#e2e8f0'}`,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '4px'
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: '0.84rem', fontWeight: '700', color: gt.isUnlocked ? '#15803d' : '#b45309' }}>
-                                {gt.isUnlocked ? '🎁' : '🔒'} {gt.giftTitle}
-                              </span>
-                              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#334155' }}>
-                                ₹{formatMoney(gt.minSpend)}+
-                              </span>
-                            </div>
-
-                            <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                              {gt.productName} • Cart Total: ₹{formatMoney(gt.cartTotal)}
-                            </div>
-
-                            <div style={{ marginTop: '2px' }}>
-                              {gt.isUnlocked ? (
-                                <span style={{ background: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
-                                  🔓 UNLOCKED (FREE)
-                                </span>
-                              ) : (
-                                <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                  {gt.remaining > 0 ? `🔒 LOCKED (Add ₹${formatMoney(gt.remaining)} more)` : '🔒 Upgraded to higher tier'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  {/* 🎁 EXACT EXCEL SHEET FREE GIFT SECTION */}
+                  <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.95rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>🎁</span> <strong>Free Gift on Order Value (Base Value)</strong>
                     </div>
-                  )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      
+                      {/* Tier 1: ₹1500 */}
+                      <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 1 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 1 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 1 ? '#15803d' : '#475569' }}>
+                            {freeGiftState.tier === 1 ? '🎉' : '🔒'} Order (Base Value) Rs. 1500/- : <strong>Free Gift 1 (Sweet Box)</strong>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                            {freeGiftState.tier === 1 ? '✓ Free Gift Automatically show' : freeGiftState.tier === 2 ? '⚠️ First Free Gift Show Off (Upgraded to Tier 2 Gift)' : `Add ₹${formatMoney(freeGiftState.remainingForTier1)} more to get Free Gift`}
+                          </div>
+                        </div>
+                        <div>
+                          {freeGiftState.tier === 1 ? (
+                            <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
+                              ACTIVE (SHOW)
+                            </span>
+                          ) : freeGiftState.tier === 2 ? (
+                            <span style={{ background: '#e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: '700', padding: '3px 7px', borderRadius: '4px' }}>
+                              SHOW OFF
+                            </span>
+                          ) : (
+                            <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
+                              LOCKED
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Tier 2: ₹2500 */}
+                      <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 2 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 2 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 2 ? '#15803d' : '#475569' }}>
+                            {freeGiftState.tier === 2 ? '🎉' : '🔒'} Order (Base Value) Rs. 2500/- : <strong>New Premium Gift (Tier 2)</strong>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                            {freeGiftState.tier === 2 ? '✓ First Free Gift Show Off and new Gift Show!' : `Add ₹${formatMoney(Math.max(0, 2500 - effectiveCartTotal))} more to upgrade Gift`}
+                          </div>
+                        </div>
+                        <div>
+                          {freeGiftState.tier === 2 ? (
+                            <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
+                              ACTIVE (NEW GIFT SHOW)
+                            </span>
+                          ) : (
+                            <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
+                              LOCKED
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
 
                 </div>
 
@@ -1432,6 +1303,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         <strong>₹{formatMoney(effectiveCartTotal)}</strong>
                       </div>
 
+                      {/* 🎁 Free Gift Active Status */}
+                      {freeGiftState.activeTitle && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803d', fontWeight: '700' }}>
+                          <span>🎁 Free Gift Unlocked</span>
+                          <span>{freeGiftState.activeTitle}</span>
+                        </div>
+                      )}
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}>
                         <span>Coupon discount</span>
                         <span>- ₹{formatMoney(couponDiscount)}</span>
@@ -1524,87 +1403,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </span>
                       </div>
 
-                      {activeSavedCoupons.length > 0 && (
-                        <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <div style={{ fontWeight: '800', color: '#4338ca', fontSize: '0.82rem' }}>
-                              🎫 My Wallet Coupons ({activeSavedCoupons.length})
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => navigate('/my-coupons')}
-                              style={{ background: 'transparent', border: 'none', color: '#4338ca', fontSize: '0.74rem', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
-                            >
-                              Manage Wallet ↗
-                            </button>
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {activeSavedCoupons.map((sc) => {
-                              const isApplied = appliedCoupon?.code === sc.code;
-                              const validUntilDate = sc.validUntil ? new Date(sc.validUntil) : null;
-                              const isExpired = validUntilDate && !isNaN(validUntilDate.getTime()) && validUntilDate < new Date();
-
-                              return (
-                                <div
-                                  key={sc.code}
-                                  style={{ padding: '9px 11px', borderRadius: '8px', background: isApplied ? '#f0fdf4' : '#eef2ff', border: `1px dashed ${isApplied ? '#22c55e' : '#818cf8'}`, opacity: isExpired ? 0.65 : 1 }}
-                                >
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.84rem', fontWeight: '800', color: '#4338ca', letterSpacing: '0.4px' }}>
-                                      🎫 {sc.code}
-                                    </span>
-                                    <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#334155' }}>
-                                      {sc.discountType === 'percentage' ? `${sc.discountValue}% OFF` : `₹${formatMoney(sc.discountValue)} OFF`}
-                                    </span>
-                                  </div>
-
-                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>
-                                    {parseNumericPrice(sc.minSpend) > 0 ? `Min spend ₹${formatMoney(sc.minSpend)}` : 'No minimum spend'}
-                                    {validUntilDate && !isNaN(validUntilDate.getTime()) ? ` • Till ${validUntilDate.toLocaleDateString('en-IN')}` : ''}
-                                  </div>
-
-                                  <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                    {isApplied ? (
-                                      <button
-                                        type="button"
-                                        onClick={handleRemoveCoupon}
-                                        style={{ background: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '5px 10px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
-                                      >
-                                        ✓ APPLIED — Remove
-                                      </button>
-                                    ) : isExpired ? (
-                                      <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fecaca' }}>
-                                        ⌛ EXPIRED
-                                      </span>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleApplyCoupon(sc.code)}
-                                        style={{ background: '#4338ca', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '5px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
-                                      >
-                                        USE NOW
-                                      </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveSavedCoupon(sc.code)}
-                                      style={{ background: '#fff', color: '#94a3b8', fontSize: '10px', fontWeight: '800', padding: '5px 10px', borderRadius: '4px', border: '1px solid #e2e8f0', cursor: 'pointer' }}
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
+                      {/* 🎟️ Available Sheet Coupons Showcase */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
-                          <div style={{ fontWeight: '800', color: '#d96028', fontSize: '0.82rem', marginBottom: '8px' }}>
-                            🎟️ Available Coupons & Offers
+                          <div style={{ fontWeight: '800', color: '#b91c1c', fontSize: '0.82rem', marginBottom: '8px' }}>
+                            🎟️ Available Coupons
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1615,46 +1418,41 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                               return (
                                 <div
                                   key={c.code}
-                                  style={{ padding: '9px 11px', borderRadius: '8px', background: isApplied ? '#f0fdf4' : active ? '#f5f3ff' : '#f8fafc', border: `1px dashed ${isApplied ? '#22c55e' : active ? '#7c3aed' : '#cbd5e1'}`, opacity: c.isExpired ? 0.65 : 1 }}
+                                  style={{ padding: '9px 11px', borderRadius: '8px', background: isApplied ? '#f0fdf4' : active ? '#fef2f2' : '#f8fafc', border: `1px dashed ${isApplied ? '#22c55e' : active ? '#b91c1c' : '#cbd5e1'}` }}
                                 >
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.84rem', fontWeight: '800', color: active ? '#5b21b6' : '#64748b', letterSpacing: '0.4px' }}>
-                                      {active ? '🎟️' : '🔒'} {c.code}
+                                    <span style={{ fontSize: '0.86rem', fontWeight: '800', color: active ? '#b91c1c' : '#64748b' }}>
+                                      🎫 {c.code}
                                     </span>
                                     <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#334155' }}>
-                                      {c.discountType === 'percentage' ? `${c.discountValue}% OFF` : `₹${formatMoney(c.discountValue)} OFF`}
+                                      {c.discountType === 'percentage' ? `${c.discountValue}% OFF (Max ₹${c.maxDiscountValue})` : `Flat ₹${c.discountValue} OFF`}
                                     </span>
                                   </div>
 
                                   <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>
-                                    {c.minSpend > 0 ? `Min spend ₹${formatMoney(c.minSpend)}` : 'No minimum spend'} • {c.productName}
-                                    {c.validUntil ? ` • Till ${c.validUntil.toLocaleDateString('en-IN')}` : ''}
+                                    Min Base Value: ₹{formatMoney(c.minSpend)} • {c.productName}
                                   </div>
 
-                                  <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                  <div style={{ marginTop: '6px' }}>
                                     {isApplied ? (
                                       <button
                                         type="button"
                                         onClick={handleRemoveCoupon}
-                                        style={{ background: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '5px 10px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                                        style={{ background: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '4px 10px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
                                       >
                                         ✓ APPLIED — Remove
                                       </button>
-                                    ) : c.isExpired ? (
-                                      <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fecaca' }}>
-                                        ⌛ EXPIRED
-                                      </span>
                                     ) : active ? (
                                       <button
                                         type="button"
                                         onClick={() => handleApplyCoupon(c.code)}
-                                        style={{ background: '#7c3aed', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '5px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                                        style={{ background: '#b91c1c', color: '#fff', fontSize: '10px', fontWeight: '800', padding: '4px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
                                       >
                                         🔓 APPLY NOW
                                       </button>
                                     ) : (
-                                      <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                                        🔒 LOCKED (Add ₹${formatMoney(c.remaining)})
+                                      <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
+                                        🔒 Add ₹{formatMoney(c.remaining)} more
                                       </span>
                                     )}
                                   </div>
@@ -1664,12 +1462,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                           </div>
                         </div>
                       )}
+
                     </div>
 
                     <div style={{ marginTop: '16px' }}>
                       <input
                         type="text"
-                        placeholder="Enter coupon code"
+                        placeholder="Enter coupon code (e.g. SGS50, SGS100)"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)}
                         style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.88rem', boxSizing: 'border-box', marginBottom: '8px' }}
@@ -1933,6 +1732,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
               {placedOrderDetails && (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '16px', fontSize: '0.86rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Sub Total</span><strong>₹{formatMoney(placedOrderDetails.subTotal)}</strong></div>
+                  {placedOrderDetails.freeGift && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803d', fontWeight: 'bold' }}>
+                      <span>🎁 Free Gift Awarded</span>
+                      <span>{placedOrderDetails.freeGift} (FREE)</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Coupon Discount {placedOrderDetails.couponCode ? `(${placedOrderDetails.couponCode})` : ''}</span><span>- ₹{formatMoney(placedOrderDetails.couponDiscount)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}><span>Multi-Pack Discount</span><span>- ₹{formatMoney(placedOrderDetails.bulkDiscount)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping ({placedOrderDetails.shippingType})</span><span>₹{formatMoney(placedOrderDetails.shippingCharge)}</span></div>
@@ -1947,60 +1752,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                   <div style={{ marginTop: '4px', fontSize: '0.78rem', color: '#64748b' }}>
                     Payment: <strong>{placedOrderDetails.paymentMethod}</strong>
                     {placedOrderDetails.upiTransactionId ? ` (Ref: ${placedOrderDetails.upiTransactionId})` : ''}
-                  </div>
-                </div>
-              )}
-
-              {unlockedOrderCoupons.length > 0 && (
-                <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', border: '2px dashed #d97706', borderRadius: '10px', padding: '16px', marginBottom: '18px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.15rem', marginBottom: '4px' }}>🎉 <strong>Coupons Saved to Your Wallet!</strong></div>
-                  <p style={{ color: '#92400e', fontSize: '0.85rem', margin: '0 0 12px' }}>
-                    These coupons have been credited to your wallet for your next order:
-                  </p>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {unlockedOrderCoupons.map((uc) => (
-                      <div
-                        key={uc.code}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1.5px solid #d97706', borderRadius: '8px', padding: '8px 14px' }}
-                      >
-                        <div style={{ textAlign: 'left' }}>
-                          <span style={{ fontSize: '1rem', fontWeight: '900', color: '#b45309', letterSpacing: '0.5px' }}>
-                            🎫 {uc.code}
-                          </span>
-                          <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                            {uc.discountType === 'percentage' ? `${uc.discountValue}% OFF` : `₹${formatMoney(uc.discountValue)} OFF`}
-                            {parseNumericPrice(uc.minSpend) > 0 ? ` • Min ₹${formatMoney(uc.minSpend)}` : ''}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(uc.code);
-                            setCopiedCode(uc.code);
-                            setTimeout(() => setCopiedCode(''), 2500);
-                          }}
-                          style={{ background: copiedCode === uc.code ? '#15803d' : '#b45309', color: '#fff', border: 'none', borderRadius: '4px', padding: '5px 12px', fontSize: '0.78rem', fontWeight: 'bold', cursor: 'pointer' }}
-                        >
-                          {copiedCode === uc.code ? '✓ Copied!' : '📋 Copy'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {placedOrderDetails && (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px' }}>
-                  <h4 style={{ margin: '0 0 10px', fontSize: '0.92rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
-                    📍 Delivery & Customer Details
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: isSmallMobile ? '1fr' : '1fr 1fr', gap: '8px', fontSize: '0.85rem', color: '#334155' }}>
-                    <div><strong>Customer:</strong> {placedOrderDetails.customer.name}</div>
-                    <div><strong>Phone:</strong> {placedOrderDetails.customer.phone}</div>
-                    <div style={{ gridColumn: isSmallMobile ? 'auto' : 'span 2' }}>
-                      <strong>Address:</strong> {placedOrderDetails.customer.address}, Landmark: {placedOrderDetails.customer.landmark}, {placedOrderDetails.customer.city}, {placedOrderDetails.customer.state} - {placedOrderDetails.customer.pincode}
-                    </div>
                   </div>
                 </div>
               )}

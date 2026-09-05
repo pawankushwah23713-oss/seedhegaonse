@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_BASE = 'https://orange-ape-497824.hostingersite.com/api';
+const API_BASE = 'https://seedhegaonse-1.onrender.com/api';
 
 const AdminCouponGiftManager = () => {
   // 🎟️ Coupon Form State
