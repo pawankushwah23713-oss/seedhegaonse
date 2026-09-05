@@ -168,7 +168,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const GIFT_BOX_CHARGE = Number(storeSettings.giftBoxCharge) || 0;
   const GIFT_BOX_TITLE = storeSettings.giftBoxTitle || 'Gift Box Packaging';
   const PRODUCT_TAX_PERCENT = Number(storeSettings.productTaxPercent) || 0;
-  const SHIPPING_TAX_PERCENT = Number(storeSettings.shippingTaxPercent) || 0;
+  const GLOBAL_SHIPPING_TAX_PERCENT = Number(storeSettings.shippingTaxPercent) || 0;
   const FOUNDER_DELIVERY_CHARGE = 5000.00;
 
   const [showTaxInfo, setShowTaxInfo] = useState(false);
@@ -180,7 +180,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   });
 
+  // 📍 Pincode base delivery & dynamic GST states
   const [pincodeDeliveryCharge, setPincodeDeliveryCharge] = useState(null);
+  const [pincodeGstPercent, setPincodeGstPercent] = useState(null); // Dynamic GST based on Pincode
   const [pincodeStatusMsg, setPincodeStatusMsg] = useState('');
   const [isPincodeLoading, setIsPincodeLoading] = useState(false);
 
@@ -449,6 +451,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const isHomeDeliveryType = shippingMode === 'delivery' || shippingMode === 'founder';
 
+  // 📍 Fetch Delivery Charge AND GST by Pincode
   const fetchDeliveryChargeByPincode = async (pin) => {
     if (!pin || pin.length !== 6) return;
     setIsPincodeLoading(true);
@@ -461,18 +464,26 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       const data = await res.json();
       if (res.ok && data.success) {
         const rate = parseNumericPrice(data.deliveryCharge);
+        const gst = (data.gstPercent !== undefined && data.gstPercent !== null) 
+          ? Number(data.gstPercent) 
+          : GLOBAL_SHIPPING_TAX_PERCENT;
+
         setPincodeDeliveryCharge(rate);
+        setPincodeGstPercent(gst);
+
         if (data.city) {
           setShippingAddress((prev) => ({ ...prev, city: data.city }));
         }
-        setPincodeStatusMsg(`✓ Serviceable Area: ${data.city || ''} (Delivery ₹${formatMoney(rate)})`);
+        setPincodeStatusMsg(`✓ Serviceable Area: ${data.city || ''} (Delivery ₹${formatMoney(rate)} | GST ${gst}%)`);
         setError('');
       } else {
         setPincodeDeliveryCharge(null);
+        setPincodeGstPercent(null);
         setPincodeStatusMsg(`⚠️ ${data.message || 'Delivery is currently not available for this pincode.'}`);
       }
     } catch {
       setPincodeDeliveryCharge(null);
+      setPincodeGstPercent(null);
       setPincodeStatusMsg('⚠️ Unable to verify delivery charges for this pincode.');
     } finally {
       setIsPincodeLoading(false);
@@ -492,6 +503,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       fetchDeliveryChargeByPincode(newPin);
     } else if (newPin.length !== 6) {
       setPincodeDeliveryCharge(null);
+      setPincodeGstPercent(null);
       setPincodeStatusMsg('');
     }
   };
@@ -670,8 +682,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const couponDiscount = round2(appliedCoupon ? parseNumericPrice(appliedCoupon.discount) : 0);
   const taxableProductAmount = round2(Math.max(0, effectiveCartTotal - couponDiscount - bulkDiscount));
 
+  // 📍 DYNAMIC SHIPPING GST CALCULATION (Uses Pincode-specific GST if available)
+  const currentShippingGstPercent = (pincodeGstPercent !== null && pincodeGstPercent !== undefined)
+    ? pincodeGstPercent
+    : GLOBAL_SHIPPING_TAX_PERCENT;
+
   const productTax = round2((taxableProductAmount * PRODUCT_TAX_PERCENT) / 100);
-  const shippingTax = (shippingCharge > 0) ? round2((shippingCharge * SHIPPING_TAX_PERCENT) / 100) : 0;
+  const shippingTax = (shippingCharge > 0) ? round2((shippingCharge * currentShippingGstPercent) / 100) : 0;
   const totalTaxAmount = round2(productTax + shippingTax);
 
   const giftBoxAvailable = storeSettings.giftBoxEnabled && GIFT_BOX_CHARGE > 0;
@@ -919,7 +936,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           ? `Delivery by Founder (VIP Hand Delivery - ₹5000) - Pincode: ${shippingAddress.pincode} (${shippingAddress.city})`
           : shippingMode === 'pickup'
             ? 'Direct Store Pickup (Free)'
-            : `Standard Home Delivery - Pincode: ${shippingAddress.pincode} (${shippingAddress.city})`;
+            : `Standard Home Delivery - Pincode: ${shippingAddress.pincode} (${shippingAddress.city}) [GST: ${currentShippingGstPercent}%]`;
 
       const orderPayload = {
         customer: {
@@ -938,6 +955,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         shippingCharge: round2(shippingCharge),
         productTax: round2(productTax),
         shippingTax: round2(shippingTax),
+        shippingGstPercent: currentShippingGstPercent,
         taxAmount: round2(totalTaxAmount),
         giftBoxCharge: round2(giftBoxAmount),
         giftBoxTitle: giftBoxAmount > 0 ? GIFT_BOX_TITLE : '',
@@ -1461,13 +1479,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                           </button>
 
                           {showTaxInfo && (
-                            <div style={{ position: 'absolute', bottom: '26px', left: '0', width: 'min(230px, 72vw)', background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '8px', padding: '10px 12px', fontSize: '0.78rem', boxShadow: '0 6px 16px rgba(0,0,0,0.2)', zIndex: 100, pointerEvents: 'none' }}>
+                            <div style={{ position: 'absolute', bottom: '26px', left: '0', width: 'min(240px, 75vw)', background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '8px', padding: '10px 12px', fontSize: '0.78rem', boxShadow: '0 6px 16px rgba(0,0,0,0.2)', zIndex: 100, pointerEvents: 'none' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                                 <span style={{ color: '#cbd5e1' }}>Product GST ({PRODUCT_TAX_PERCENT}%):</span>
                                 <strong>₹{formatMoney(productTax)}</strong>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span style={{ color: '#cbd5e1' }}>Shipping GST ({SHIPPING_TAX_PERCENT}%):</span>
+                                <span style={{ color: '#cbd5e1' }}>Shipping GST ({currentShippingGstPercent}%):</span>
                                 <strong>₹{formatMoney(shippingTax)}</strong>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #475569', paddingTop: '5px', marginTop: '6px', fontWeight: 'bold' }}>

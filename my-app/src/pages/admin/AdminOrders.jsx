@@ -1,5 +1,5 @@
 // src/pages/admin/AdminOrders.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { socket } from '../../socket';
 
 const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
@@ -70,6 +70,96 @@ const formatOrderDateTime = (dateString) => {
   return { date, time, relative, isNew };
 };
 
+// ---------- Analytics helpers (new) ----------
+const STATUS_COLORS = {
+  Placed: '#f59e0b',
+  Confirmed: '#3b82f6',
+  Dispatched: '#8b5cf6',
+  Delivered: '#10b981',
+  Cancelled: '#ef4444',
+  Unknown: '#94a3b8'
+};
+
+// Simple SVG bar chart: revenue per day (last 7 days)
+const RevenueTrendChart = ({ data }) => {
+  const width = 560;
+  const height = 200;
+  const paddingBottom = 30;
+  const paddingTop = 24;
+  const barGap = 14;
+  const barWidth = (width - barGap * (data.length + 1)) / data.length;
+  const maxRevenue = Math.max(...data.map((d) => d.revenue), 1);
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="200" preserveAspectRatio="xMidYMid meet">
+      {/* baseline */}
+      <line x1="0" y1={height - paddingBottom} x2={width} y2={height - paddingBottom} stroke="#e2e8f0" strokeWidth="1" />
+      {data.map((d, i) => {
+        const barHeight = ((height - paddingBottom - paddingTop) * d.revenue) / maxRevenue;
+        const x = barGap + i * (barWidth + barGap);
+        const y = height - paddingBottom - barHeight;
+        return (
+          <g key={i}>
+            <rect
+              x={x}
+              y={y}
+              width={barWidth}
+              height={Math.max(barHeight, 2)}
+              rx="6"
+              fill="#3b82f6"
+              opacity={d.revenue === 0 ? 0.25 : 1}
+            />
+            <text x={x + barWidth / 2} y={Math.max(y - 6, 12)} textAnchor="middle" fontSize="10" fontWeight="700" fill="#0f172a">
+              ₹{d.revenue.toFixed(0)}
+            </text>
+            <text x={x + barWidth / 2} y={height - 12} textAnchor="middle" fontSize="10" fill="#64748b">
+              {d.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+// Simple SVG horizontal bar chart: orders by status
+const StatusBreakdownChart = ({ statusCounts }) => {
+  const entries = Object.entries(statusCounts);
+  const maxCount = Math.max(...entries.map(([, count]) => count), 1);
+
+  if (entries.length === 0) {
+    return <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>No status data yet.</p>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {entries.map(([status, count]) => {
+        const pct = (count / maxCount) * 100;
+        const color = STATUS_COLORS[status] || STATUS_COLORS.Unknown;
+        return (
+          <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '90px', fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>{status}</div>
+            <div style={{ flex: 1, background: '#f1f5f9', borderRadius: '6px', height: '16px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${pct}%`,
+                  background: color,
+                  height: '100%',
+                  borderRadius: '6px',
+                  transition: 'width 0.3s ease'
+                }}
+              />
+            </div>
+            <div style={{ width: '28px', textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>
+              {count}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,12 +169,15 @@ const AdminOrders = () => {
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'yesterday', 'week'
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Chat States
   const [activeChatOrder, setActiveChatOrder] = useState(null);
   const [chatInput, setChatInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
   const chatBottomRef = useRef(null);
+
+  // Analytics toggle (new)
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
     if (chatBottomRef.current) {
@@ -283,6 +376,59 @@ const AdminOrders = () => {
     return true;
   });
 
+  // ---------- Analytics computation (new) ----------
+  const analytics = useMemo(() => {
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    const avgOrderValue = totalOrders ? totalRevenue / totalOrders : 0;
+
+    const statusCounts = orders.reduce((acc, o) => {
+      const s = o.orderStatus || 'Unknown';
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Revenue trend for the last 7 days (including today)
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      days.push(d);
+    }
+    const revenueByDay = days.map((d) => {
+      const next = new Date(d);
+      next.setDate(d.getDate() + 1);
+      const dayOrders = orders.filter((o) => {
+        const od = new Date(o.createdAt || o.date || o.timestamp);
+        return od >= d && od < next;
+      });
+      const revenue = dayOrders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+      return {
+        label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        revenue,
+        count: dayOrders.length
+      };
+    });
+
+    // Top selling items by quantity
+    const itemCounts = {};
+    orders.forEach((o) => {
+      (o.orderItems || []).forEach((item) => {
+        const key = item.name || 'Unnamed item';
+        itemCounts[key] = (itemCounts[key] || 0) + (Number(item.qty) || 0);
+      });
+    });
+    const topItems = Object.entries(itemCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    const pendingCount =
+      (statusCounts['Placed'] || 0) + (statusCounts['Confirmed'] || 0) + (statusCounts['Dispatched'] || 0);
+
+    return { totalOrders, totalRevenue, avgOrderValue, statusCounts, revenueByDay, topItems, pendingCount };
+  }, [orders]);
+
   return (
     <div className="admin-orders-page">
       {/* Embedded Responsive Styling */}
@@ -416,6 +562,57 @@ const AdminOrders = () => {
           color: #ffffff;
         }
 
+        .btn-analytics-toggle {
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          padding: 9px 16px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .btn-analytics-toggle:hover {
+          background: #1e293b;
+        }
+
+        .analytics-panel {
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+          border: 1px solid #e2e8f0;
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+
+        .analytics-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .analytics-summary-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 14px 16px;
+        }
+
+        .analytics-charts-grid {
+          display: grid;
+          grid-template-columns: 1.4fr 1fr;
+          gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+          .analytics-charts-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
         @media (max-width: 768px) {
           .admin-orders-page {
             padding: 10px;
@@ -440,17 +637,25 @@ const AdminOrders = () => {
             Showing {filteredOrders.length} of {orders.length} total orders
           </p>
         </div>
-        <span style={{
-          background: '#ecfdf5',
-          color: '#059669',
-          padding: '6px 14px',
-          borderRadius: '20px',
-          fontSize: '0.85rem',
-          fontWeight: 700,
-          border: '1px solid #a7f3d0'
-        }}>
-          ⚡ Live Socket Active
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            className="btn-analytics-toggle"
+            onClick={() => setShowAnalytics((prev) => !prev)}
+          >
+            {showAnalytics ? '✕ Hide Analytics' : '📊 Show Analytics'}
+          </button>
+          <span style={{
+            background: '#ecfdf5',
+            color: '#059669',
+            padding: '6px 14px',
+            borderRadius: '20px',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            border: '1px solid #a7f3d0'
+          }}>
+            ⚡ Live Socket Active
+          </span>
+        </div>
       </div>
 
       {/* Live Order Alert Banner */}
@@ -465,6 +670,93 @@ const AdminOrders = () => {
           boxShadow: '0 6px 16px rgba(217, 119, 6, 0.35)'
         }}>
           {liveAlert}
+        </div>
+      )}
+
+      {/* Analytics Panel (new) */}
+      {showAnalytics && (
+        <div className="analytics-panel">
+          <h2 style={{ margin: '0 0 16px', fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+            📊 Orders Analytics
+          </h2>
+
+          {/* Summary Cards */}
+          <div className="analytics-summary-grid">
+            <div className="analytics-summary-card">
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                Total Orders
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
+                {analytics.totalOrders}
+              </div>
+            </div>
+            <div className="analytics-summary-card">
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                Total Revenue
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#047857', marginTop: '4px' }}>
+                ₹{analytics.totalRevenue.toFixed(2)}
+              </div>
+            </div>
+            <div className="analytics-summary-card">
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                Avg Order Value
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
+                ₹{analytics.avgOrderValue.toFixed(2)}
+              </div>
+            </div>
+            <div className="analytics-summary-card">
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                Pending / In-progress
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#d97706', marginTop: '4px' }}>
+                {analytics.pendingCount}
+              </div>
+            </div>
+          </div>
+
+          {/* Charts */}
+          <div className="analytics-charts-grid">
+            <div>
+              <h3 style={{ margin: '0 0 10px', fontSize: '0.9rem', fontWeight: 700, color: '#334155' }}>
+                Revenue — Last 7 Days
+              </h3>
+              <RevenueTrendChart data={analytics.revenueByDay} />
+            </div>
+            <div>
+              <h3 style={{ margin: '0 0 10px', fontSize: '0.9rem', fontWeight: 700, color: '#334155' }}>
+                Orders by Status
+              </h3>
+              <StatusBreakdownChart statusCounts={analytics.statusCounts} />
+
+              <h3 style={{ margin: '20px 0 10px', fontSize: '0.9rem', fontWeight: 700, color: '#334155' }}>
+                Top Items (by qty)
+              </h3>
+              {analytics.topItems.length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>No item data yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {analytics.topItems.map(([name, qty], idx) => (
+                    <div
+                      key={name}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: '0.82rem',
+                        color: '#334155',
+                        padding: '6px 0',
+                        borderBottom: idx < analytics.topItems.length - 1 ? '1px solid #f1f5f9' : 'none'
+                      }}
+                    >
+                      <span>{idx + 1}. {name}</span>
+                      <strong>{qty}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -505,6 +797,7 @@ const AdminOrders = () => {
             <option value="all">🏷️ All Statuses</option>
             <option value="Placed">Placed</option>
             <option value="Confirmed">Confirmed</option>
+              <option value="Confirmed">Preparing</option>
             <option value="Dispatched">Dispatched</option>
             <option value="Delivered">Delivered</option>
             <option value="Cancelled">Cancelled</option>
@@ -566,7 +859,7 @@ const AdminOrders = () => {
                       <div style={{ fontWeight: 'bold', color: '#0f172a' }}>
                         #{o._id.slice(-6).toUpperCase()}
                       </div>
-                      
+
                       {/* Live Date & Time Indicator */}
                       <div style={{ marginTop: '4px', fontSize: '0.78rem' }}>
                         <div style={{ color: '#0f172a', fontWeight: 700 }}>⏰ {time || 'Just now'}</div>
@@ -645,6 +938,7 @@ const AdminOrders = () => {
                       >
                         <option value="Placed">Placed</option>
                         <option value="Confirmed">Confirmed</option>
+                        <option value="Preparing">Preparing</option>
                         <option value="Dispatched">Dispatched</option>
                         <option value="Delivered">Delivered</option>
                         <option value="Cancelled">Cancelled</option>
