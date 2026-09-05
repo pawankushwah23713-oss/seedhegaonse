@@ -32,9 +32,18 @@ const parseBool = (val, fallback = false) => {
 // 1. GET ALL PRODUCTS
 router.get('/', async (req, res) => {
   try {
-    const products = await Product.find().sort({ productRank: 1, createdAt: -1 });
+    const products = await Product.find({}).sort({ createdAt: -1 }).lean();
+
+    // Safe memory sort by productRank (handles missing fields gracefully)
+    products.sort((a, b) => {
+      const rankA = Number(a.productRank) || 9999;
+      const rankB = Number(b.productRank) || 9999;
+      return rankA - rankB;
+    });
+
     res.status(200).json(products);
   } catch (error) {
+    console.error('Fetch products error:', error);
     res.status(500).json({ message: 'Failed to fetch sweets: ' + error.message });
   }
 });
@@ -55,7 +64,7 @@ router.post('/', protect, adminOnly, upload.array('images', 5), async (req, res)
   try {
     const b = req.body;
     if (!b.name || !b.originRegion || !b.category) {
-      return res.status(400).json({ message: 'Name, origin, and category are required.' });
+      return res.status(400).json({ message: 'Name, origin place, and category are required.' });
     }
 
     const uploadedFiles = req.files || [];
@@ -66,19 +75,23 @@ router.post('/', protect, adminOnly, upload.array('images', 5), async (req, res)
     const parsedCouponsList = safeJsonParse(b.couponsList);
     const parsedQuantityDiscounts = safeJsonParse(b.quantityDiscounts);
 
-    // Auto calculate inStock from variants or default input
+    // Auto-calculate inStock
     let inStockStatus = parseBool(b.inStock, true);
     if (parsedVariants.length > 0) {
       const totalQty = parsedVariants.reduce((sum, v) => sum + (Number(v.quantityAvailable) || 0), 0);
       inStockStatus = totalQty > 0;
     }
 
-    const defaultPrice = parsedVariants.length > 0 ? Number(parsedVariants[0].price || 0) : Number(b.price || 0);
+    // Determine price fallback safely (never let it be NaN or empty)
+    let calculatedPrice = Number(b.price);
+    if (isNaN(calculatedPrice) || calculatedPrice <= 0) {
+      calculatedPrice = parsedVariants.length > 0 ? Number(parsedVariants[0].price || 0) : 0;
+    }
 
     const productData = {
       name: String(b.name).trim(),
       category: b.category,
-      productRank: Number(b.productRank) || 0,
+      productRank: Number(b.productRank) || 1,
       latestProduct: parseBool(b.latestProduct, false),
       skuNo: String(b.skuNo || '').trim(),
       originRegion: String(b.originRegion).trim(),
@@ -93,11 +106,11 @@ router.post('/', protect, adminOnly, upload.array('images', 5), async (req, res)
       hsnCode: b.hsnCode || '',
 
       variants: parsedVariants,
-      price: defaultPrice,
+      price: calculatedPrice,
       originalPrice: Number(b.originalPrice) || 0,
 
       images: imagePaths,
-      image: imagePaths[0] || '', // backward fallback
+      image: imagePaths[0] || '',
 
       discountPercent: Number(b.discountPercent) || 0,
       discountValidUntil: b.discountValidUntil ? new Date(b.discountValidUntil) : null,
@@ -153,11 +166,11 @@ router.put('/:id', protect, adminOnly, upload.array('images', 5), async (req, re
       const parsedVariants = safeJsonParse(b.variants);
       product.variants = parsedVariants;
       if (parsedVariants.length > 0) {
-        product.price = Number(parsedVariants[0].price || 0);
+        product.price = Number(parsedVariants[0].price || product.price);
         const totalQty = parsedVariants.reduce((sum, v) => sum + (Number(v.quantityAvailable) || 0), 0);
         product.inStock = totalQty > 0;
       }
-    } else if (b.price !== undefined) {
+    } else if (b.price !== undefined && !isNaN(Number(b.price))) {
       product.price = Number(b.price);
     }
 
