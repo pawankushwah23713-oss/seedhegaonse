@@ -1,4 +1,3 @@
-// models/DeliveryPincode.js
 const mongoose = require('mongoose');
 
 const deliveryPincodeSchema = new mongoose.Schema(
@@ -9,7 +8,6 @@ const deliveryPincodeSchema = new mongoose.Schema(
       unique: true,
       trim: true
     },
-    // 🟢 City ab save hogi (pehle schema me thi hi nahi, isliye drop ho rahi thi)
     city: {
       type: String,
       trim: true,
@@ -18,6 +16,10 @@ const deliveryPincodeSchema = new mongoose.Schema(
     deliveryCharge: {
       type: Number,
       required: true
+    },
+    gstPercent: {
+      type: Number,
+      default: 18 // Excel sheet ke mutabiq
     },
     isServiceable: {
       type: Boolean,

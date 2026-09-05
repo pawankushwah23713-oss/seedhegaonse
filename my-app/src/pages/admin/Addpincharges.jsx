@@ -5,20 +5,22 @@ import './AdminPincodeManager.css';
 const API_BASE = 'https://orange-ape-497824.hostingersite.com/api';
 
 const AdminPincodeManager = () => {
-  // 📍 Pincode form
+  // 📍 Pincode Form State
+  const [pincodeInput, setPincodeInput] = useState(''); // Single or Multi (e.g. 110001, 110058)
   const [city, setCity] = useState('');
-  const [pincode, setPincode] = useState('');
   const [charge, setCharge] = useState('');
+  const [gstPercent, setGstPercent] = useState('18'); // Default 18%
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ msg: '', type: '' });
 
-  // 📋 Pincode list
+  // 📋 Pincode List State
   const [pincodeList, setPincodeList] = useState([]);
   const [listLoading, setListLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // 🎁 Store settings (Gift Box + Tax)
+  // 🎁 Gift Box & Global Tax Settings
   const [settings, setSettings] = useState({
     giftBoxEnabled: true,
     giftBoxTitle: 'Gift Box wrap',
@@ -30,13 +32,15 @@ const AdminPincodeManager = () => {
   const [settingsMsg, setSettingsMsg] = useState({ msg: '', type: '' });
 
   // ==========================================
-  // LOADERS
+  // 🔄 LOAD DATA
   // ==========================================
   const fetchPincodes = async () => {
     setListLoading(true);
     try {
       const res = await axios.get(`${API_BASE}/delivery/admin/pincodes`);
-      if (Array.isArray(res.data?.data)) setPincodeList(res.data.data);
+      if (Array.isArray(res.data?.data)) {
+        setPincodeList(res.data.data);
+      }
     } catch (err) {
       console.error('Pincode list error:', err);
     } finally {
@@ -68,18 +72,19 @@ const AdminPincodeManager = () => {
   }, []);
 
   // ==========================================
-  // 📍 PINCODE SAVE / UPDATE
+  // 📍 SAVE PINCODE (Single / Multi)
   // ==========================================
-  const handleSave = async (e) => {
+  const handleSavePincode = async (e) => {
     e.preventDefault();
     setLoading(true);
     setStatus({ msg: '', type: '' });
 
     try {
       const payload = {
+        pincodeInput: pincodeInput.trim(),
         city: city.trim(),
-        pincode: pincode.trim(),
         deliveryCharge: Number(charge),
+        gstPercent: Number(gstPercent) || 0,
         isServiceable: true
       };
 
@@ -88,7 +93,7 @@ const AdminPincodeManager = () => {
         : await axios.post(`${API_BASE}/delivery/admin/set-pincode`, payload);
 
       setStatus({
-        msg: res.data.message || 'Delivery charge saved successfully!',
+        msg: res.data.message || 'Pincode rate(s) saved successfully!',
         type: 'success'
       });
 
@@ -106,18 +111,20 @@ const AdminPincodeManager = () => {
 
   const handleEditClick = (p) => {
     setEditingId(p._id);
+    setPincodeInput(p.pincode || '');
     setCity(p.city || '');
-    setPincode(p.pincode || '');
     setCharge(String(p.deliveryCharge ?? ''));
+    setGstPercent(String(p.gstPercent ?? '18'));
     setStatus({ msg: '', type: '' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 350, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
+    setPincodeInput('');
     setCity('');
-    setPincode('');
     setCharge('');
+    setGstPercent('18');
   };
 
   const handleDelete = async (p) => {
@@ -125,7 +132,7 @@ const AdminPincodeManager = () => {
     setBusyId(p._id);
     try {
       const res = await axios.delete(`${API_BASE}/delivery/admin/pincode/${p._id}`);
-      setStatus({ msg: res.data.message || '🗑️ Deleted', type: 'success' });
+      setStatus({ msg: res.data.message || '🗑️ Deleted successfully', type: 'success' });
       setPincodeList((prev) => prev.filter((x) => x._id !== p._id));
       if (editingId === p._id) handleCancelEdit();
     } catch (err) {
@@ -151,7 +158,7 @@ const AdminPincodeManager = () => {
   };
 
   // ==========================================
-  // 🎁 SETTINGS SAVE
+  // 🎁 SAVE GIFT BOX & GLOBAL TAX SETTINGS
   // ==========================================
   const handleSettingsSave = async (e) => {
     e.preventDefault();
@@ -166,10 +173,10 @@ const AdminPincodeManager = () => {
         productTaxPercent: Number(settings.productTaxPercent) || 0,
         shippingTaxPercent: Number(settings.shippingTaxPercent) || 0
       });
-      setSettingsMsg({ msg: res.data.message || '✅ Saved!', type: 'success' });
+      setSettingsMsg({ msg: res.data.message || '✅ Settings Saved!', type: 'success' });
     } catch (err) {
       setSettingsMsg({
-        msg: err.response?.data?.message || 'Could not save settings. Please try again.',
+        msg: err.response?.data?.message || 'Failed to save settings.',
         type: 'error'
       });
     } finally {
@@ -177,305 +184,301 @@ const AdminPincodeManager = () => {
     }
   };
 
-  const setSettingField = (field, value) => {
-    setSettings((prev) => ({ ...prev, [field]: value }));
-  };
+  // Filter list by search
+  const filteredList = pincodeList.filter((p) =>
+    (p.pincode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.city || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="pincode-admin-container">
+    <div className="pincode-admin-container" style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
 
-      {/* ================= 🎁 GIFT BOX + TAX SETTINGS ================= */}
-      <div className="pincode-card" style={{ marginBottom: '24px' }}>
-        <div className="pincode-card-header">
-          <div className="icon-badge">🎁</div>
-          <h3>Gift Box & Tax Settings</h3>
-          <p>Set the gift packaging name/price and GST percentage here</p>
+      {/* ================= 🎁 SECTION 1: GIFT BOX & GLOBAL TAX ================= */}
+      <div className="pincode-card" style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '15px' }}>
+          <span style={{ fontSize: '1.5rem' }}>🎁</span>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>Free Gift & Global Tax Settings</h3>
+            <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#64748b' }}>Configure gift box wrap option and base cart taxes</p>
+          </div>
         </div>
 
-        <form onSubmit={handleSettingsSave} className="pincode-form">
-
-          {/* Gift Box ON / OFF */}
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '12px 14px',
-              borderRadius: '8px',
-              background: settings.giftBoxEnabled ? '#f0fdf4' : '#f8fafc',
-              border: `1.5px solid ${settings.giftBoxEnabled ? '#bbf7d0' : '#e2e8f0'}`,
-              cursor: 'pointer',
-              marginBottom: '14px'
-            }}
-          >
+        <form onSubmit={handleSettingsSave}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', background: settings.giftBoxEnabled ? '#f0fdf4' : '#f8fafc', border: `1px solid ${settings.giftBoxEnabled ? '#86efac' : '#cbd5e1'}`, cursor: 'pointer', marginBottom: '15px' }}>
             <input
               type="checkbox"
               checked={settings.giftBoxEnabled}
-              onChange={(e) => setSettingField('giftBoxEnabled', e.target.checked)}
-              style={{ width: '18px', height: '18px', accentColor: '#15803d', cursor: 'pointer' }}
+              onChange={(e) => setSettings({ ...settings, giftBoxEnabled: e.target.checked })}
+              style={{ width: '18px', height: '18px', accentColor: '#16a34a' }}
             />
-            <span style={{ fontWeight: 700, color: settings.giftBoxEnabled ? '#047857' : '#64748b', fontSize: '0.9rem' }}>
-              🎁 Show Gift Box option in cart
+            <span style={{ fontWeight: 600, color: settings.giftBoxEnabled ? '#15803d' : '#64748b', fontSize: '0.9rem' }}>
+              🎁 Enable Gift Box wrap option on Checkout
             </span>
           </label>
 
-          <div className="form-group">
-            <label>Gift Box Name</label>
-            <input
-              type="text"
-              className="pincode-input"
-              placeholder="e.g. Premium Gift Box wrap"
-              value={settings.giftBoxTitle}
-              onChange={(e) => setSettingField('giftBoxTitle', e.target.value)}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Gift Box Name</label>
+              <input
+                type="text"
+                className="pincode-input"
+                value={settings.giftBoxTitle}
+                onChange={(e) => setSettings({ ...settings, giftBoxTitle: e.target.value })}
+                placeholder="e.g. Gift Box wrap"
+                style={{ width: '100%', padding: '8px 10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Gift Box Price (₹)</label>
+              <input
+                type="number"
+                min="0"
+                className="pincode-input"
+                value={settings.giftBoxCharge}
+                onChange={(e) => setSettings({ ...settings, giftBoxCharge: e.target.value })}
+                style={{ width: '100%', padding: '8px 10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Product Tax / GST (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                className="pincode-input"
+                value={settings.productTaxPercent}
+                onChange={(e) => setSettings({ ...settings, productTaxPercent: e.target.value })}
+                style={{ width: '100%', padding: '8px 10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Shipping Tax / GST (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                className="pincode-input"
+                value={settings.shippingTaxPercent}
+                onChange={(e) => setSettings({ ...settings, shippingTaxPercent: e.target.value })}
+                style={{ width: '100%', padding: '8px 10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Gift Box Price (₹) <span>*</span></label>
-            <input
-              type="number"
-              min="0"
-              className="pincode-input"
-              placeholder="e.g. 50"
-              value={settings.giftBoxCharge}
-              onChange={(e) => setSettingField('giftBoxCharge', e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Product Tax / GST (%) <span>*</span></label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              className="pincode-input"
-              placeholder="e.g. 5"
-              value={settings.productTaxPercent}
-              onChange={(e) => setSettingField('productTaxPercent', e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Shipping Tax / GST (%) <span>*</span></label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              className="pincode-input"
-              placeholder="e.g. 5"
-              value={settings.shippingTaxPercent}
-              onChange={(e) => setSettingField('shippingTaxPercent', e.target.value)}
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn-save-pincode" disabled={settingsLoading}>
-            {settingsLoading ? 'Saving Settings...' : '💾 Save Gift & Tax Settings'}
+          <button
+            type="submit"
+            disabled={settingsLoading}
+            style={{ marginTop: '15px', background: '#0284c7', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            {settingsLoading ? 'Saving...' : '💾 Save Gift & Tax Settings'}
           </button>
 
           {settingsMsg.msg && (
-            <div className={`feedback-banner ${settingsMsg.type}`}>
-              {settingsMsg.type === 'success' ? '✓' : '⚠️'} {settingsMsg.msg}
+            <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', background: settingsMsg.type === 'success' ? '#dcfce7' : '#fee2e2', color: settingsMsg.type === 'success' ? '#15803d' : '#b91c1c' }}>
+              {settingsMsg.msg}
             </div>
           )}
-
-          <p style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '10px', lineHeight: 1.5 }}>
-            These values will be automatically applied in the cart — both the gift box price and GST will be controlled from here.
-          </p>
         </form>
       </div>
 
-      {/* ================= 📍 PINCODE FORM ================= */}
-      <div className="pincode-card">
-        <div className="pincode-card-header">
-          <div className="icon-badge">📍</div>
-          <h3>{editingId ? 'Edit Pincode Delivery Rate' : 'Pincode Delivery Manager'}</h3>
-          <p>{editingId ? 'Update the details of the selected pincode' : 'Set or update delivery charges based on user pincode'}</p>
-        </div>
+      {/* ================= 📍 SECTION 2: PIN CODE ADMIN (Exact as Excel) ================= */}
+      <div className="pincode-card" style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '2px solid #b91c1c', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+        
+        {/* Title */}
+        <h2 style={{ textAlign: 'center', color: '#c00000', fontSize: '1.8rem', fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '0.5px' }}>
+          Pin Code Admin
+        </h2>
 
-        <form onSubmit={handleSave} className="pincode-form">
-          <div className="form-group">
-            <label>City Name</label>
-            <input
-              type="text"
-              className="pincode-input"
-              placeholder="e.g. Noida, Delhi, Lucknow"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-            />
+        {/* Form */}
+        <form onSubmit={handleSavePincode}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            
+            {/* 1. Pin Code (Single as well as Multi) */}
+            <div>
+              <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                Pin Code (Single As well as Multi Option Must) <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                disabled={Boolean(editingId)}
+                placeholder={editingId ? 'Editing single pin' : 'e.g. 110001 or 110001, 110058, 201301'}
+                value={pincodeInput}
+                onChange={(e) => setPincodeInput(e.target.value)}
+                required
+                style={{ width: '100%', padding: '10px', marginTop: '6px', border: '1.5px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem' }}
+              />
+              <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                Comma (,) ya space dekar ek saath multiple pincodes daal sakte hain.
+              </span>
+            </div>
+
+            {/* 2. City Name */}
+            <div>
+              <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                City Name (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Delhi, Noida"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                style={{ width: '100%', padding: '10px', marginTop: '6px', border: '1.5px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem' }}
+              />
+            </div>
+
+            {/* 3. Delivery Charge (Pin Base) Rs. */}
+            <div>
+              <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                Delivery Charge Pin Code (Pin Base) Rs. <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 100, 150, 250"
+                value={charge}
+                onChange={(e) => setCharge(e.target.value)}
+                required
+                style={{ width: '100%', padding: '10px', marginTop: '6px', border: '1.5px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem' }}
+              />
+            </div>
+
+            {/* 4. GST % */}
+            <div>
+              <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                GST % <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                placeholder="e.g. 18 or 5"
+                value={gstPercent}
+                onChange={(e) => setGstPercent(e.target.value)}
+                required
+                style={{ width: '100%', padding: '10px', marginTop: '6px', border: '1.5px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem' }}
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Pincode <span>*</span></label>
-            <input
-              type="text"
-              maxLength="6"
-              className="pincode-input"
-              placeholder="e.g. 201301"
-              value={pincode}
-              onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Delivery Charge (₹) <span>*</span></label>
-            <input
-              type="number"
-              min="0"
-              className="pincode-input"
-              placeholder="e.g. 50"
-              value={charge}
-              onChange={(e) => setCharge(e.target.value)}
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn-save-pincode" disabled={loading}>
-            {loading ? 'Saving Rate...' : editingId ? '💾 Update Rate' : '💾 Save / Update Rate'}
-          </button>
-
-          {editingId && (
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
             <button
-              type="button"
-              onClick={handleCancelEdit}
-              style={{
-                width: '100%',
-                marginTop: '10px',
-                padding: '11px',
-                background: '#e2e8f0',
-                color: '#334155',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
+              type="submit"
+              disabled={loading}
+              style={{ flex: 1, background: '#c00000', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer' }}
             >
-              ✕ Cancel Edit
+              {loading ? 'Saving...' : editingId ? '💾 Update Rate' : '💾 Add Pincode(s) Delivery Rate'}
             </button>
-          )}
+
+            {editingId && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                style={{ background: '#64748b', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
 
           {status.msg && (
-            <div className={`feedback-banner ${status.type}`}>
-              {status.type === 'success' ? '✓' : '⚠️'} {status.msg}
+            <div style={{ marginTop: '12px', padding: '10px', borderRadius: '6px', textAlign: 'center', fontWeight: 600, fontSize: '0.88rem', background: status.type === 'success' ? '#dcfce7' : '#fee2e2', color: status.type === 'success' ? '#15803d' : '#b91c1c' }}>
+              {status.msg}
             </div>
           )}
         </form>
-      </div>
 
-      {/* ================= 📋 PINCODE LIST (Edit / Delete) ================= */}
-      <div className="pincode-card" style={{ marginTop: '24px' }}>
-        <div className="pincode-card-header">
-          <div className="icon-badge">📋</div>
-          <h3>All Serviceable Pincodes ({pincodeList.length})</h3>
-          <p>You can edit, turn on/off, or delete any pincode from here</p>
+        {/* 🔴 RED NOTE BANNER EXACTLY AS IN EXCEL SHEET */}
+        <div style={{ marginTop: '22px', padding: '12px', textAlign: 'center', color: '#c00000', fontWeight: 800, fontSize: '1rem', borderTop: '1px solid #fecaca', borderBottom: '1px solid #fecaca', background: '#fff5f5' }}>
+          Our Buyer can be from PAN India but Delivery only on Pin Code which We Put Up
         </div>
 
-        <div style={{ padding: '4px 0 8px' }}>
+        {/* ================= 📋 TABLE (Pin Code | Delivery Charge | GST %) ================= */}
+        <div style={{ marginTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <h4 style={{ margin: 0, color: '#0f172a', fontSize: '1.05rem' }}>
+              Configured Pincodes ({filteredList.length})
+            </h4>
+            <input
+              type="text"
+              placeholder="🔍 Search Pincode or City..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', width: '220px' }}
+            />
+          </div>
+
           {listLoading ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-              Loading pincodes...
-            </div>
-          ) : pincodeList.length === 0 ? (
-            <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-              No pincode has been added yet.
-            </div>
+            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>Loading pincodes...</div>
+          ) : filteredList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>No pincode configured yet.</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {pincodeList.map((p) => {
-                const off = p.isServiceable === false;
-                return (
-                  <div
-                    key={p._id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '12px',
-                      flexWrap: 'wrap',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      background: off ? '#fff8f8' : '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderLeft: `5px solid ${off ? '#dc2626' : '#15803d'}`
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
-                        {p.pincode}
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b', marginLeft: '8px' }}>
-                          {p.city || 'City not set'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
-                          ₹{Number(p.deliveryCharge || 0).toFixed(2)} delivery
-                        </span>
-                        <span style={{ background: off ? '#fee2e2' : '#dcfce7', color: off ? '#b91c1c' : '#15803d', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
-                          {off ? '⛔ Delivery OFF' : '✅ Serviceable'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => handleToggleServiceable(p)}
-                        disabled={busyId === p._id}
-                        style={{
-                          background: off ? '#15803d' : '#f59e0b',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          cursor: busyId === p._id ? 'wait' : 'pointer',
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {busyId === p._id ? '...' : off ? '✅ Turn ON' : '⛔ Turn OFF'}
-                      </button>
-
-                      <button
-                        onClick={() => handleEditClick(p)}
-                        style={{
-                          background: '#0284c7',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '8px 14px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontWeight: 700,
-                          fontSize: '0.8rem'
-                        }}
-                      >
-                        ✏️ Edit
-                      </button>
-
-                      <button
-                        onClick={() => handleDelete(p)}
-                        disabled={busyId === p._id}
-                        style={{
-                          background: '#ef4444',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          cursor: busyId === p._id ? 'wait' : 'pointer',
-                          fontWeight: 700,
-                          fontSize: '0.8rem'
-                        }}
-                      >
-                        🗑️ Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>Pin Code</th>
+                    <th style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>City</th>
+                    <th style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>Delivery Charge Rs.</th>
+                    <th style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>GST %</th>
+                    <th style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>Status</th>
+                    <th style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a', textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredList.map((p) => {
+                    const off = p.isServiceable === false;
+                    return (
+                      <tr key={p._id} style={{ borderBottom: '1px solid #e2e8f0', background: off ? '#fef2f2' : '#ffffff' }}>
+                        <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>
+                          {p.pincode}
+                        </td>
+                        <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                          {p.city || '-'}
+                        </td>
+                        <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0284c7' }}>
+                          ₹{p.deliveryCharge}
+                        </td>
+                        <td style={{ padding: '10px 12px', fontWeight: 700, color: '#15803d' }}>
+                          {p.gstPercent ?? 18}%
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', background: off ? '#fee2e2' : '#dcfce7', color: off ? '#b91c1c' : '#15803d' }}>
+                            {off ? 'OFF' : 'Active'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            <button
+                              onClick={() => handleToggleServiceable(p)}
+                              disabled={busyId === p._id}
+                              style={{ background: off ? '#16a34a' : '#f59e0b', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                            >
+                              {off ? 'ON' : 'OFF'}
+                            </button>
+                            <button
+                              onClick={() => handleEditClick(p)}
+                              style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p)}
+                              disabled={busyId === p._id}
+                              style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
