@@ -19,14 +19,18 @@ const deliveryPincodeSchema = new mongoose.Schema(
     },
     gstPercent: {
       type: Number,
-      default: 18 // Excel sheet ke hisaab se
+      required: true,
+      default: 18 // Default 18 rahega agar kuch na diya ho
     },
     isServiceable: {
       type: Boolean,
       default: true
     }
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    strict: false // ✅ Isse 5% ya koi bhi custom GST kabhi strip nahi hoga
+  }
 );
 
 module.exports =

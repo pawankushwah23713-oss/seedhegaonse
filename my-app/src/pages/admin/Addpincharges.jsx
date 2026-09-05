@@ -9,7 +9,8 @@ const AdminPincodeManager = () => {
   const [pincodeInput, setPincodeInput] = useState('');
   const [city, setCity] = useState('');
   const [charge, setCharge] = useState('');
-  const [gstPercent, setGstPercent] = useState('18');
+  const [gstPercent, setGstPercent] = useState('18'); // default 18% (can be 5, 12, 0, etc.)
+  const [customGst, setCustomGst] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ msg: '', type: '' });
@@ -20,7 +21,7 @@ const AdminPincodeManager = () => {
   const [busyId, setBusyId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 🎁 Gift Box & Global Tax Settings State
+  // 🎁 Gift Box & Global Tax Settings
   const [settings, setSettings] = useState({
     giftBoxEnabled: true,
     giftBoxTitle: 'Gift Box wrap',
@@ -72,7 +73,7 @@ const AdminPincodeManager = () => {
   }, []);
 
   // =========================================================
-  // 📍 SAVE PINCODE (Single as well as Multi Option)
+  // 📍 SAVE PINCODE (Single / Multi)
   // =========================================================
   const handleSavePincode = async (e) => {
     e.preventDefault();
@@ -92,14 +93,14 @@ const AdminPincodeManager = () => {
 
     try {
       const cleanPin = pincodeInput.trim();
+      const finalGst = Number(gstPercent);
 
-      // Dono fields bhej rahe hain taaki 400 bad request na aaye
       const payload = {
         pincode: cleanPin,
         pincodeInput: cleanPin,
         city: city.trim(),
         deliveryCharge: Number(charge),
-        gstPercent: Number(gstPercent) || 0,
+        gstPercent: isNaN(finalGst) ? 18 : finalGst,
         isServiceable: true
       };
 
@@ -130,7 +131,17 @@ const AdminPincodeManager = () => {
     setPincodeInput(p.pincode || '');
     setCity(p.city || '');
     setCharge(String(p.deliveryCharge ?? ''));
-    setGstPercent(String(p.gstPercent ?? '18'));
+    
+    // Load existing GST value
+    const savedGst = p.gstPercent !== undefined && p.gstPercent !== null ? String(p.gstPercent) : '18';
+    setPincodeInput(p.pincode || '');
+    setGstPercent(savedGst);
+    if (!['0', '5', '12', '18', '28'].includes(savedGst)) {
+      setCustomGst(true);
+    } else {
+      setCustomGst(false);
+    }
+    
     setStatus({ msg: '', type: '' });
     window.scrollTo({ top: 380, behavior: 'smooth' });
   };
@@ -141,6 +152,7 @@ const AdminPincodeManager = () => {
     setCity('');
     setCharge('');
     setGstPercent('18');
+    setCustomGst(false);
   };
 
   const handleDelete = async (p) => {
@@ -174,7 +186,7 @@ const AdminPincodeManager = () => {
   };
 
   // =========================================================
-  // 🎁 SAVE GIFT BOX & GLOBAL TAX SETTINGS
+  // 🎁 SAVE GIFT BOX SETTINGS
   // =========================================================
   const handleSettingsSave = async (e) => {
     e.preventDefault();
@@ -200,7 +212,6 @@ const AdminPincodeManager = () => {
     }
   };
 
-  // Search filter
   const filteredList = pincodeList.filter((p) =>
     (p.pincode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.city || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -297,7 +308,7 @@ const AdminPincodeManager = () => {
         <form onSubmit={handleSavePincode}>
           <div className="grid-form-4">
             
-            {/* 1. Pin Code (Single as well as Multi Option) */}
+            {/* 1. Pin Code (Single As well as Multi Option) */}
             <div className="input-group">
               <label className="required-label">
                 Pin Code (Single As well as Multi Option Must)
@@ -341,19 +352,45 @@ const AdminPincodeManager = () => {
               />
             </div>
 
-            {/* 4. GST % */}
+            {/* 4. GST % (Select Dropdown or Custom Input) */}
             <div className="input-group">
-              <label className="required-label">GST %</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                placeholder="e.g. 18 or 5"
-                value={gstPercent}
-                onChange={(e) => setGstPercent(e.target.value)}
-                required
-              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="required-label" style={{ margin: 0 }}>GST %</label>
+                <button
+                  type="button"
+                  onClick={() => setCustomGst(!customGst)}
+                  style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  {customGst ? 'Choose from list' : 'Type custom %'}
+                </button>
+              </div>
+
+              {customGst ? (
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="e.g. 18, 5, 12"
+                  value={gstPercent}
+                  onChange={(e) => setGstPercent(e.target.value)}
+                  required
+                  style={{ marginTop: '5px' }}
+                />
+              ) : (
+                <select
+                  value={gstPercent}
+                  onChange={(e) => setGstPercent(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', marginTop: '5px', border: '1.5px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', background: '#fff' }}
+                  required
+                >
+                  <option value="18">18% (Standard)</option>
+                  <option value="5">5% (Reduced)</option>
+                  <option value="12">12%</option>
+                  <option value="28">28%</option>
+                  <option value="0">0% (Nil / Free)</option>
+                </select>
+              )}
             </div>
           </div>
 
@@ -376,7 +413,7 @@ const AdminPincodeManager = () => {
           )}
         </form>
 
-        {/* 🔴 RED NOTE EXACTLY AS IN EXCEL SHEET */}
+        {/* 🔴 RED NOTE BANNER EXACTLY AS IN EXCEL SHEET */}
         <div className="red-excel-banner">
           Our Buyer can be from PAN India but Delivery only on Pin Code which We Put Up
         </div>
@@ -413,12 +450,17 @@ const AdminPincodeManager = () => {
               <tbody>
                 {filteredList.map((p) => {
                   const off = p.isServiceable === false;
+                  // ✅ Exactly saved value show hogi (no hardcoded fallback)
+                  const displayGst = p.gstPercent !== undefined && p.gstPercent !== null ? p.gstPercent : 18;
+
                   return (
                     <tr key={p._id} className={off ? 'row-off' : ''}>
                       <td className="font-bold">{p.pincode}</td>
                       <td className="text-muted">{p.city || '-'}</td>
                       <td className="font-bold text-blue">₹{p.deliveryCharge}</td>
-                      <td className="font-bold text-green">{p.gstPercent ?? 18}%</td>
+                      <td className="font-bold text-green">
+                        {displayGst}%
+                      </td>
                       <td>
                         <span className={`status-pill ${off ? 'pill-off' : 'pill-on'}`}>
                           {off ? 'OFF' : 'Active'}

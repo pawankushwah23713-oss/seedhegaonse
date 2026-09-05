@@ -14,7 +14,6 @@ const getOrCreateSettings = async () => {
   return settings;
 };
 
-// GET Settings
 router.get('/settings', async (req, res) => {
   try {
     const settings = await getOrCreateSettings();
@@ -24,7 +23,6 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-// UPDATE Settings
 router.put('/settings', async (req, res) => {
   try {
     const b = req.body || {};
@@ -54,7 +52,7 @@ router.put('/settings', async (req, res) => {
 });
 
 /* =========================================================
-   📍 2. PINCODE ADMIN (Single as well as Multi Option)
+   📍 2. PINCODE ADMIN (Exact GST Saving with .lean())
    ========================================================= */
 const handleSetPincode = async (req, res) => {
   try {
@@ -68,7 +66,6 @@ const handleSetPincode = async (req, res) => {
       });
     }
 
-    // Split comma, space, newline for Multi-pincode support
     const pins = String(rawInput)
       .split(/[\s,]+/)
       .map((p) => p.trim())
@@ -82,11 +79,14 @@ const handleSetPincode = async (req, res) => {
     }
 
     const chargeNum = Number(deliveryCharge);
-    const gstNum = gstPercent !== undefined ? Number(gstPercent) : 18;
+    // ✅ Jo GST user ne bheja hai (e.g. 5, 12, 18, 0) wahi save hoga
+    const gstNum = gstPercent !== undefined && gstPercent !== null && !isNaN(Number(gstPercent))
+      ? Number(gstPercent)
+      : 18;
+
     const serv = isServiceable !== undefined ? Boolean(isServiceable) : true;
     const cityStr = city ? String(city).trim() : '';
 
-    // Bulk upsert taaki single ya multiple dono save ho sakein
     const operations = pins.map((pin) => ({
       updateOne: {
         filter: { pincode: pin },
@@ -108,8 +108,8 @@ const handleSetPincode = async (req, res) => {
     return res.json({
       success: true,
       message: pins.length === 1
-        ? `✅ Pincode ${pins[0]} successfully save ho gaya!`
-        : `✅ Total ${pins.length} pincodes successfully save ho gaye!`
+        ? `✅ Pincode ${pins[0]} (${gstNum}% GST) save ho gaya!`
+        : `✅ Total ${pins.length} pincodes (${gstNum}% GST) save ho gaye!`
     });
   } catch (error) {
     console.error('handleSetPincode Error:', error);
@@ -117,41 +117,45 @@ const handleSetPincode = async (req, res) => {
   }
 };
 
-// POST Handlers
 router.post('/', handleSetPincode);
 router.post('/admin/set-pincode', handleSetPincode);
 
-// GET All Pincodes
+// 📋 GET All Pincodes (.lean() added so gstPercent is never omitted)
 router.get('/admin/pincodes', async (req, res) => {
   try {
-    const list = await DeliveryPincode.find().sort({ createdAt: -1 });
+    const list = await DeliveryPincode.find().sort({ createdAt: -1 }).lean();
     res.json({ success: true, count: list.length, data: list });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// PUT Single Pincode (Update)
+// ✏️ UPDATE Single Pincode
 router.put('/admin/pincode/:id', async (req, res) => {
   try {
     const { pincodeInput, pincode, city, deliveryCharge, gstPercent, isServiceable } = req.body;
     const entry = await DeliveryPincode.findById(req.params.id);
 
     if (!entry) {
-      return res.status(404).json({ success: false, message: 'Pincode record nahi mila.' });
+      return res.status(404).json({ success: false, message: 'Pincode nahi mila.' });
     }
 
     const pinVal = pincodeInput || pincode;
     if (pinVal !== undefined) entry.pincode = String(pinVal).trim();
     if (city !== undefined) entry.city = String(city).trim();
     if (deliveryCharge !== undefined) entry.deliveryCharge = Number(deliveryCharge) || 0;
-    if (gstPercent !== undefined) entry.gstPercent = Number(gstPercent) || 0;
+    
+    // ✅ Specific GST update
+    if (gstPercent !== undefined && gstPercent !== null) {
+      entry.gstPercent = Number(gstPercent);
+    }
+    
     if (isServiceable !== undefined) {
       entry.isServiceable = isServiceable === true || isServiceable === 'true';
     }
 
     await entry.save();
-    res.json({ success: true, message: '✅ Pincode update ho gaya!', data: entry });
+    res.json({ success: true, message: '✅ Pincode updated successfully!', data: entry });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: 'Yeh pincode pehle se maujood hai.' });
@@ -160,7 +164,7 @@ router.put('/admin/pincode/:id', async (req, res) => {
   }
 });
 
-// PATCH Toggle Serviceable
+// 🔁 TOGGLE Serviceable
 router.patch('/admin/pincode/:id/toggle', async (req, res) => {
   try {
     const entry = await DeliveryPincode.findById(req.params.id);
@@ -181,7 +185,7 @@ router.patch('/admin/pincode/:id/toggle', async (req, res) => {
   }
 });
 
-// DELETE Pincode
+// 🗑️ DELETE Pincode
 router.delete('/admin/pincode/:id', async (req, res) => {
   try {
     const deleted = await DeliveryPincode.findByIdAndDelete(req.params.id);
@@ -194,9 +198,7 @@ router.delete('/admin/pincode/:id', async (req, res) => {
   }
 });
 
-/* =========================================================
-   👤 3. USER CHECK PINCODE & CHARGE
-   ========================================================= */
+// 👤 USER CHECK Delivery Charge & GST
 router.post('/check-delivery-charge', async (req, res) => {
   try {
     const { pincode } = req.body;
@@ -204,7 +206,7 @@ router.post('/check-delivery-charge', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Pincode enter karein.' });
     }
 
-    const pincodeData = await DeliveryPincode.findOne({ pincode: String(pincode).trim() });
+    const pincodeData = await DeliveryPincode.findOne({ pincode: String(pincode).trim() }).lean();
 
     if (!pincodeData || !pincodeData.isServiceable) {
       return res.status(404).json({
@@ -220,7 +222,7 @@ router.post('/check-delivery-charge', async (req, res) => {
       isServiceable: true,
       city: pincodeData.city || '',
       deliveryCharge: pincodeData.deliveryCharge,
-      gstPercent: pincodeData.gstPercent ?? 18,
+      gstPercent: pincodeData.gstPercent !== undefined ? pincodeData.gstPercent : 18,
       message: `Delivery Charge: ₹${pincodeData.deliveryCharge}`
     });
   } catch (error) {
