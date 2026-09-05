@@ -1,187 +1,210 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
+const Coupon = require('../models/Coupon');
 const User = require('../models/User');
+const { protect } = require('../middleware/authMiddleware');
 
 const getUserId = (req) => {
   return req.user?._id || req.user?.id || req.userId || (typeof req.user === 'string' ? req.user : null);
 };
 
-// 🟢 1. GET /api/coupons/my-coupons (Returns active saved coupons & used coupons list)
-const handleGetCoupons = async (req, res) => {
+// =========================================================
+// ➕ 1. ADD / CREATE NEW COUPON (Admin Endpoint - Fixed 404)
+// Dono routes par sunega: POST /api/coupons aur POST /api/coupons/admin/add
+// =========================================================
+const handleAddCoupon = async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'User not authenticated' });
+    const {
+      code,
+      noOfTimesUse,
+      maxUsagePerUser,
+      baseValue,
+      discountType,
+      lumpsumAmount,
+      percentageAmount,
+      maxDiscountValue,
+      isActive
+    } = req.body;
 
-    const user = await User.findById(userId).lean();
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!code) {
+      return res.status(400).json({ success: false, message: 'Coupon code is required' });
+    }
 
-    const usedList = Array.isArray(user.usedCoupons)
-      ? user.usedCoupons.map((u) => String(u).trim().toUpperCase())
-      : [];
-    const usedSet = new Set(usedList);
+    const upperCode = String(code).trim().toUpperCase();
 
-    // Active coupons list me se used coupons filter out
-    const activeSaved = (Array.isArray(user.savedCoupons) ? user.savedCoupons : []).filter(
-      (c) => c && c.code && !usedSet.has(String(c.code).trim().toUpperCase())
+    const newCoupon = await Coupon.findOneAndUpdate(
+      { code: upperCode },
+      {
+        code: upperCode,
+        noOfTimesUse: noOfTimesUse || 'first_time',
+        maxUsagePerUser: noOfTimesUse === 'first_time' ? 1 : Number(maxUsagePerUser || noOfTimesUse) || 1,
+        baseValue: Number(baseValue) || 0,
+        discountType: discountType || 'lumpsum',
+        lumpsumAmount: Number(lumpsumAmount) || 0,
+        percentageAmount: Number(percentageAmount) || 0,
+        maxDiscountValue: Number(maxDiscountValue) || Number(lumpsumAmount) || 0,
+        isActive: isActive !== undefined ? isActive : true
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
     return res.json({
       success: true,
-      savedCoupons: activeSaved,
-      usedCoupons: usedList
+      message: `✅ Coupon "${upperCode}" successfully add/update ho gaya!`,
+      coupon: newCoupon
     });
   } catch (err) {
-    console.error('Fetch saved coupons error:', err);
-    return res.status(500).json({ message: 'Unable to fetch saved coupons' });
+    console.error('Error adding coupon:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// 🟢 2. POST /api/coupons/verify (Validates single-use lifetime restriction)
-router.post('/verify', protect, async (req, res) => {
+router.post('/admin/add', handleAddCoupon);
+router.post('/add', handleAddCoupon);
+router.post('/', handleAddCoupon); // POST /api/coupons
+
+// =========================================================
+// 📋 2. GET ALL ACTIVE COUPONS (For Cart & Admin)
+// =========================================================
+router.get('/available', async (req, res) => {
   try {
-    const { code, cartTotal } = req.body;
-    if (!code) return res.status(400).json({ message: 'Coupon code is required' });
-
-    const userId = getUserId(req);
-    const upperCode = String(code).trim().toUpperCase();
-
-    const user = await User.findById(userId).lean();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const usedCoupons = Array.isArray(user.usedCoupons)
-      ? user.usedCoupons.map((u) => String(u).toUpperCase())
-      : [];
-
-    // ❌ STRICT BLOCK: Agar pehle kabhi use kiya hai toh reject
-    if (usedCoupons.includes(upperCode)) {
-      return res.status(400).json({
-        success: false,
-        message: `⚠️ Coupon "${upperCode}" has already been used once by this account.`
-      });
-    }
-
-    const savedCoupon = (user.savedCoupons || []).find(
-      (c) => String(c.code).toUpperCase() === upperCode
-    );
-
-    if (savedCoupon) {
-      const minSpend = Number(savedCoupon.minSpend) || 0;
-      if (Number(cartTotal) < minSpend) {
-        return res.status(400).json({
-          success: false,
-          message: `Minimum spend of ₹${minSpend} required for this coupon.`
-        });
-      }
-      const disc = savedCoupon.discountType === 'percentage'
-        ? (Number(cartTotal) * Number(savedCoupon.discountValue)) / 100
-        : Number(savedCoupon.discountValue);
-
-      return res.json({
-        success: true,
-        code: upperCode,
-        discount: disc,
-        message: 'Coupon applied successfully!'
-      });
-    }
-
-    return res.status(404).json({ success: false, message: 'Invalid coupon code.' });
+    const coupons = await Coupon.find({ isActive: true }).sort({ baseValue: 1 }).lean();
+    return res.json({ success: true, coupons });
   } catch (err) {
-    return res.status(500).json({ message: 'Error verifying coupon: ' + err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// 🟢 3. POST /api/coupons/my-coupons (Save new coupon - blocks already used)
-const handleSaveCoupon = async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const { code, discountType, discountValue, minSpend, validUntil, productName, source } = req.body;
-    if (!code) return res.status(400).json({ message: 'Coupon code is required' });
+    const coupons = await Coupon.find().sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, coupons });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'User not authenticated' });
+// =========================================================
+// ⚡ 3. SEED EXCEL SHEET COUPONS (SGS50, SGS100, SGS125)
+// =========================================================
+router.post('/seed-excel-coupons', async (req, res) => {
+  try {
+    const sheetCoupons = [
+      {
+        code: 'SGS50',
+        noOfTimesUse: 'first_time',
+        maxUsagePerUser: 1,
+        baseValue: 500,
+        discountType: 'lumpsum',
+        lumpsumAmount: 50,
+        percentageAmount: 0,
+        maxDiscountValue: 50,
+        isActive: true
+      },
+      {
+        code: 'SGS100',
+        noOfTimesUse: '10',
+        maxUsagePerUser: 10,
+        baseValue: 1500,
+        discountType: 'percentage',
+        lumpsumAmount: 0,
+        percentageAmount: 5,
+        maxDiscountValue: 100,
+        isActive: true
+      },
+      {
+        code: 'SGS125',
+        noOfTimesUse: '2',
+        maxUsagePerUser: 2,
+        baseValue: 1000,
+        discountType: 'percentage',
+        lumpsumAmount: 0,
+        percentageAmount: 10,
+        maxDiscountValue: 75,
+        isActive: true
+      }
+    ];
+
+    for (const c of sheetCoupons) {
+      await Coupon.findOneAndUpdate({ code: c.code }, c, { upsert: true, new: true });
+    }
+
+    return res.json({
+      success: true,
+      message: '✅ SGS50, SGS100, and SGS125 coupons seeded successfully!'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// =========================================================
+// 🔍 4. VERIFY COUPON (Base Value, Max Discount, Usage Limit)
+// =========================================================
+router.post('/verify', async (req, res) => {
+  try {
+    const { code, cartTotal } = req.body;
+    if (!code) return res.status(400).json({ success: false, message: 'Coupon code required' });
 
     const upperCode = String(code).trim().toUpperCase();
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const cartAmount = Number(cartTotal) || 0;
 
-    const saved = Array.isArray(user.savedCoupons) ? user.savedCoupons : [];
-    const used = Array.isArray(user.usedCoupons)
-      ? user.usedCoupons.map((u) => String(u).toUpperCase())
-      : [];
+    let coupon = await Coupon.findOne({ code: upperCode, isActive: true }).lean();
 
-    // ❌ STRICT BLOCK: If ever used, do not re-add
-    if (used.includes(upperCode)) {
-      return res.json({ success: false, message: 'Coupon already used once.', savedCoupons: saved });
+    // Sheet Fallback agar DB me na ho
+    if (!coupon) {
+      if (upperCode === 'SGS50') {
+        coupon = { code: 'SGS50', baseValue: 500, discountType: 'lumpsum', lumpsumAmount: 50, maxDiscountValue: 50 };
+      } else if (upperCode === 'SGS100') {
+        coupon = { code: 'SGS100', baseValue: 1500, discountType: 'percentage', percentageAmount: 5, maxDiscountValue: 100 };
+      } else if (upperCode === 'SGS125') {
+        coupon = { code: 'SGS125', baseValue: 1000, discountType: 'percentage', percentageAmount: 10, maxDiscountValue: 75 };
+      }
     }
 
-    if (saved.some((c) => String(c.code).toUpperCase() === upperCode)) {
-      return res.json({ success: true, message: 'Already in wallet', savedCoupons: saved });
+    if (!coupon) {
+      return res.status(404).json({ success: false, message: 'Invalid or inactive coupon code.' });
     }
 
-    const newCouponItem = {
+    if (cartAmount < (coupon.baseValue || 0)) {
+      return res.status(400).json({
+        success: false,
+        message: `Min Order (Base Value) of ₹${coupon.baseValue} required for ${upperCode}.`
+      });
+    }
+
+    let calculatedDiscount = 0;
+    if (coupon.discountType === 'percentage') {
+      const raw = (cartAmount * (Number(coupon.percentageAmount) || 0)) / 100;
+      calculatedDiscount = Math.min(raw, Number(coupon.maxDiscountValue) || raw);
+    } else {
+      const flat = Number(coupon.lumpsumAmount) || Number(coupon.maxDiscountValue) || 0;
+      calculatedDiscount = Math.min(flat, Number(coupon.maxDiscountValue) || flat);
+    }
+
+    calculatedDiscount = Math.round(calculatedDiscount * 100) / 100;
+
+    return res.json({
+      success: true,
       code: upperCode,
-      discountType: discountType || 'flat',
-      discountValue: Number(discountValue) || 0,
-      minSpend: Number(minSpend) || 0,
-      validUntil: validUntil ? new Date(validUntil) : null,
-      productName: productName || '',
-      source: source || 'order-reward',
-      savedAt: new Date()
-    };
-
-    user.savedCoupons.push(newCouponItem);
-    await user.save();
-
-    return res.json({
-      success: true,
-      message: `${upperCode} saved successfully!`,
-      savedCoupons: user.savedCoupons
+      discount: calculatedDiscount,
+      message: `🎉 Coupon "${upperCode}" applied! (₹${calculatedDiscount} OFF)`
     });
   } catch (err) {
-    console.error('Save coupon error:', err);
-    return res.status(500).json({ message: 'Unable to save coupon', error: err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
-};
+});
 
-// 🟢 4. DELETE /api/coupons/my-coupons/:code (Removes from wallet & adds to usedCoupons)
-const handleDeleteCoupon = async (req, res) => {
+// =========================================================
+// 🗑️ 5. DELETE COUPON
+// =========================================================
+router.delete('/admin/:id', async (req, res) => {
   try {
-    const upperCode = String(req.params.code || '').trim().toUpperCase();
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: 'User not authenticated' });
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    user.savedCoupons = (user.savedCoupons || []).filter(
-      (c) => String(c.code).toUpperCase() !== upperCode
-    );
-
-    if (!Array.isArray(user.usedCoupons)) user.usedCoupons = [];
-    if (!user.usedCoupons.includes(upperCode)) {
-      user.usedCoupons.push(upperCode);
-    }
-
-    await user.save();
-
-    return res.json({
-      success: true,
-      message: 'Coupon removed and locked as used',
-      savedCoupons: user.savedCoupons,
-      usedCoupons: user.usedCoupons
-    });
+    await Coupon.findByIdAndDelete(req.params.id);
+    return res.json({ success: true, message: 'Coupon deleted successfully' });
   } catch (err) {
-    console.error('Remove coupon error:', err);
-    return res.status(500).json({ message: 'Unable to remove coupon' });
+    return res.status(500).json({ success: false, message: err.message });
   }
-};
-
-// Routes
-router.get('/', protect, handleGetCoupons);
-router.get('/my-coupons', protect, handleGetCoupons);
-router.post('/', protect, handleSaveCoupon);
-router.post('/my-coupons', protect, handleSaveCoupon);
-router.delete('/:code', protect, handleDeleteCoupon);
-router.delete('/my-coupons/:code', protect, handleDeleteCoupon);
+});
 
 module.exports = router;
