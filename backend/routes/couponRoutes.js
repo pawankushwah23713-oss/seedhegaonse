@@ -46,6 +46,23 @@ const getUserCouponUsage = (user, codeUpper) => {
   return 0;
 };
 
+// 🟢 NEW Helper: userId (ObjectId) / email / phone — kisi se bhi user dhundo
+const findUserByIdentifier = async (identifier) => {
+  if (!identifier) return null;
+  const trimmed = String(identifier).trim();
+
+  if (trimmed.match(/^[0-9a-fA-F]{24}$/)) {
+    const byId = await User.findById(trimmed);
+    if (byId) return byId;
+  }
+
+  const byEmail = await User.findOne({ email: trimmed.toLowerCase() });
+  if (byEmail) return byEmail;
+
+  const byPhone = await User.findOne({ phone: trimmed });
+  return byPhone;
+};
+
 // =========================================================
 // ➕ 1. ADD / CREATE NEW COUPON (Admin Endpoint)
 // =========================================================
@@ -60,7 +77,8 @@ const handleAddCoupon = async (req, res) => {
       lumpsumAmount,
       percentageAmount,
       maxDiscountValue,
-      isActive
+      isActive,
+      assignedUser // 🟢 optional - agar diya gaya to ye coupon sirf usi user ke liye lock ho jayega
     } = req.body;
 
     if (!code) {
@@ -71,6 +89,19 @@ const handleAddCoupon = async (req, res) => {
     const finalUsage = noOfTimesUse || 'first_time';
     const finalMaxPerUser =
       finalUsage === 'first_time' ? 1 : Number(maxUsagePerUser || finalUsage) || 1;
+
+    // 🟢 Agar assignedUser bheja gaya hai (userId/email/phone), to actual User document dhundo
+    let assignedUserId = null;
+    if (assignedUser) {
+      const foundUser = await findUserByIdentifier(assignedUser);
+      if (!foundUser) {
+        return res.status(404).json({
+          success: false,
+          message: `Assigned user nahi mila ("${assignedUser}"). Sahi userId/email/phone check karein.`
+        });
+      }
+      assignedUserId = foundUser._id;
+    }
 
     const newCoupon = await Coupon.findOneAndUpdate(
       { code: upperCode },
@@ -83,7 +114,8 @@ const handleAddCoupon = async (req, res) => {
         lumpsumAmount: Number(lumpsumAmount) || 0,
         percentageAmount: Number(percentageAmount) || 0,
         maxDiscountValue: Number(maxDiscountValue) || Number(lumpsumAmount) || 0,
-        isActive: isActive !== undefined ? isActive : true
+        isActive: isActive !== undefined ? isActive : true,
+        assignedUser: assignedUserId
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
@@ -208,8 +240,19 @@ router.post('/verify', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invalid or inactive coupon code.' });
     }
 
-    // 🛑 1. STRICT NO. OF TIMES USAGE LIMIT CHECK
     const userId = extractUserId(req);
+
+    // 🛑 0. PRIVATE / ASSIGNED-USER COUPON CHECK (🟢 new)
+    if (coupon.assignedUser) {
+      if (!userId || String(coupon.assignedUser) !== String(userId)) {
+        return res.status(403).json({
+          success: false,
+          message: `⚠️ Coupon "${upperCode}" sirf ek specific user ke liye assign kiya gaya hai. Aap ise use nahi kar sakte.`
+        });
+      }
+    }
+
+    // 🛑 1. STRICT NO. OF TIMES USAGE LIMIT CHECK
     const maxAllowed =
       coupon.noOfTimesUse === 'first_time'
         ? 1
@@ -336,6 +379,94 @@ router.delete('/admin/:id', async (req, res) => {
     }
 
     return res.json({ success: true, message: `🗑️ Coupon "${deleted.code}" delete ho gaya!` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// =========================================================
+// 👛 7. 🟢 NEW: ADD WALLET CREDIT TO A SPECIFIC USER (Admin Endpoint)
+// =========================================================
+// Ye coupon nahi hai — seedha us user ke wallet balance me paisa add karta hai,
+// jise wo user khud (bina kisi code ke) checkout par use kar sakta hai.
+//
+// NOTE: User model me ye fields hone chahiye (agar nahi hai to add kar lena):
+//   walletBalance: { type: Number, default: 0 }
+//   walletHistory: [{ amount: Number, note: String, addedBy: String, date: { type: Date, default: Date.now } }]
+router.post('/admin/wallet-credit', async (req, res) => {
+  try {
+    const { identifier, amount, note } = req.body;
+
+    if (!identifier) {
+      return res.status(400).json({
+        success: false,
+        message: 'User identifier (userId, email, ya phone number) required hai.'
+      });
+    }
+
+    const creditAmount = Number(amount);
+    if (!creditAmount || creditAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid amount (0 se zyada) dijiye.' });
+    }
+
+    const user = await findUserByIdentifier(identifier);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User nahi mila. Sahi userId, email ya phone check karein.'
+      });
+    }
+
+    user.walletBalance = Number(user.walletBalance || 0) + creditAmount;
+
+    if (!Array.isArray(user.walletHistory)) user.walletHistory = [];
+    user.walletHistory.push({
+      amount: creditAmount,
+      note: note && note.trim() ? note.trim() : 'Admin wallet credit',
+      addedBy: 'admin',
+      date: new Date()
+    });
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: `✅ ₹${creditAmount} "${user.name || user.email || user.phone}" ke wallet me add ho gaye!`,
+      wallet: {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        walletBalance: user.walletBalance
+      }
+    });
+  } catch (err) {
+    console.error('Wallet credit error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// =========================================================
+// 👛 8. 🟢 NEW: GET A USER'S WALLET BALANCE + HISTORY (Admin Endpoint)
+// =========================================================
+router.get('/admin/wallet/:identifier', async (req, res) => {
+  try {
+    const user = await findUserByIdentifier(req.params.identifier);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User nahi mila.' });
+    }
+
+    return res.json({
+      success: true,
+      wallet: {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        walletBalance: user.walletBalance || 0,
+        walletHistory: user.walletHistory || []
+      }
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

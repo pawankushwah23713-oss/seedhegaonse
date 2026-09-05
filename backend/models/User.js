@@ -41,6 +41,26 @@ const userSchema = new mongoose.Schema(
     usedCoupons: {
       type: [String],
       default: []
+    },
+
+    // 👛 🟢 NEW: Wallet Balance — admin isme seedha paisa credit kar sakta hai,
+    // jo user checkout par bina kisi coupon code ke use kar sakta hai.
+    walletBalance: {
+      type: Number,
+      default: 0
+    },
+
+    // 👛 🟢 NEW: Wallet Balance history — har credit/debit ka record
+    walletHistory: {
+      type: [
+        {
+          amount: { type: Number, default: 0 },
+          note: { type: String, default: '' },
+          addedBy: { type: String, default: 'admin' },
+          date: { type: Date, default: Date.now }
+        }
+      ],
+      default: []
     }
   },
   { timestamps: true }

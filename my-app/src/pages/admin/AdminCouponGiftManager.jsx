@@ -13,7 +13,9 @@ const AdminCouponGiftManager = () => {
   const [lumpsumAmount, setLumpsumAmount] = useState('');
   const [percentageAmount, setPercentageAmount] = useState('');
   const [maxDiscountValue, setMaxDiscountValue] = useState('');
-  
+  // 🟢 NEW: agar bhara gaya to ye coupon sirf usi user ke liye lock ho jayega
+  const [assignedUser, setAssignedUser] = useState('');
+
   const [couponList, setCouponList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [listLoading, setListLoading] = useState(false);
@@ -24,6 +26,14 @@ const AdminCouponGiftManager = () => {
   const [giftTier1, setGiftTier1] = useState('Delicious Sweets Gift Box (Tier 1)');
   const [giftTier2, setGiftTier2] = useState('Special Premium Gift (Tier 2)');
   const [giftSavedMsg, setGiftSavedMsg] = useState('');
+
+  // 👛 NEW: Wallet Credit Form State
+  const [walletIdentifier, setWalletIdentifier] = useState(''); // userId / email / phone
+  const [walletAmount, setWalletAmount] = useState('');
+  const [walletNote, setWalletNote] = useState('');
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletStatusMsg, setWalletStatusMsg] = useState({ text: '', type: '' });
+  const [walletResult, setWalletResult] = useState(null); // last successful credit result
 
   // =========================================================
   // 🔄 1. FETCH ALL COUPONS
@@ -84,11 +94,18 @@ const AdminCouponGiftManager = () => {
         lumpsumAmount: discountType === 'lumpsum' ? Number(lumpsumAmount) || 0 : 0,
         percentageAmount: discountType === 'percentage' ? Number(percentageAmount) || 0 : 0,
         maxDiscountValue: Number(maxDiscountValue) || (discountType === 'lumpsum' ? Number(lumpsumAmount) : 0),
-        isActive: true
+        isActive: true,
+        // 🟢 NEW: agar admin ne koi specific user diya hai, to wahi bhejo
+        assignedUser: assignedUser.trim() || undefined
       };
 
       await axios.post(`${API_BASE}/coupons/admin/add`, payload);
-      setStatusMsg({ text: `✅ Coupon "${payload.code}" added successfully!`, type: 'success' });
+      setStatusMsg({
+        text: assignedUser.trim()
+          ? `✅ Private Coupon "${payload.code}" sirf "${assignedUser.trim()}" ke liye add ho gaya!`
+          : `✅ Coupon "${payload.code}" added successfully!`,
+        type: 'success'
+      });
       
       // Reset form
       setCode('');
@@ -98,6 +115,7 @@ const AdminCouponGiftManager = () => {
       setMaxDiscountValue('');
       setNoOfTimesUse('first_time');
       setCustomUseCount('');
+      setAssignedUser('');
       fetchCoupons();
     } catch (err) {
       setStatusMsg({ text: err.response?.data?.message || 'Error saving coupon.', type: 'error' });
@@ -140,6 +158,41 @@ const AdminCouponGiftManager = () => {
       });
     } finally {
       setBusyId(null);
+    }
+  };
+
+  // =========================================================
+  // 👛 5. 🟢 NEW: ADD WALLET CREDIT TO A SPECIFIC USER
+  // =========================================================
+  const handleAddWalletCredit = async (e) => {
+    e.preventDefault();
+    setWalletLoading(true);
+    setWalletStatusMsg({ text: '', type: '' });
+    setWalletResult(null);
+
+    try {
+      const res = await axios.post(`${API_BASE}/coupons/admin/wallet-credit`, {
+        identifier: walletIdentifier.trim(),
+        amount: Number(walletAmount),
+        note: walletNote.trim()
+      });
+
+      setWalletStatusMsg({
+        text: res.data?.message || '✅ Wallet credit ho gaya!',
+        type: 'success'
+      });
+      setWalletResult(res.data?.wallet || null);
+
+      // Reset form (identifier rehne dete hain taaki dobara dekh sake)
+      setWalletAmount('');
+      setWalletNote('');
+    } catch (err) {
+      setWalletStatusMsg({
+        text: err.response?.data?.message || 'Wallet credit karne me dikkat aayi.',
+        type: 'error'
+      });
+    } finally {
+      setWalletLoading(false);
     }
   };
 
@@ -195,7 +248,82 @@ const AdminCouponGiftManager = () => {
         {giftSavedMsg && <span style={{ marginLeft: '12px', color: '#15803d', fontSize: '0.88rem', fontWeight: 700 }}>{giftSavedMsg}</span>}
       </div>
 
-      {/* ================= 🎟️ 2. COUPON ADMIN CARD ================= */}
+      {/* ================= 👛 2. 🟢 NEW: WALLET CREDIT (SPECIFIC USER) CARD ================= */}
+      <div style={{ background: '#fff', border: '2px solid #0284c7', borderRadius: '10px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ color: '#0369a1', margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: 800 }}>👛 Wallet Credit (Specific User)</h2>
+        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 16px 0' }}>
+          Kisi ek customer ke wallet me seedha paisa daalo — koi coupon code nahi lagega, wo khud checkout par is balance ko use kar payega.
+        </p>
+
+        <form onSubmit={handleAddWalletCredit}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                User (userId / email / phone) *
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 98xxxxxxxx ya user@email.com"
+                value={walletIdentifier}
+                onChange={(e) => setWalletIdentifier(e.target.value)}
+                required
+                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                Amount (₹) *
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 100"
+                value={walletAmount}
+                onChange={(e) => setWalletAmount(e.target.value)}
+                required
+                min="1"
+                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                Note (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Referral bonus, Birthday gift..."
+                value={walletNote}
+                onChange={(e) => setWalletNote(e.target.value)}
+                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={walletLoading}
+            style={{ width: '100%', background: '#0284c7', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 800, fontSize: '0.95rem', cursor: walletLoading ? 'wait' : 'pointer' }}
+          >
+            {walletLoading ? 'Adding...' : '👛 Add to Wallet'}
+          </button>
+
+          {walletStatusMsg.text && (
+            <div style={{ marginTop: '12px', padding: '10px', borderRadius: '6px', fontSize: '0.88rem', fontWeight: 700, background: walletStatusMsg.type === 'success' ? '#dcfce7' : '#fee2e2', color: walletStatusMsg.type === 'success' ? '#15803d' : '#b91c1c' }}>
+              {walletStatusMsg.text}
+            </div>
+          )}
+
+          {walletResult && (
+            <div style={{ marginTop: '10px', padding: '12px', borderRadius: '6px', background: '#f0f9ff', border: '1px solid #bae6fd', fontSize: '0.85rem', color: '#0c4a6e' }}>
+              <strong>{walletResult.name || walletResult.email || walletResult.phone}</strong> ka naya wallet balance:{' '}
+              <strong style={{ color: '#0369a1' }}>₹{walletResult.walletBalance}</strong>
+            </div>
+          )}
+        </form>
+      </div>
+
+      {/* ================= 🎟️ 3. COUPON ADMIN CARD ================= */}
       <div style={{ background: '#fff', border: '2px solid #b91c1c', borderRadius: '10px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
           <h2 style={{ color: '#c00000', margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>🎟️ Coupon Admin</h2>
@@ -315,6 +443,23 @@ const AdminCouponGiftManager = () => {
                 style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
               />
             </div>
+
+            {/* 7. 🟢 NEW: Assign to a specific user (optional) */}
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                Assign to Specific User (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="userId / email / phone"
+                value={assignedUser}
+                onChange={(e) => setAssignedUser(e.target.value)}
+                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                Blank chhodo agar sabke liye public coupon banana hai.
+              </span>
+            </div>
           </div>
 
           <button
@@ -332,7 +477,7 @@ const AdminCouponGiftManager = () => {
           )}
         </form>
 
-        {/* ================= 📋 3. COUPONS TABLE (With Delete Action) ================= */}
+        {/* ================= 📋 4. COUPONS TABLE (With Delete Action) ================= */}
         <div style={{ marginTop: '25px', overflowX: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 800 }}>
@@ -363,6 +508,7 @@ const AdminCouponGiftManager = () => {
                   <th style={{ padding: '10px 8px' }}>Lumpsum</th>
                   <th style={{ padding: '10px 8px' }}>%</th>
                   <th style={{ padding: '10px 8px' }}>Max Discount Value</th>
+                  <th style={{ padding: '10px 8px' }}>Assigned User</th>
                   <th style={{ padding: '10px 8px', textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
@@ -379,6 +525,15 @@ const AdminCouponGiftManager = () => {
                       <td style={{ padding: '10px 8px' }}>{c.discountType === 'lumpsum' ? `₹${c.lumpsumAmount}` : '-'}</td>
                       <td style={{ padding: '10px 8px' }}>{c.discountType === 'percentage' ? `${c.percentageAmount}%` : '-'}</td>
                       <td style={{ padding: '10px 8px', fontWeight: 800, color: '#15803d' }}>₹{c.maxDiscountValue}</td>
+                      <td style={{ padding: '10px 8px' }}>
+                        {c.assignedUser ? (
+                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 700 }}>
+                            🔒 Private
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>Public</span>
+                        )}
+                      </td>
                       <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                         <button
                           type="button"

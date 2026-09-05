@@ -273,4 +273,106 @@ router.get('/users', protect, adminOnly, async (req, res) => {
   }
 });
 
+// ── 8. 🟢 USER ANALYTICS / STATS (ADMIN ONLY) (/api/auth/users/stats) ──
+// Poora breakdown: total users, role-wise count, naye signups (today/week/month),
+// pichhle 7 dino ka signup trend, aur city/state/addressType-wise distribution.
+router.get('/users/stats', protect, adminOnly, async (req, res) => {
+  try {
+    // ── Role-wise totals ──
+    const totalCustomers = await User.countDocuments({ role: 'user' });
+    const totalAdmins = await User.countDocuments({ role: 'admin' });
+    const totalUsers = totalCustomers + totalAdmins;
+
+    // ── Date boundaries ──
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfWeek.getDate() - 6); // last 7 days incl. today
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // ── New signups counts ──
+    const [newToday, newThisWeek, newThisMonth] = await Promise.all([
+      User.countDocuments({ role: 'user', createdAt: { $gte: startOfToday } }),
+      User.countDocuments({ role: 'user', createdAt: { $gte: startOfWeek } }),
+      User.countDocuments({ role: 'user', createdAt: { $gte: startOfMonth } })
+    ]);
+
+    // ── Signup trend for last 7 days (day-wise count) ──
+    const signupTrend = await User.aggregate([
+      {
+        $match: {
+          role: 'user',
+          createdAt: { $gte: startOfWeek }
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Fill in missing days with 0 so the frontend always gets 7 points
+    const trendMap = signupTrend.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(startOfToday);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      last7Days.push({ date: key, count: trendMap[key] || 0 });
+    }
+
+    // ── Top cities ──
+    const topCities = await User.aggregate([
+      { $match: { role: 'user', city: { $exists: true, $ne: '' } } },
+      { $group: { _id: '$city', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+
+    // ── Top states ──
+    const topStates = await User.aggregate([
+      { $match: { role: 'user', state: { $exists: true, $ne: '' } } },
+      { $group: { _id: '$state', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+
+    // ── Address type breakdown (Permanent/Office/etc.) ──
+    const addressTypeBreakdown = await User.aggregate([
+      { $match: { role: 'user', addressType: { $exists: true, $ne: '' } } },
+      { $group: { _id: '$addressType', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      totals: {
+        totalUsers,
+        totalCustomers,
+        totalAdmins
+      },
+      newSignups: {
+        today: newToday,
+        thisWeek: newThisWeek,
+        thisMonth: newThisMonth
+      },
+      signupTrend: last7Days,
+      topCities: topCities.map((c) => ({ city: c._id, count: c.count })),
+      topStates: topStates.map((s) => ({ state: s._id, count: s.count })),
+      addressTypeBreakdown: addressTypeBreakdown.map((a) => ({ type: a._id, count: a.count }))
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user stats: ' + error.message });
+  }
+});
+
 module.exports = router;

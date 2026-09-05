@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartDrawer.css';
 
@@ -9,8 +9,8 @@ const getBaseApiUrl = () => {
     : (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL);
 
   if (!envUrl) {
-    console.error('⚠️ Missing REACT_APP_API_URL or VITE_API_URL in .env file!');
-    return '';
+    console.warn('⚠️ Missing REACT_APP_API_URL or VITE_API_URL in .env file, using default /api');
+    return '/api';
   }
 
   const clean = envUrl.trim().replace(/\/auth\/?$/, '').replace(/\/+$/, '');
@@ -101,6 +101,19 @@ const getSavedUser = () => {
   return null;
 };
 
+// Parse max usage based on backend schema: noOfTimesUse ('first_time', '10', '2') or maxUsagePerUser
+const parseMaxUsage = (coupon) => {
+  if (coupon?.maxUsagePerUser && Number(coupon.maxUsagePerUser) > 0) {
+    return Number(coupon.maxUsagePerUser);
+  }
+  const noOfTimes = String(coupon?.noOfTimesUse || '').trim().toLowerCase();
+  if (noOfTimes === 'first_time' || noOfTimes === 'first' || noOfTimes === '1') {
+    return 1;
+  }
+  const parsed = parseInt(noOfTimes, 10);
+  return !isNaN(parsed) && parsed > 0 ? parsed : 1;
+};
+
 // 🟢 Image Resolver supporting Multi-images
 const resolveItemImage = (item) => {
   const rawImg = item?.img || (Array.isArray(item?.images) && item.images[0]) || item?.image;
@@ -108,7 +121,7 @@ const resolveItemImage = (item) => {
   if (rawImg.startsWith('http://') || rawImg.startsWith('https://') || rawImg.startsWith('data:')) {
     return rawImg;
   }
-  const host = API_BASE.replace('/api', '');
+  const host = API_BASE.replace(/\/api\/?$/, '');
   const cleanPath = rawImg.startsWith('/') ? rawImg : `/${rawImg}`;
   return `${host}${cleanPath}`;
 };
@@ -120,38 +133,23 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const [error, setError] = useState('');
   const [confirmedOrderId, setConfirmedOrderId] = useState('');
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
-  const [unlockedOrderCoupons, setUnlockedOrderCoupons] = useState([]);
-  const [copiedCode, setCopiedCode] = useState('');
 
-  const [storeProducts, setStoreProducts] = useState([]);
+  const [, setStoreProducts] = useState([]);
   const [productOffers, setProductOffers] = useState({});
 
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
-  const [savedCoupons, setSavedCoupons] = useState(() => {
+  // 🎟️ Track count of how many times each coupon has been used { 'SGS100': 2, 'SGS50': 1 }
+  const [couponUsageMap, setCouponUsageMap] = useState(() => {
     try {
-      const cached = localStorage.getItem('sgs_saved_coupons');
-      return cached ? JSON.parse(cached) : [];
+      const cached = localStorage.getItem('sgs_coupon_usage_map');
+      return cached ? JSON.parse(cached) : {};
     } catch {
-      return [];
+      return {};
     }
   });
-
-  const [usedCoupons, setUsedCoupons] = useState(() => {
-    try {
-      const cached = localStorage.getItem('sgs_used_coupons');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const activeSavedCoupons = useMemo(() => {
-    const usedSet = new Set(usedCoupons.map((u) => String(u || '').trim().toUpperCase()));
-    return savedCoupons.filter((sc) => sc?.code && !usedSet.has(String(sc.code).trim().toUpperCase()));
-  }, [savedCoupons, usedCoupons]);
 
   const [isGiftBoxSelected, setIsGiftBoxSelected] = useState(false);
   const [storeSettings, setStoreSettings] = useState({
@@ -213,6 +211,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   }, [shippingMode]);
 
+  // Load coupon usage frequency from past orders & API
   useEffect(() => {
     if (!isOpen) return;
     const token = getAuthToken();
@@ -221,12 +220,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     let cancelled = false;
     (async () => {
       try {
-        const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const dataCoupons = await resCoupons.json();
+        const usageCounts = { ...couponUsageMap };
 
-        let pastUsedCodes = [];
+        // 1. Fetch user orders to calculate true count of times used
         try {
           const resOrders = await fetch(`${API_BASE}/orders/my-orders`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -234,52 +230,58 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           if (resOrders.ok) {
             const dataOrders = await resOrders.json();
             const orderList = Array.isArray(dataOrders) ? dataOrders : (dataOrders.orders || []);
-            pastUsedCodes = orderList
-              .map((o) => String(o.couponCode || o.coupon || '').trim().toUpperCase())
-              .filter(Boolean);
+            const orderCodeCounts = {};
+            orderList.forEach((o) => {
+              const code = String(o.couponCode || o.coupon || '').trim().toUpperCase();
+              if (code) {
+                orderCodeCounts[code] = (orderCodeCounts[code] || 0) + 1;
+              }
+            });
+            Object.keys(orderCodeCounts).forEach((c) => {
+              usageCounts[c] = Math.max(usageCounts[c] || 0, orderCodeCounts[c]);
+            });
           }
-        } catch {}
+        } catch (e) {
+          console.error(e);
+        }
+
+        // 2. Fetch backend my-coupons
+        try {
+          const resCoupons = await fetch(`${API_BASE}/coupons/my-coupons`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (resCoupons.ok) {
+            const dataCoupons = await resCoupons.json();
+            if (dataCoupons.usageMap && typeof dataCoupons.usageMap === 'object') {
+              Object.keys(dataCoupons.usageMap).forEach((c) => {
+                const upper = c.toUpperCase();
+                usageCounts[upper] = Math.max(usageCounts[upper] || 0, Number(dataCoupons.usageMap[c]) || 0);
+              });
+            } else if (Array.isArray(dataCoupons.usedCoupons)) {
+              dataCoupons.usedCoupons.forEach((c) => {
+                const upper = String(c).toUpperCase();
+                usageCounts[upper] = (usageCounts[upper] || 0) + 1;
+              });
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
 
         if (!cancelled) {
-          const backendUsed = Array.isArray(dataCoupons.usedCoupons)
-            ? dataCoupons.usedCoupons.map((u) => String(u).trim().toUpperCase())
-            : [];
-
-          const cachedUsed = (() => {
-            try {
-              const u = localStorage.getItem('sgs_used_coupons');
-              return u ? JSON.parse(u) : [];
-            } catch {
-              return [];
-            }
-          })();
-
-          const allUsedSet = new Set([
-            ...cachedUsed.map((u) => String(u).trim().toUpperCase()),
-            ...backendUsed,
-            ...pastUsedCodes
-          ]);
-
-          const finalUsedList = Array.from(allUsedSet);
-          setUsedCoupons(finalUsedList);
-
-          const savedList = (Array.isArray(dataCoupons.savedCoupons) ? dataCoupons.savedCoupons : [])
-            .filter((c) => c && c.code && !allUsedSet.has(String(c.code).trim().toUpperCase()));
-
-          setSavedCoupons(savedList);
-
+          setCouponUsageMap(usageCounts);
           try {
-            localStorage.setItem('sgs_used_coupons', JSON.stringify(finalUsedList));
-            localStorage.setItem('sgs_saved_coupons', JSON.stringify(savedList));
+            localStorage.setItem('sgs_coupon_usage_map', JSON.stringify(usageCounts));
           } catch {}
         }
       } catch (err) {
-        console.error('Unable to load saved coupons:', err);
+        console.error('Unable to sync coupon usage count:', err);
       }
     })();
     return () => { cancelled = true; };
   }, [isOpen]);
 
+  // Load store settings
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -309,6 +311,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     return () => { cancelled = true; };
   }, [isOpen]);
 
+  // Load product offers & active coupons from backend
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -358,10 +361,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
         if (resCoupons.status === 'fulfilled' && resCoupons.value.ok) {
           const coupData = await resCoupons.value.json();
-          if (Array.isArray(coupData.coupons)) {
+          const couponsArr = Array.isArray(coupData) ? coupData : ensureArray(coupData.coupons);
+          if (couponsArr.length > 0) {
             setStoreSettings((prev) => ({
               ...prev,
-              globalCoupons: coupData.coupons
+              globalCoupons: couponsArr
             }));
           }
         }
@@ -460,7 +464,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const isHomeDeliveryType = shippingMode === 'delivery' || shippingMode === 'founder';
 
-  const fetchDeliveryChargeByPincode = async (pin) => {
+  const fetchDeliveryChargeByPincode = useCallback(async (pin) => {
     if (!pin || pin.length !== 6) return;
     setIsPincodeLoading(true);
     try {
@@ -472,8 +476,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       const data = await res.json();
       if (res.ok && data.success) {
         const rate = parseNumericPrice(data.deliveryCharge);
-        const gst = (data.gstPercent !== undefined && data.gstPercent !== null) 
-          ? Number(data.gstPercent) 
+        const gst = (data.gstPercent !== undefined && data.gstPercent !== null)
+          ? Number(data.gstPercent)
           : GLOBAL_SHIPPING_TAX_PERCENT;
 
         setPincodeDeliveryCharge(rate);
@@ -496,20 +500,19 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     } finally {
       setIsPincodeLoading(false);
     }
-  };
+  }, [GLOBAL_SHIPPING_TAX_PERCENT]);
 
+  // Triggered by pincode state change
   useEffect(() => {
     if ((shippingMode === 'delivery' || shippingMode === 'founder') && shippingAddress.pincode && shippingAddress.pincode.length === 6) {
       fetchDeliveryChargeByPincode(shippingAddress.pincode);
     }
-  }, [shippingMode, shippingAddress.pincode]);
+  }, [shippingMode, shippingAddress.pincode, fetchDeliveryChargeByPincode]);
 
   const handlePincodeChange = (e) => {
     const newPin = e.target.value.replace(/\D/g, '').slice(0, 6);
     setShippingAddress((prev) => ({ ...prev, pincode: newPin }));
-    if (newPin.length === 6 && (shippingMode === 'delivery' || shippingMode === 'founder')) {
-      fetchDeliveryChargeByPincode(newPin);
-    } else if (newPin.length !== 6) {
+    if (newPin.length !== 6) {
       setPincodeDeliveryCharge(null);
       setPincodeGstPercent(null);
       setPincodeStatusMsg('');
@@ -528,7 +531,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       setError('');
       setLoading(false);
       setShowTaxInfo(false);
-      setUnlockedOrderCoupons([]);
     }, 300);
   };
 
@@ -576,43 +578,89 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const bulkDiscount = round2(itemQtyDiscountsTotal);
 
   // =========================================================================
-  // 🎟️ EXCEL SHEET COUPONS RULE (SGS50, SGS100, SGS125)
+  // 🎟️ MULTI-USAGE COUPONS ENGINE (Matched with Backend Schema)
   // =========================================================================
   const availableCoupons = useMemo(() => {
     const list = [];
     const seen = new Set();
-    const usedSet = new Set(usedCoupons.map((u) => String(u || '').trim().toUpperCase()));
 
+    // Default configuration matching your schema
     const defaultExcelCoupons = [
-      { code: 'SGS50', noOfTimesUse: 'first_time', minSpend: 500, discountType: 'flat', discountValue: 50, maxDiscountValue: 50, productName: 'Min Order ₹500 (First Time)' },
-      { code: 'SGS100', noOfTimesUse: '10', minSpend: 1500, discountType: 'percentage', discountValue: 5, maxDiscountValue: 100, productName: 'Min Order ₹1500 (5% OFF upto ₹100)' },
-      { code: 'SGS125', noOfTimesUse: '2', minSpend: 1000, discountType: 'percentage', discountValue: 10, maxDiscountValue: 75, productName: 'Min Order ₹1000 (10% OFF upto ₹75)' }
+      {
+        code: 'SGS50',
+        noOfTimesUse: 'first_time',
+        maxUsagePerUser: 1,
+        baseValue: 500,
+        discountType: 'lumpsum',
+        lumpsumAmount: 50,
+        maxDiscountValue: 50,
+        productName: 'Min Order ₹500 (1st Order Only)'
+      },
+      {
+        code: 'SGS100',
+        noOfTimesUse: '10',
+        maxUsagePerUser: 10,
+        baseValue: 1500,
+        discountType: 'percentage',
+        percentageAmount: 5,
+        maxDiscountValue: 100,
+        productName: 'Min Order ₹1500 (5% OFF upto ₹100)'
+      },
+      {
+        code: 'SGS125',
+        noOfTimesUse: '2',
+        maxUsagePerUser: 2,
+        baseValue: 1000,
+        discountType: 'percentage',
+        percentageAmount: 10,
+        maxDiscountValue: 75,
+        productName: 'Min Order ₹1000 (10% OFF upto ₹75)'
+      }
     ];
 
     const allSources = [
       ...defaultExcelCoupons,
-      ...ensureArray(storeSettings.globalCoupons).map(c => ({
+      ...ensureArray(storeSettings.globalCoupons).map((c) => ({
         code: c.code,
-        minSpend: parseNumericPrice(c.baseValue || c.minSpend),
-        discountType: c.discountType === 'percentage' ? 'percentage' : 'flat',
-        discountValue: parseNumericPrice(c.percentageAmount || c.lumpsumAmount || c.discountValue),
+        noOfTimesUse: c.noOfTimesUse || (c.maxUsagePerUser ? String(c.maxUsagePerUser) : '1'),
+        maxUsagePerUser: Number(c.maxUsagePerUser) || (c.noOfTimesUse === 'first_time' ? 1 : Number(c.noOfTimesUse) || 1),
+        baseValue: parseNumericPrice(c.baseValue || c.minSpend),
+        discountType: c.discountType === 'percentage' ? 'percentage' : 'lumpsum',
+        lumpsumAmount: parseNumericPrice(c.lumpsumAmount || c.discountValue),
+        percentageAmount: parseNumericPrice(c.percentageAmount || c.discountValue),
         maxDiscountValue: parseNumericPrice(c.maxDiscountValue || c.maxDiscount),
-        productName: c.code
+        productName: c.productName || c.code
       }))
     ];
 
     allSources.forEach((c) => {
       const code = String(c?.code || '').trim().toUpperCase();
-      if (!code || seen.has(code) || usedSet.has(code)) return;
+      if (!code || seen.has(code)) return;
       seen.add(code);
 
-      const minSpend = parseNumericPrice(c.minSpend || c.baseValue);
+      const maxUsage = parseMaxUsage(c);
+      const usedCount = couponUsageMap[code] || 0;
+      const remainingUses = Math.max(0, maxUsage - usedCount);
+
+      // 🛑 Hide coupon ONLY if user has completely used up all allowed times
+      if (usedCount >= maxUsage) return;
+
+      const minSpend = parseNumericPrice(c.baseValue);
       const isUnlocked = effectiveCartTotal >= minSpend;
+
+      const isPercentage = c.discountType === 'percentage';
+      const discVal = isPercentage
+        ? parseNumericPrice(c.percentageAmount)
+        : parseNumericPrice(c.lumpsumAmount);
 
       list.push({
         code,
-        discountType: c.discountType === 'percentage' ? 'percentage' : 'flat',
-        discountValue: parseNumericPrice(c.discountValue || 0),
+        noOfTimesUse: c.noOfTimesUse,
+        maxUsage,
+        usedCount,
+        remainingUses,
+        discountType: isPercentage ? 'percentage' : 'flat',
+        discountValue: discVal,
         maxDiscountValue: parseNumericPrice(c.maxDiscountValue || 0),
         minSpend,
         isUnlocked,
@@ -622,7 +670,34 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     });
 
     return list;
-  }, [storeSettings.globalCoupons, effectiveCartTotal, usedCoupons]);
+  }, [storeSettings.globalCoupons, effectiveCartTotal, couponUsageMap]);
+
+  // ✅ Auto-recalculate or invalidate applied coupon when cart items change
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const matched = availableCoupons.find((c) => c.code === appliedCoupon.code);
+
+    if (matched) {
+      if (effectiveCartTotal < matched.minSpend) {
+        setAppliedCoupon(null);
+        setCouponMsg({
+          text: `⚠️ Coupon ${appliedCoupon.code} removed because cart total fell below ₹${matched.minSpend}.`,
+          type: 'error'
+        });
+      } else {
+        let newDisc = matched.discountType === 'percentage'
+          ? (effectiveCartTotal * matched.discountValue) / 100
+          : matched.discountValue;
+        if (matched.maxDiscountValue > 0) {
+          newDisc = Math.min(newDisc, matched.maxDiscountValue);
+        }
+        newDisc = round2(newDisc);
+        if (newDisc !== appliedCoupon.discount) {
+          setAppliedCoupon((prev) => ({ ...prev, discount: newDisc }));
+        }
+      }
+    }
+  }, [effectiveCartTotal, availableCoupons, appliedCoupon]);
 
   // =========================================================================
   // 🎁 EXCEL SHEET FREE GIFT RULE:
@@ -718,6 +793,18 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     const upper = rawCode.trim().toUpperCase();
     setCouponCode(upper);
 
+    // Check usage limits locally first
+    const matched = availableCoupons.find((c) => c.code === upper);
+    const usedCount = couponUsageMap[upper] || 0;
+    const maxAllowed = matched ? matched.maxUsage : 1;
+
+    if (usedCount >= maxAllowed) {
+      return setCouponMsg({
+        text: `⚠️ You have already used coupon ${upper} ${usedCount} time(s). Maximum limit of ${maxAllowed} reached!`,
+        type: 'error'
+      });
+    }
+
     try {
       const token = getAuthToken();
       const res = await fetch(`${API_BASE}/coupons/verify`, {
@@ -729,15 +816,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         body: JSON.stringify({ code: upper, cartTotal: effectiveCartTotal })
       });
       const data = await res.json();
-      if (!res.ok) {
-        return setCouponMsg({ text: data.message || 'Invalid or already used coupon code.', type: 'error' });
+      if (!res.ok || data.success === false) {
+        return setCouponMsg({ text: data.message || 'Invalid or expired coupon code.', type: 'error' });
       }
       const serverDisc = round2(parseNumericPrice(data.discount));
-      setAppliedCoupon({ code: data.code, discount: serverDisc });
-      setCouponMsg({ text: data.message || 'Coupon applied successfully!', type: 'success' });
+      setAppliedCoupon({ code: data.code || upper, discount: serverDisc });
+      setCouponMsg({ text: data.message || `🎉 Coupon ${upper} applied successfully!`, type: 'success' });
     } catch {
       // Local Sheet Rules Fallback
-      const matched = availableCoupons.find((c) => c.code === upper);
       if (matched) {
         if (effectiveCartTotal < matched.minSpend) {
           return setCouponMsg({
@@ -789,8 +875,16 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
 
     if (!sameAsShipping) {
+      if (!billingAddress.name.trim()) {
+        setError('⚠️ Please enter Billing Contact Person Name.');
+        return;
+      }
       if (!phoneRegex.test(billingAddress.phone.trim())) {
         setError('⚠️ Please enter a valid 10-digit Billing Phone number.');
+        return;
+      }
+      if (!billingAddress.address.trim()) {
+        setError('⚠️ Billing Address details are required.');
         return;
       }
       if (!billingAddress.landmark.trim()) {
@@ -866,7 +960,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         deliveryZone: deliveryLabel,
         shippingType: shippingMode,
         orderItems: formattedCartItems,
-        freeGift: freeGiftState.activeTitle || '', // 🎁 Free Gift included in Order
+        freeGift: freeGiftState.activeTitle || '',
         subTotal: round2(effectiveCartTotal),
         bulkDiscount: round2(bulkDiscount),
         couponDiscount: round2(couponDiscount),
@@ -905,8 +999,20 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         createdAt: new Date().toLocaleString('en-IN')
       });
 
-      // Record coupon usage
+      // ✅ Increment Coupon Usage count on successful order
       if (appliedCoupon?.code) {
+        const usedCode = appliedCoupon.code.toUpperCase();
+        setCouponUsageMap((prev) => {
+          const updated = {
+            ...prev,
+            [usedCode]: (prev[usedCode] || 0) + 1
+          };
+          try {
+            localStorage.setItem('sgs_coupon_usage_map', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+
         try {
           await fetch(`${API_BASE}/coupons/record-usage`, {
             method: 'POST',
@@ -921,7 +1027,27 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         }
       }
 
+      // Save address to user profile if opted
+      if (shippingAddress.saveAddress) {
+        try {
+          const userObj = getSavedUser() || {};
+          const updatedUser = {
+            ...userObj,
+            name: shippingAddress.name,
+            phone: shippingAddress.phone,
+            address: shippingAddress.address,
+            landmark: shippingAddress.landmark,
+            state: shippingAddress.state,
+            city: shippingAddress.city,
+            pincode: shippingAddress.pincode
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        } catch {}
+      }
+
       setStep('success');
+      setAppliedCoupon(null);
+      setCouponCode('');
       if (onOrderPlaced) onOrderPlaced();
     } catch (err) {
       setError(err.message || 'An error occurred while placing your order.');
@@ -1003,6 +1129,10 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     `;
 
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Popup blocked! Please allow popups to print receipt.');
+      return;
+    }
     printWindow.document.write(receiptHTML);
     printWindow.document.close();
     setTimeout(() => printWindow.print(), 400);
@@ -1100,7 +1230,13 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                                 <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden', background: '#fff' }}>
                                   <button
                                     type="button"
-                                    onClick={() => changeQty(item.id, -1)}
+                                    onClick={() => {
+                                      if (qty <= 1) {
+                                        removeFromCart(item.id);
+                                      } else {
+                                        changeQty(item.id, -1);
+                                      }
+                                    }}
                                     style={{ width: '28px', height: '28px', background: '#f8fafc', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#475569', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                   >
                                     −
@@ -1421,9 +1557,22 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                                   style={{ padding: '9px 11px', borderRadius: '8px', background: isApplied ? '#f0fdf4' : active ? '#fef2f2' : '#f8fafc', border: `1px dashed ${isApplied ? '#22c55e' : active ? '#b91c1c' : '#cbd5e1'}` }}
                                 >
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.86rem', fontWeight: '800', color: active ? '#b91c1c' : '#64748b' }}>
-                                      🎫 {c.code}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontSize: '0.86rem', fontWeight: '800', color: active ? '#b91c1c' : '#64748b' }}>
+                                        🎫 {c.code}
+                                      </span>
+                                      {c.maxUsage > 1 && (
+                                        <span style={{ background: '#dbeafe', color: '#1e40af', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
+                                          🔁 {c.remainingUses} Uses Left
+                                        </span>
+                                      )}
+                                      {c.maxUsage === 1 && (
+                                        <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
+                                          1-Time Use
+                                        </span>
+                                      )}
+                                    </div>
+
                                     <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#334155' }}>
                                       {c.discountType === 'percentage' ? `${c.discountValue}% OFF (Max ₹${c.maxDiscountValue})` : `Flat ₹${c.discountValue} OFF`}
                                     </span>
@@ -1468,7 +1617,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     <div style={{ marginTop: '16px' }}>
                       <input
                         type="text"
-                        placeholder="Enter coupon code (e.g. SGS50, SGS100)"
+                        placeholder="Enter coupon code (e.g. SGS50, SGS100, SGS125)"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)}
                         style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.88rem', boxSizing: 'border-box', marginBottom: '8px' }}

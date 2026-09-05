@@ -45,6 +45,13 @@ const couponSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+    // 🟢 NEW: Agar ye field set hai, to sirf ye specific user hi is coupon ko
+    // use kar sakega — baaki sab ke liye ye invalid rahega. null = public coupon.
+    assignedUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
     }
   },
   { timestamps: true }
