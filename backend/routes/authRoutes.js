@@ -253,4 +253,24 @@ router.get('/admin-data', protect, adminOnly, async (req, res) => {
   res.status(200).json({ message: 'Welcome to the Admin Protected Route!' });
 });
 
+// ── 7. 🟢 GET ALL REGISTERED CUSTOMERS (ADMIN ONLY) (/api/auth/users) ──
+router.get('/users', protect, adminOnly, async (req, res) => {
+  try {
+    // Sirf 'user' role wale customers fetch honge (admin ko exclude karke)
+    const customers = await User.find({ role: 'user' })
+      .select('-password')
+      .sort({ createdAt: -1 });
+
+    const totalCustomers = await User.countDocuments({ role: 'user' });
+
+    res.status(200).json({
+      success: true,
+      count: totalCustomers,
+      customers
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching customers: ' + error.message });
+  }
+});
+
 module.exports = router;
