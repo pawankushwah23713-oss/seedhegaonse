@@ -30,6 +30,12 @@ const MyCoupons = () => {
   const [copiedCode, setCopiedCode] = useState('');
   const [msg, setMsg] = useState({ text: '', type: '' });
 
+  // 👛 NEW: Wallet Balance State
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletHistory, setWalletHistory] = useState([]);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [showWalletHistory, setShowWalletHistory] = useState(false);
+
   // 1. Fetch Coupons from MongoDB
   const fetchMyCoupons = async () => {
     const token = getAuthToken();
@@ -54,11 +60,38 @@ const MyCoupons = () => {
     }
   };
 
+  // 2. 👛 NEW: Fetch Wallet Balance from MongoDB
+  const fetchMyWallet = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setWalletLoading(false);
+      return;
+    }
+    try {
+      setWalletLoading(true);
+      const res = await fetch(`${API_BASE}/coupons/my-wallet`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWalletBalance(Number(data.walletBalance) || 0);
+        if (Array.isArray(data.walletHistory)) {
+          setWalletHistory(data.walletHistory);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load wallet balance:', err);
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMyCoupons();
+    fetchMyWallet();
   }, []);
 
-  // 2. Remove Single Coupon
+  // 3. Remove Single Coupon
   const handleRemoveSingle = async (code) => {
     const token = getAuthToken();
     if (!token) return;
@@ -79,7 +112,7 @@ const MyCoupons = () => {
     setTimeout(() => setMsg({ text: '', type: '' }), 3000);
   };
 
-  // 3. 🗑️ Clean Up ALL Expired Coupons from MongoDB
+  // 4. 🗑️ Clean Up ALL Expired Coupons from MongoDB
   const handleCleanExpired = async () => {
     const token = getAuthToken();
     if (!token) return;
@@ -156,6 +189,58 @@ const MyCoupons = () => {
           >
             🗑️ Remove Expired Coupons ({expiredCount})
           </button>
+        )}
+      </div>
+
+      {/* 👛 NEW: Wallet Balance Card */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0369a1, #0284c7)',
+        borderRadius: '14px',
+        padding: '20px 22px',
+        marginBottom: '24px',
+        color: '#fff',
+        boxShadow: '0 6px 18px rgba(2, 132, 199, 0.25)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              👛 Wallet Balance
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 900, marginTop: '2px' }}>
+              {walletLoading ? '...' : `₹${walletBalance.toFixed(2)}`}
+            </div>
+          </div>
+
+          {walletHistory.length > 0 && (
+            <button
+              onClick={() => setShowWalletHistory((prev) => !prev)}
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.4)',
+                color: '#fff',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                cursor: 'pointer'
+              }}
+            >
+              {showWalletHistory ? 'Hide History' : 'View History'}
+            </button>
+          )}
+        </div>
+
+        {showWalletHistory && walletHistory.length > 0 && (
+          <div style={{ marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.25)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {walletHistory.map((h, idx) => (
+              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                <span style={{ opacity: 0.9 }}>
+                  {h.note || 'Wallet credit'} · {h.date ? new Date(h.date).toLocaleDateString('en-IN') : ''}
+                </span>
+                <strong>+₹{Number(h.amount || 0).toFixed(2)}</strong>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

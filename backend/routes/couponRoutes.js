@@ -385,7 +385,35 @@ router.delete('/admin/:id', async (req, res) => {
 });
 
 // =========================================================
-// 👛 7. 🟢 NEW: ADD WALLET CREDIT TO A SPECIFIC USER (Admin Endpoint)
+// 👛 7. 🟢 NEW: GET LOGGED-IN USER'S OWN WALLET BALANCE (Customer Endpoint)
+// =========================================================
+// Frontend (MyCoupons.jsx) isko apne token ke saath call karega taaki
+// user apna khud ka wallet balance + history dekh sake.
+router.get('/my-wallet', async (req, res) => {
+  try {
+    const userId = extractUserId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Login required to view wallet.' });
+    }
+
+    const user = await User.findById(userId).select('name email phone walletBalance walletHistory');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    return res.json({
+      success: true,
+      walletBalance: user.walletBalance || 0,
+      walletHistory: (user.walletHistory || []).slice().reverse() // latest pehle
+    });
+  } catch (err) {
+    console.error('My wallet fetch error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// =========================================================
+// 👛 8a. 🟢 NEW: ADD WALLET CREDIT TO A SPECIFIC USER (Admin Endpoint)
 // =========================================================
 // Ye coupon nahi hai — seedha us user ke wallet balance me paisa add karta hai,
 // jise wo user khud (bina kisi code ke) checkout par use kar sakta hai.
@@ -447,7 +475,7 @@ router.post('/admin/wallet-credit', async (req, res) => {
 });
 
 // =========================================================
-// 👛 8. 🟢 NEW: GET A USER'S WALLET BALANCE + HISTORY (Admin Endpoint)
+// 👛 8b. 🟢 NEW: GET A USER'S WALLET BALANCE + HISTORY (Admin Endpoint)
 // =========================================================
 router.get('/admin/wallet/:identifier', async (req, res) => {
   try {
