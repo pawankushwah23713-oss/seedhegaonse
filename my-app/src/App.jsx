@@ -60,6 +60,7 @@ import MyCoupons from './pages/MyCoupons';
 import BulkEnquiry from './pages/bulkpage';
 import AdminEnquiries from './pages/admin/AdminEnquiries';
 import Faq from './pages/Faq';
+import AdminCouponsGiftManager from './pages/admin/AdminCouponGiftManager';
 // 🟢 Cart ko localStorage me save karne ki key
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
@@ -165,6 +166,8 @@ const AppContent = ({
   path="/peda" 
   element={<PedaPage addToCart={addToCart} addedToast={addedToast} />} 
 />
+
+
 
 <Route 
   path="/petha" 
@@ -281,7 +284,7 @@ const AppContent = ({
             <Route index element={<AdminOverview />} />
             <Route path="orders" element={<AdminOrders />} />
               <Route path="inquaries" element={<AdminEnquiries />} />
-
+                 <Route path="coupons" element={<AdminCouponsGiftManager />} />
             <Route path="herobanner" element={<AdminMarketingManager />} />
             <Route path="products" element={<AdminAllInOneCakes />} />
             <Route path="add-product" element={<AdminAddProduct />} />
