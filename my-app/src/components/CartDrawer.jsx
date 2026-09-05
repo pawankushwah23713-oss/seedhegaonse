@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartDrawer.css';
 
-// 🟢 STRICTLY resolve base URL from imported .env variable (Always ensures /api)
+// STRICTLY resolve base URL from imported .env variable (Always ensures /api)
 const getBaseApiUrl = () => {
   const envUrl = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
     ? process.env.REACT_APP_API_URL
@@ -115,7 +115,7 @@ const parseMaxUsage = (coupon) => {
   return !isNaN(parsed) && parsed > 0 ? parsed : 1;
 };
 
-// 🟢 Image Resolver supporting Multi-images
+// Image Resolver supporting Multi-images
 const resolveItemImage = (item) => {
   const rawImg = item?.img || (Array.isArray(item?.images) && item.images[0]) || item?.image;
   if (!rawImg) return 'https://via.placeholder.com/60';
@@ -142,11 +142,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
 
-  // 👛 WALLET STATES
+  // WALLET STATES
   const [walletBalance, setWalletBalance] = useState(0);
   const [isWalletUsed, setIsWalletUsed] = useState(false);
 
-  // 🎟️ Track count of how many times each coupon has been used
+  // Track coupon usage counts
   const [couponUsageMap, setCouponUsageMap] = useState(() => {
     try {
       const cached = localStorage.getItem('sgs_coupon_usage_map');
@@ -182,7 +182,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   });
 
-  // 📍 Pincode base delivery & dynamic GST states
+  // Pincode base delivery & dynamic GST states
   const [pincodeDeliveryCharge, setPincodeDeliveryCharge] = useState(null);
   const [pincodeGstPercent, setPincodeGstPercent] = useState(null);
   const [pincodeStatusMsg, setPincodeStatusMsg] = useState('');
@@ -216,31 +216,29 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   }, [shippingMode]);
 
-  // 👛 Fetch User Wallet Balance
-  useEffect(() => {
-    if (!isOpen) return;
+  // Fetch User Wallet Balance from Database
+  const refreshWalletBalance = useCallback(async () => {
     const token = getAuthToken();
     if (!token) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/coupons/my-wallet`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled) {
-            setWalletBalance(Number(data.walletBalance) || 0);
-          }
-        }
-      } catch (err) {
-        console.error('Wallet fetch error:', err);
+    try {
+      const res = await fetch(`${API_BASE}/coupons/my-wallet`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const bal = Number(data.walletBalance) || 0;
+        setWalletBalance(bal);
       }
-    })();
+    } catch (err) {
+      console.error('Failed to fetch wallet balance:', err);
+    }
+  }, []);
 
-    return () => { cancelled = true; };
-  }, [isOpen]);
+  useEffect(() => {
+    if (isOpen) {
+      refreshWalletBalance();
+    }
+  }, [isOpen, refreshWalletBalance]);
 
   // Load coupon usage frequency from past orders & API
   useEffect(() => {
@@ -606,9 +604,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
   const bulkDiscount = round2(itemQtyDiscountsTotal);
 
-  // =========================================================================
-  // 🎟️ MULTI-USAGE COUPONS ENGINE
-  // =========================================================================
+  // Available Coupons List
   const availableCoupons = useMemo(() => {
     const list = [];
     const seen = new Set();
@@ -731,14 +727,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         activeTitle: 'Special Premium Gift (Tier 2)',
         tier: 2,
         isUnlocked: true,
-        message: '🎉 First Free Gift Show Off & New Gift Show!'
+        message: '🎉 Tier 2 Premium Gift Unlocked!'
       };
     } else if (effectiveCartTotal >= 1500) {
       return {
         activeTitle: 'Delicious Sweets Gift Box (Tier 1)',
         tier: 1,
         isUnlocked: true,
-        message: '🎉 Free Gift Automatically show (Order > ₹1500)!'
+        message: '🎉 Free Sweets Gift Box Unlocked!'
       };
     }
     return {
@@ -780,7 +776,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     Math.max(0, taxableProductAmount + (shippingMode ? shippingCharge : 0) + totalTaxAmount + giftBoxAmount)
   );
 
-  // 👛 Dynamic Wallet Deduction
+  // Dynamic Wallet Deduction
   const walletDeduction = (isWalletUsed && walletBalance > 0)
     ? round2(Math.min(walletBalance, totalBeforeWallet))
     : 0;
@@ -794,19 +790,19 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       return;
     }
     if (shippingMode === 'delivery' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {
-      alert('⚠️ Delivery Pincode is Mandatory. Please enter a valid 6-digit Pincode to calculate delivery charges.');
+      alert('⚠️ Delivery PIN code is Mandatory. Please enter a valid 6-digit PIN code.');
       return;
     }
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
-      alert('⚠️ Please enter a valid serviceable 6-digit Pincode to calculate delivery charges.');
+      alert('⚠️ Please enter a valid serviceable 6-digit PIN code.');
       return;
     }
     if (shippingMode === 'founder' && (!shippingAddress.pincode || shippingAddress.pincode.length !== 6)) {
-      alert('⚠️ Please enter your 6-digit Pincode for Founder Delivery.');
+      alert('⚠️ Please enter your 6-digit PIN code for Founder Delivery.');
       return;
     }
     if (shippingMode === 'founder' && pincodeDeliveryCharge === null) {
-      alert('⚠️ Founder Delivery is not available for this pincode. Please try another pincode.');
+      alert('⚠️ Founder Delivery is not available for this PIN code. Please try another PIN code.');
       return;
     }
     const token = getAuthToken();
@@ -855,7 +851,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       if (matched) {
         if (effectiveCartTotal < matched.minSpend) {
           return setCouponMsg({
-            text: `🔒 Min Base Value ₹${matched.minSpend} required for ${upper}. Add ₹${formatMoney(round2(matched.minSpend - effectiveCartTotal))} more.`,
+            text: `🔒 Minimum order of ₹${matched.minSpend} required for ${upper}. Add ₹${formatMoney(round2(matched.minSpend - effectiveCartTotal))} more.`,
             type: 'error'
           });
         }
@@ -898,7 +894,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
     const pinRegex = /^[1-9]\d{5}$/;
     if (isHomeDeliveryType && !pinRegex.test(shippingAddress.pincode.trim())) {
-      setError('⚠️ Please enter a valid 6-digit Pincode.');
+      setError('⚠️ Please enter a valid 6-digit PIN code.');
       return;
     }
 
@@ -920,7 +916,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         return;
       }
       if (!pinRegex.test(billingAddress.pincode.trim())) {
-        setError('⚠️ Please enter a valid 6-digit Billing Pincode.');
+        setError('⚠️ Please enter a valid 6-digit Billing PIN code.');
         return;
       }
     }
@@ -931,18 +927,17 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
 
     if (shippingMode === 'delivery' && !isFreeDelivery && pincodeDeliveryCharge === null) {
-      setError('Delivery is not available for this pincode. Please try another pincode.');
+      setError('Delivery is not available for this PIN code. Please try another PIN code.');
       return;
     }
 
     if (shippingMode === 'founder' && pincodeDeliveryCharge === null) {
-      setError('Founder Delivery is not available for this pincode. Please try another pincode.');
+      setError('Founder Delivery is not available for this PIN code. Please try another PIN code.');
       return;
     }
 
-    // Only check UPI transaction reference if grandTotal > 0 and user opted for UPI
     if (grandTotal > 0 && paymentMethod === 'UPI' && !upiRef.trim()) {
-      setError('⚠️ Please enter the UPI transaction / reference ID after completing the payment.');
+      setError('⚠️ Please enter the UPI transaction / reference ID after completing payment.');
       return;
     }
 
@@ -974,12 +969,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
 
       const deliveryLabel =
         shippingMode === 'founder'
-          ? `Delivery by Founder (VIP Hand Delivery - ₹5000) - Pincode: ${shippingAddress.pincode} (${shippingAddress.city})`
+          ? `Delivery by Founder (VIP Hand Delivery - ₹5000) - PIN: ${shippingAddress.pincode} (${shippingAddress.city})`
           : shippingMode === 'pickup'
             ? 'Direct Store Pickup (Free)'
-            : `Standard Home Delivery - Pincode: ${shippingAddress.pincode} (${shippingAddress.city}) [GST: ${currentShippingGstPercent}%]`;
+            : `Standard Home Delivery - PIN: ${shippingAddress.pincode} (${shippingAddress.city}) [GST: ${currentShippingGstPercent}%]`;
 
-      const resolvedPaymentMethod = grandTotal === 0 && walletDeduction > 0 ? 'WALLET' : paymentMethod.toUpperCase();
+      const resolvedPaymentMethod = (grandTotal === 0 && walletDeduction > 0)
+        ? 'WALLET'
+        : paymentMethod.toUpperCase();
 
       const orderPayload = {
         customer: {
@@ -1009,6 +1006,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         upiTransactionId: grandTotal > 0 ? upiRef : ''
       };
 
+      // 1. Post Order
       const res = await fetch(`${API_BASE}/orders`, {
         method: 'POST',
         headers: {
@@ -1031,12 +1029,36 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
         createdAt: new Date().toLocaleString('en-IN')
       });
 
-      // Deduct wallet balance locally
+      // 2. PERMANENT WALLET DEDUCTION IN MONGODB BACKEND
       if (walletDeduction > 0) {
-        setWalletBalance((prev) => Math.max(0, round2(prev - walletDeduction)));
+        try {
+          const debitRes = await fetch(`${API_BASE}/coupons/my-wallet/debit`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              amount: walletDeduction,
+              orderId: newOrderId,
+              note: `Used for Order #${shortOrderId(newOrderId)}`
+            })
+          });
+
+          const debitData = await debitRes.json();
+          if (debitRes.ok && debitData.walletBalance !== undefined) {
+            setWalletBalance(Number(debitData.walletBalance));
+          } else {
+            // Re-fetch to ensure fresh data
+            await refreshWalletBalance();
+          }
+        } catch (wErr) {
+          console.error('Wallet debit API error:', wErr);
+          await refreshWalletBalance();
+        }
       }
 
-      // Increment Coupon Usage count on successful order
+      // 3. Increment Coupon Usage count on successful order
       if (appliedCoupon?.code) {
         const usedCode = appliedCoupon.code.toUpperCase();
         setCouponUsageMap((prev) => {
@@ -1060,10 +1082,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
             body: JSON.stringify({ code: appliedCoupon.code })
           });
         } catch (cErr) {
-          console.error(cErr);
+          console.error('Record usage error:', cErr);
         }
       }
 
+      // 4. Save profile address if selected
       if (shippingAddress.saveAddress) {
         try {
           const userObj = getSavedUser() || {};
@@ -1084,6 +1107,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       setStep('success');
       setAppliedCoupon(null);
       setCouponCode('');
+      setIsWalletUsed(false);
       if (onOrderPlaced) onOrderPlaced();
     } catch (err) {
       setError(err.message || 'An error occurred while placing your order.');
@@ -1108,7 +1132,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     const receiptHTML = `
       <html>
       <head>
-        <title>Order Slip - ${shortOrderId(d.orderId)}</title>
+        <title>Order Receipt - ${shortOrderId(d.orderId)}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 650px; margin: 0 auto; }
           h1 { color: #94191d; font-size: 22px; margin-bottom: 2px; }
@@ -1124,7 +1148,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       </head>
       <body>
         <h1>Seedhe Gaon Se</h1>
-        <div class="muted">Order Slip / Receipt</div>
+        <div class="muted">Official Order Slip / Receipt</div>
         <div class="muted">Order ID: <strong>#${shortOrderId(d.orderId)}</strong> &nbsp;|&nbsp; Date: ${d.createdAt}</div>
 
         <table>
@@ -1140,18 +1164,18 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           <tr><td>Coupon Discount ${d.couponCode ? `(${d.couponCode})` : ''}</td><td style="text-align:right;">- ₹${formatMoney(d.couponDiscount)}</td></tr>
           <tr><td>Multi-Pack Discount</td><td style="text-align:right;">- ₹${formatMoney(d.bulkDiscount)}</td></tr>
           <tr><td>Shipping</td><td style="text-align:right;">₹${formatMoney(d.shippingCharge)}</td></tr>
-          <tr><td>Tax (GST)</td><td style="text-align:right;">₹${formatMoney(d.taxAmount)}</td></tr>
+          <tr><td>GST (Tax)</td><td style="text-align:right;">₹${formatMoney(d.taxAmount)}</td></tr>
           ${d.giftBoxCharge > 0 ? `<tr><td>${d.giftBoxTitle}</td><td style="text-align:right;">₹${formatMoney(d.giftBoxCharge)}</td></tr>` : ''}
           ${d.walletAmountUsed > 0 ? `<tr><td style="color:#0284c7;font-weight:bold;">👛 Wallet Balance Used</td><td style="text-align:right;color:#0284c7;font-weight:bold;">- ₹${formatMoney(d.walletAmountUsed)}</td></tr>` : ''}
           <tr class="grand"><td>Grand Total</td><td style="text-align:right;">₹${formatMoney(d.totalAmount)}</td></tr>
         </table>
 
         <div class="addr">
-          <strong>Delivery Address</strong><br/>
+          <strong>Delivery Details</strong><br/>
           ${d.customer.name} | ${d.customer.phone}<br/>
           ${d.customer.address}, ${d.customer.landmark}<br/>
           ${d.customer.city}, ${d.customer.state} - ${d.customer.pincode}<br/>
-          Payment: ${d.paymentMethod}${d.upiTransactionId ? ' (Ref: ' + d.upiTransactionId + ')' : ''}
+          Payment Method: <strong>${d.paymentMethod}</strong>${d.upiTransactionId ? ' (Ref: ' + d.upiTransactionId + ')' : ''}
         </div>
 
         <p class="muted" style="margin-top:24px;">Thank you for shopping with Seedhe Gaon Se! 🙏</p>
@@ -1311,7 +1335,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     </div>
                   </div>
 
-                  {/* 🎁 EXACT EXCEL SHEET FREE GIFT SECTION */}
+                  {/* FREE GIFT SECTION */}
                   <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.95rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span>🎁</span> <strong>Free Gift on Order Value (Base Value)</strong>
@@ -1321,20 +1345,20 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                       <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 1 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 1 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 1 ? '#15803d' : '#475569' }}>
-                            {freeGiftState.tier === 1 ? '🎉' : '🔒'} Order (Base Value) Rs. 1500/- : <strong>Free Gift 1 (Sweet Box)</strong>
+                            {freeGiftState.tier === 1 ? '🎉' : '🔒'} Orders ₹1,500+: <strong>Free Sweets Gift Box (Tier 1)</strong>
                           </div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                            {freeGiftState.tier === 1 ? '✓ Free Gift Automatically show' : freeGiftState.tier === 2 ? '⚠️ First Free Gift Show Off (Upgraded to Tier 2 Gift)' : `Add ₹${formatMoney(freeGiftState.remainingForTier1)} more to get Free Gift`}
+                            {freeGiftState.tier === 1 ? '✓ Free Gift Automatically added' : freeGiftState.tier === 2 ? '⚠️ Upgraded to Tier 2 Premium Gift' : `Add ₹${formatMoney(freeGiftState.remainingForTier1)} more to unlock`}
                           </div>
                         </div>
                         <div>
                           {freeGiftState.tier === 1 ? (
                             <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
-                              ACTIVE (SHOW)
+                              ACTIVE
                             </span>
                           ) : freeGiftState.tier === 2 ? (
                             <span style={{ background: '#e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: '700', padding: '3px 7px', borderRadius: '4px' }}>
-                              SHOW OFF
+                              UPGRADED
                             </span>
                           ) : (
                             <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
@@ -1347,16 +1371,16 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                       <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 2 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 2 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 2 ? '#15803d' : '#475569' }}>
-                            {freeGiftState.tier === 2 ? '🎉' : '🔒'} Order (Base Value) Rs. 2500/- : <strong>New Premium Gift (Tier 2)</strong>
+                            {freeGiftState.tier === 2 ? '🎉' : '🔒'} Orders ₹2,500+: <strong>New Premium Gift (Tier 2)</strong>
                           </div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                            {freeGiftState.tier === 2 ? '✓ First Free Gift Show Off and new Gift Show!' : `Add ₹${formatMoney(Math.max(0, 2500 - effectiveCartTotal))} more to upgrade Gift`}
+                            {freeGiftState.tier === 2 ? '✓ Special Premium Gift Unlocked!' : `Add ₹${formatMoney(Math.max(0, 2500 - effectiveCartTotal))} more to upgrade`}
                           </div>
                         </div>
                         <div>
                           {freeGiftState.tier === 2 ? (
                             <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
-                              ACTIVE (NEW GIFT SHOW)
+                              ACTIVE
                             </span>
                           ) : (
                             <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
@@ -1409,9 +1433,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         required
                       >
                         <option value="">⚠️ -- Select Shipping Option (Required) --</option>
-                        <option value="delivery">🚚 Home Delivery</option>
+                        <option value="delivery">🚚 Standard Home Delivery</option>
                         <option value="founder">🎖️ Delivery by Founder</option>
-                        <option value="pickup">🏬 Self Pickup - FREE</option>
+                        <option value="pickup">🏬 Store Self-Pickup - FREE</option>
                       </select>
                     </div>
 
@@ -1423,12 +1447,12 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                           </div>
                         ) : (
                           <div style={{ background: '#fee2e2', border: '1px dashed #dc2626', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#b91c1c', fontWeight: '600' }}>
-                            ⚠️ Founder Delivery is not available for this pincode.
+                            ⚠️ Founder Delivery is not available for this PIN code.
                           </div>
                         )
                       ) : (
                         <div style={{ background: '#fef3c7', border: '1px dashed #d97706', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
-                          🎖️ Enter your 6-digit Pincode below to check Founder Delivery (₹5,000 Flat) availability.
+                          🎖️ Enter your 6-digit PIN code below to check Founder Delivery availability.
                         </div>
                       )
                     )}
@@ -1436,7 +1460,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     {isHomeDeliveryType && (
                       <div style={{ marginBottom: '14px', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1.5px solid #b91c1c' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#b91c1c', display: 'block', marginBottom: '4px' }}>
-                          Delivery Pincode
+                          Delivery PIN Code
                         </label>
                         <input
                           type="text"
@@ -1499,14 +1523,14 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                             pincodeDeliveryCharge !== null ? (
                               <strong style={{ color: '#b91c1c' }}>₹{formatMoney(FOUNDER_DELIVERY_CHARGE)}</strong>
                             ) : (
-                              <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: '700' }}>⚠️ Enter 6-digit Pincode</span>
+                              <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: '700' }}>⚠️ Enter 6-digit PIN</span>
                             )
                           ) : shippingMode === 'pickup' || isFreeDelivery ? (
                             <strong style={{ color: '#059669' }}>FREE</strong>
                           ) : pincodeDeliveryCharge !== null ? (
                             `₹${formatMoney(shippingCharge)}`
                           ) : (
-                            <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: '700' }}>⚠️ Enter 6-digit Pincode</span>
+                            <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: '700' }}>⚠️ Enter 6-digit PIN</span>
                           )}
                         </span>
                       </div>
@@ -1565,7 +1589,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </label>
                       )}
 
-                      {/* 👛 WALLET CHECKBOX & TOGGLE */}
+                      {/* WALLET CHECKBOX & TOGGLE */}
                       {walletBalance > 0 && (
                         <label
                           style={{
@@ -1597,7 +1621,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </label>
                       )}
 
-                      {/* 👛 Show Wallet Deduction Line Item if applied */}
+                      {/* Show Wallet Deduction Line Item if applied */}
                       {isWalletUsed && walletDeduction > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: '700' }}>
                           <span>👛 Wallet Amount Used</span>
@@ -1612,7 +1636,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                         </span>
                       </div>
 
-                      {/* 🎟️ Available Sheet Coupons Showcase */}
+                      {/* Available Coupons Showcase */}
                       {availableCoupons.length > 0 && (
                         <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '6px' }}>
                           <div style={{ fontWeight: '800', color: '#b91c1c', fontSize: '0.82rem', marginBottom: '8px' }}>
@@ -1986,7 +2010,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     <span style={{ fontSize: '1.15rem', fontWeight: '900', color: '#b91c1c' }}>₹{formatMoney(placedOrderDetails.totalAmount)}</span>
                   </div>
                   <div style={{ marginTop: '4px', fontSize: '0.78rem', color: '#64748b' }}>
-                    Payment: <strong>{placedOrderDetails.paymentMethod}</strong>
+                    Payment Method: <strong>{placedOrderDetails.paymentMethod}</strong>
                     {placedOrderDetails.upiTransactionId ? ` (Ref: ${placedOrderDetails.upiTransactionId})` : ''}
                   </div>
                 </div>

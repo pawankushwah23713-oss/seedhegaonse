@@ -45,7 +45,7 @@ const orderSchema = new mongoose.Schema(
 
     paymentMethod: {
       type: String,
-      enum: ['COD', 'UPI', 'RAZORPAY'],
+      enum: ['COD', 'UPI', 'RAZORPAY','WALLET'],
       default: 'COD'
     },
     paymentStatus: {
