@@ -4,11 +4,16 @@ import './Homepage.css';
 import banner1 from '../assets/banner1.png';
 import banner2 from '../assets/banner2.png';
 
-// 🟢 Backend API Base URL
-const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
-  ? process.env.REACT_APP_API_URL.replace('/auth', '')
-  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://orange-ape-497824.hostingersite.com/api');
+// 🟢 Backend API Base URL strictly resolved from .env variable
+const RAW_ENV_URL = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
+  ? process.env.REACT_APP_API_URL
+  : (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL);
 
+if (!RAW_ENV_URL) {
+  console.error('⚠️ Environment variable REACT_APP_API_URL or VITE_API_URL is missing!');
+}
+
+const API_BASE = (RAW_ENV_URL || '').replace(/\/auth\/?$/, '').replace(/\/+$/, '');
 const SERVER_HOST = API_BASE.replace('/api', '');
 
 // 🟢 Helper to check if a product is a Dummy item
@@ -23,7 +28,11 @@ const isOutOfStock = (product) => product?.inStock === false;
 // 🟢 Helper to get Default Variants (Lowest Weight Default & No Fake Discount on Dummy)
 export const getProductVariants = (product) => {
   if (Array.isArray(product.variants) && product.variants.length > 0) {
-    return product.variants;
+    return product.variants.map((v) => ({
+      ...v,
+      label: v.label || v.weight || 'Standard',
+      weight: v.weight || v.label || 'Standard'
+    }));
   }
   const isDummy = isDummyProduct(product);
   const basePrice = Number(product.price) || 0;
@@ -100,6 +109,17 @@ const getImageUrl = (imagePath) => {
   return `${SERVER_HOST}${normalizedPath}`;
 };
 
+// Helper to extract all images for slider
+const getProductImages = (product) => {
+  if (Array.isArray(product?.images) && product.images.length > 0) {
+    return product.images.map((img) => getImageUrl(img));
+  }
+  if (product?.image) {
+    return [getImageUrl(product.image)];
+  }
+  return ['https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?q=80&w=400&auto=format&fit=crop'];
+};
+
 // Pricing & Offer Calculation
 const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
   const price = Number(targetObj?.price) || 0;
@@ -114,7 +134,7 @@ const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
   }
 
   let mrp = Number(targetObj?.originalPrice) || 0;
-  const manualDiscount = Number(targetObj?.discount) || 0;
+  const manualDiscount = Number(targetObj?.discount || targetObj?.discountPercent) || 0;
 
   let discountPercent = 0;
 
@@ -137,11 +157,6 @@ const calculatePricing = (targetObj, qty = 1, isDummy = false) => {
   };
 };
 
-// 🟢 ADDED — FUZZY / TYPO-TOLERANT MATCH HELPERS
-// Yeh sirf tab kaam aate hain jab exact substring/token match (Tier 1-6)
-// kisi bhi field me nahi milta — jaise "laddoo" (double o) type karne par,
-// jabki product me "Ladoo" / category "ladoo" hai. Levenshtein edit-distance
-// se chhote spelling farak (typo, extra/missing letter) ko tolerate karte hain.
 const levenshteinDistance = (a, b) => {
   const m = a.length;
   const n = b.length;
@@ -164,33 +179,15 @@ const levenshteinDistance = (a, b) => {
   return dp[m][n];
 };
 
-// Do words "kaafi close" hain kya (typo tolerance), word/token length ke
-// hisaab se threshold adjust hota hai taaki chhote words par galat match na ho
 const isFuzzyMatch = (word, token) => {
   if (!word || !token) return false;
   if (word === token) return true;
   const maxLen = Math.max(word.length, token.length);
-  if (maxLen <= 3) return false; // bahut chhote words par fuzzy match risky hai
+  if (maxLen <= 3) return false;
   const threshold = maxLen <= 5 ? 1 : maxLen <= 8 ? 2 : 3;
   return levenshteinDistance(word, token) <= threshold;
 };
 
-// 🟢 UNIVERSAL PRODUCT SEARCH — TIERED PRIORITY MATCHING
-// Pehle EXACT/CLOSE product name match dhundta hai — agar mil jaye toh
-// SIRF wahi dikhega (baaki loose/broad matches ignore ho jaate hain).
-// Tabhi jab koi name-match na mile, tab category/description/price jaise
-// broader fields me search hota hai. Isse "Pure Desi Ghee Motichoor Ladoo"
-// type karne par sirf wahi ek product aayega, sare laddu nahi.
-//
-// Tier 1 = exact name match (best)
-// Tier 2 = name me poora phrase substring ki tarah mila
-// Tier 3 = name ke andar sare words mile (order matters nahi)
-// Tier 4 = category exact match
-// Tier 5 = poora phrase category/origin/description me mila
-// Tier 6 = sare words kahin bhi (name+category+origin+description+price) mile
-// Tier 7 = 🟢 name ke words se typo/spelling-variant fuzzy match (e.g. "laddoo" ~ "Ladoo")
-// Tier 8 = 🟢 category/origin/description/variant words se fuzzy match
-// Tier 0 = koi match nahi
 const getSearchMatchTier = (product, term) => {
   if (!term) return 0;
 
@@ -220,12 +217,10 @@ const getSearchMatchTier = (product, term) => {
   const allTokensMatchBroadly = tokens.length > 0 && tokens.every((t) => broadHaystack.includes(t));
   if (allTokensMatchBroadly) return 6;
 
-  // 🟢 Tier 7 — Fuzzy match sirf product name ke words ke against
   const nameWords = name.split(/\s+/).filter(Boolean);
   const nameFuzzyMatch = tokens.length > 0 && tokens.every((t) => nameWords.some((w) => isFuzzyMatch(w, t)));
   if (nameFuzzyMatch) return 7;
 
-  // 🟢 Tier 8 — Fuzzy match broader fields (category/origin/description/variants) ke against
   const broadWords = broadHaystack.split(/\s+/).filter(Boolean);
   const broadFuzzyMatch = tokens.length > 0 && tokens.every((t) => broadWords.some((w) => isFuzzyMatch(w, t)));
   if (broadFuzzyMatch) return 8;
@@ -233,9 +228,6 @@ const getSearchMatchTier = (product, term) => {
   return 0;
 };
 
-// 🟢 Product list ko search term ke against filter karta hai — sirf sabse
-// "best" (sabse chhota tier number) match group ko return karta hai, taaki
-// exact name match milne par baaki loose matches dab na jayein screen par.
 const filterProductsBySearch = (products, rawSearchTerm) => {
   const term = String(rawSearchTerm || '').trim().toLowerCase();
   if (!term) return products;
@@ -522,24 +514,24 @@ const ModalImageSlider = ({ images, labels = [], alt, zoomStyle, onDragStateChan
 
 const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAddToCart }) => {
   const isDummy = isDummyProduct(product);
-  const outOfStock = isOutOfStock(product); // 🟢 STOCK CHECK
+  const outOfStock = isOutOfStock(product);
   const variants = getProductVariants(product);
   const defaultVar = variants[0];
   const [selectedVariant, setSelectedVariant] = useState(defaultVar);
 
   const pricing = calculatePricing(selectedVariant, 1, isDummy);
   const liked = isWishlisted(product._id);
+  const productImages = getProductImages(product);
 
   return (
     <div
       className="sg-product-card"
       style={{ position: 'relative', cursor: outOfStock ? 'not-allowed' : 'pointer' }}
       onClick={() => {
-        if (outOfStock) return; // 🟢 Out of stock par modal nahi khulega
+        if (outOfStock) return;
         onOpenModal(product, selectedVariant);
       }}
     >
-      {/* 🟢 OUT OF STOCK STAMP */}
       {outOfStock && (
         <div
           style={{
@@ -589,13 +581,12 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
         </button>
       </div>
 
-      {/* 🟢 BLUR: sirf out of stock par */}
       <div
         className="sg-card-media-box"
         style={outOfStock ? { filter: 'blur(3px) grayscale(0.85)', opacity: 0.65 } : undefined}
       >
         <CardImageSlider
-          images={[getImageUrl(product.image)]}
+          images={productImages}
           alt={product.name}
         />
       </div>
@@ -654,7 +645,7 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
             className="sg-btn-add-cart"
             onClick={(e) => {
               e.stopPropagation();
-              if (outOfStock) return; // 🟢 double safety
+              if (outOfStock) return;
               onAddToCart(product, 1, selectedVariant);
             }}
             disabled={outOfStock}
@@ -670,7 +661,7 @@ const ProductCard = ({ product, isWishlisted, toggleWishlist, onOpenModal, onAdd
 
 const Homepage = ({ addToCart, addedToast }) => {
   const navigate = useNavigate();
-  const location = useLocation(); // 🟢 ADDED: read current URL (for ?search=...)
+  const location = useLocation();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -689,11 +680,8 @@ const Homepage = ({ addToCart, addedToast }) => {
 
   const [isImageDragging, setIsImageDragging] = useState(false);
 
-  // 🟢 ADDED: Navbar search se aane wala "?search=text" yahan se nikalte hain
   const searchTerm = new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '';
 
-  // 🟢 ADDED: Search active hote hi purana category tab reset ho jaye,
-  // warna tab filter search results ko chhupa dega
   useEffect(() => {
     if (searchTerm) setActiveTab('all');
   }, [searchTerm]);
@@ -717,7 +705,7 @@ const Homepage = ({ addToCart, addedToast }) => {
   };
 
   const handleOpenModal = (product, initialVariant = null) => {
-    if (isOutOfStock(product)) return; // 🟢 Out of stock ka modal nahi khulega
+    if (isOutOfStock(product)) return;
     setSelectedProduct(product);
     const variants = getProductVariants(product);
     setSelectedModalVariant(initialVariant || variants[0]);
@@ -739,22 +727,21 @@ const Homepage = ({ addToCart, addedToast }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 🟢 STRICT FETCH FROM ENVIRONMENT VARIABLE (.env) ONLY
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
         setLoading(true);
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
-        console.log(data);
 
-        // 🟢 Ab sirf backend se fetch ki hui asli products hi dikhengi — koi dummy fallback nahi
         if (res.ok && Array.isArray(data)) {
           setProducts(data);
         } else {
           setProducts([]);
         }
       } catch (err) {
-        console.warn('Backend offline, no products to show:', err);
+        console.warn('Backend offline or error fetching products:', err);
         setProducts([]);
       } finally {
         setLoading(false);
@@ -774,7 +761,6 @@ const Homepage = ({ addToCart, addedToast }) => {
           }
         });
         const data = await res.json();
-        console.log(data);
 
         if (res.ok && Array.isArray(data)) {
           const serverWishlistIds = data
@@ -879,7 +865,7 @@ const Homepage = ({ addToCart, addedToast }) => {
   }, [heroSlides.length]);
 
   const filteredProducts = searchTerm
-    ? filterProductsBySearch(products, searchTerm) // 🟢 search active ho toh sirf best-match products (tab ka koi asar nahi)
+    ? filterProductsBySearch(products, searchTerm)
     : products.filter((p) => {
         if (activeTab === 'all') return true;
         if (activeTab === 'wishlist') return isWishlisted(p._id);
@@ -906,25 +892,19 @@ const Homepage = ({ addToCart, addedToast }) => {
         }
       });
 
-  // 🟢 In Stock products pehle, Out of Stock neeche
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     const aOut = isOutOfStock(a) ? 1 : 0;
     const bOut = isOutOfStock(b) ? 1 : 0;
     return aOut - bOut;
   });
 
-  // 🟢 ADDED: Agar search ka koi bhi match na mile (0 results), toh user ko
-  // "0 found" empty state dikhne ki jagah khud-ba-khud related page (yahi
-  // page, search clear karke) par redirect ho jaye — poora catalog dikhega.
   useEffect(() => {
     if (searchTerm && !loading && sortedProducts.length === 0) {
       navigate(location.pathname, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, loading, sortedProducts.length]);
+  }, [searchTerm, loading, sortedProducts.length, navigate, location.pathname]);
 
   const handleProductAddToCart = (p, qty = 1, variant = null) => {
-    // 🟢 Out of stock item kabhi cart me nahi jayega
     if (isOutOfStock(p)) {
       setAuthAlert(`"${p.name}" abhi Out of Stock hai`);
       setTimeout(() => setAuthAlert(''), 2500);
@@ -949,7 +929,7 @@ const Homepage = ({ addToCart, addedToast }) => {
       unitPrice: variantPrice,
       quantity: qty,
       totalPrice: variantPrice * qty,
-      img: getImageUrl(p.image),
+      img: getImageUrl(p.image || (p.images && p.images[0])),
       originRegion: p.originRegion,
       giftTiers: p.giftTiers || [],
       bulkTiers: p.bulkTiers || [],
@@ -988,10 +968,11 @@ const Homepage = ({ addToCart, addedToast }) => {
 
       {selectedProduct && (() => {
         const isDummy = isDummyProduct(selectedProduct);
-        const modalOutOfStock = isOutOfStock(selectedProduct); // 🟢
+        const modalOutOfStock = isOutOfStock(selectedProduct);
         const modalVariants = getProductVariants(selectedProduct);
         const currentActiveVariant = selectedModalVariant || modalVariants[0];
         const pricing = calculatePricing(currentActiveVariant, modalQty, isDummy);
+        const modalImages = getProductImages(selectedProduct);
 
         return (
           <div className="sg-product-modal-backdrop" onClick={() => setSelectedProduct(null)}>
@@ -1005,7 +986,7 @@ const Homepage = ({ addToCart, addedToast }) => {
                 style={modalOutOfStock ? { filter: 'blur(4px) grayscale(0.85)', opacity: 0.7 } : undefined}
               >
                 <ModalImageSlider
-                  images={[getImageUrl(selectedProduct.image)]}
+                  images={modalImages}
                   labels={[null]}
                   alt={selectedProduct.name}
                   zoomStyle={zoomStyle}
@@ -1070,10 +1051,10 @@ const Homepage = ({ addToCart, addedToast }) => {
                 </div>
 
                 <div className="sg-modal-trust-checklist">
-                  <div className="sg-trust-check-item">✓ 100% Pure Desi Ghee</div>
-                  <div className="sg-trust-check-item">✓ 0 Preservatives Added</div>
-                  <div className="sg-trust-check-item">✓ Shelf Life: 7-10 Days</div>
-                  <div className="sg-trust-check-item">✓ Hygienically Packed</div>
+                  <div className="sg-trust-check-item">✓ {selectedProduct.desiGhee || '100% Pure Desi Ghee'}</div>
+                  <div className="sg-trust-check-item">✓ {selectedProduct.preservation || '0 Preservatives Added'}</div>
+                  <div className="sg-trust-check-item">✓ Shelf Life: {selectedProduct.shelfLife || '7-10 Days'}</div>
+                  <div className="sg-trust-check-item">✓ {selectedProduct.hygiene || 'Hygienically Packed'}</div>
                 </div>
 
                 <div className="sg-modal-actions-row">
@@ -1174,8 +1155,6 @@ const Homepage = ({ addToCart, addedToast }) => {
       </section>
 
       <section id="products" className="sg-products-section sg-container sg-reveal">
-
-        {/* 🟢 ADDED: Search chal raha ho toh user ko dikhao kya search hua */}
         {searchTerm && (
           <div className="sg-section-heading-wrap" style={{ marginBottom: '14px' }}>
             <h2 className="sg-main-heading" style={{ fontSize: '18px' }}>
@@ -1240,7 +1219,7 @@ const Homepage = ({ addToCart, addedToast }) => {
               {[...products, ...products].map((p, idx) => (
                 <div className="sg-gallery-slide-item" key={`gallery-${p._id}-${idx}`}>
                   <img
-                    src={getImageUrl(p.image)}
+                    src={getImageUrl(p.image || (p.images && p.images[0]))}
                     alt={p.name}
                     loading="lazy"
                     style={isOutOfStock(p) ? { filter: 'blur(2px) grayscale(0.8)', opacity: 0.6 } : undefined}

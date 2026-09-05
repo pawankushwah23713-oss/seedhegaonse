@@ -47,7 +47,7 @@ const isSameDayIST = (d1, d2) => {
   return new Date(d1).toLocaleDateString('en-IN') === new Date(d2).toLocaleDateString('en-IN');
 };
 
-// Pick a mithai-themed icon for a category name
+// Pick a mithai-themed icon for a category/product name
 const categoryIcon = (name = '') => {
   const n = name.toLowerCase();
   if (n.includes('laddu') || n.includes('ladoo')) return '🟡';
@@ -64,8 +64,26 @@ const categoryIcon = (name = '') => {
   return '🍬';
 };
 
+// Try every common shape an order's line-items might be stored under.
+// Different backends name this differently, so we check a wide net defensively.
+const extractOrderItems = (order) => {
+  const raw =
+    order.items || order.products || order.cartItems || order.orderItems ||
+    order.cart || order.productList || [];
+  if (!Array.isArray(raw)) return [];
+  return raw.map((it) => ({
+    name:
+      it.name || it.productName || it.title || it.itemName ||
+      it.product?.name || 'Item',
+    category:
+      it.category || it.categoryName || it.type ||
+      it.product?.category || null,
+    quantity: Number(it.quantity || it.qty || it.count || 1) || 1,
+  }));
+};
+
 /* ============================================================
-   Lightweight, dependency-free SVG chart components.
+   Lightweight, dependency-free SVG / DOM chart components.
    No extra npm packages needed — safe drop-in for any CRA/Vite build.
    ============================================================ */
 
@@ -199,24 +217,31 @@ const OrderStatusDonut = ({ segments, total }) => {
   );
 };
 
-// Horizontal bar chart for category-wise catalog breakdown (Laddu, Barfi, Cakes, etc.)
-const CategoryBreakdownChart = ({ categories }) => {
-  const maxCount = Math.max(1, ...categories.map((c) => c.count));
+// Reusable horizontal ranked bar chart — used for category breakdown,
+// top-selling items, and orders-by-city so the whole dashboard is graph-driven.
+const RankedBarChart = ({ rows, valueLabel = '', showIcon = true, emptyText = 'No data yet.' }) => {
+  if (!rows || rows.length === 0) {
+    return <p style={{ textAlign: 'center', padding: '30px', color: '#8a7a68' }}>{emptyText}</p>;
+  }
+  const maxCount = Math.max(1, ...rows.map((r) => r.value));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      {categories.map((c, i) => (
+      {rows.map((r, i) => (
         <div key={i}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
             <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#3a2f24' }}>
-              <span style={{ marginRight: '7px' }}>{categoryIcon(c.name)}</span>{c.name}
+              {showIcon && <span style={{ marginRight: '7px' }}>{r.icon || categoryIcon(r.label)}</span>}
+              {r.label}
             </span>
-            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#8A2A1F' }}>{c.count}</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#8A2A1F' }}>
+              {r.value}{valueLabel}
+            </span>
           </div>
           <div style={{ height: '9px', background: '#f3ece1', borderRadius: '5px', overflow: 'hidden' }}>
             <div
               style={{
                 height: '100%',
-                width: `${(c.count / maxCount) * 100}%`,
+                width: `${(r.value / maxCount) * 100}%`,
                 background: 'linear-gradient(90deg, #8A2A1F, #C98A2C)',
                 borderRadius: '5px',
                 transition: 'width 0.5s ease'
@@ -384,6 +409,9 @@ const AdminOverview = () => {
     (o.orderStatus || '').toLowerCase() === 'cancelled'
   ).length;
 
+  const nonCancelledCount = orders.length - cancelledOrders;
+  const avgOrderValue = nonCancelledCount > 0 ? totalRevenue / nonCancelledCount : 0;
+
   const recentOrders = orders.slice(0, 6);
   const recentCustomers = customers.slice(0, 4);
 
@@ -413,7 +441,7 @@ const AdminOverview = () => {
     { label: 'Cancelled', value: cancelledOrders, color: '#B5482A' },
   ];
 
-  // 🍬 Category-wise catalog breakdown (Laddu, Barfi, Cakes, etc.)
+  // 🍬 Category-wise catalog breakdown (Laddu, Barfi, Cakes, etc. — from the catalog itself)
   const categoryBreakdown = (() => {
     const map = {};
     [...productsList, ...cakesList].forEach((item) => {
@@ -421,8 +449,37 @@ const AdminOverview = () => {
       map[cat] = (map[cat] || 0) + 1;
     });
     return Object.entries(map)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
+      .map(([name, count]) => ({ label: name, value: count }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  })();
+
+  // 🏆 Top selling items — from ACTUAL orders (answers "laddu kitne order hue")
+  const topSellingItems = (() => {
+    const map = {};
+    orders
+      .filter((o) => (o.orderStatus || '').toLowerCase() !== 'cancelled')
+      .forEach((o) => {
+        extractOrderItems(o).forEach((it) => {
+          map[it.name] = (map[it.name] || 0) + it.quantity;
+        });
+      });
+    return Object.entries(map)
+      .map(([name, qty]) => ({ label: name, value: qty }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 7);
+  })();
+
+  // 📍 Orders by city — answers "kitne order kaha se aaye"
+  const ordersByCity = (() => {
+    const map = {};
+    orders.forEach((o) => {
+      const city = o.customer?.city || o.city || o.shippingAddress?.city || o.address?.city || 'Unknown';
+      map[city] = (map[city] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([city, count]) => ({ label: city, value: count, icon: '📍' }))
+      .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   })();
 
@@ -435,7 +492,7 @@ const AdminOverview = () => {
 
         .admin-overview-container {
           padding: 26px 28px 40px;
-          max-width: 1480px;
+          max-width: 1520px;
           margin: 0 auto;
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           color: #2B2118;
@@ -538,10 +595,10 @@ const AdminOverview = () => {
           align-items: center;
         }
 
-        /* ---------- Stat cards: varied accent, not identical SaaS tiles ---------- */
+        /* ---------- Stat cards ---------- */
         .admin-stats-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 16px;
           margin-bottom: 24px;
         }
@@ -564,14 +621,14 @@ const AdminOverview = () => {
 
         .stat-card h4 {
           margin: 0;
-          font-size: 0.78rem;
+          font-size: 0.76rem;
           color: #8a7a68;
           font-weight: 700;
           letter-spacing: 0.2px;
         }
 
         .stat-num {
-          font-size: 1.8rem;
+          font-size: 1.7rem;
           font-weight: 700;
           color: #2B2118;
           margin: 8px 0 4px;
@@ -582,13 +639,23 @@ const AdminOverview = () => {
         .stat-maroon { color: #8A2A1F; }
         .stat-blue { color: #4C6B8A; }
         .stat-purple { color: #7A4C8A; }
+        .stat-teal { color: #2E7D74; }
 
         .stat-subtitle {
           font-size: 0.8rem;
           color: #8a7a68;
         }
 
-        /* ---------- Analytics charts row ---------- */
+        /* ---------- Chart section headers (eyebrow) ---------- */
+        .section-eyebrow {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #C98A2C;
+          margin: 0 0 8px 2px;
+          letter-spacing: 0.3px;
+        }
+
+        /* ---------- Analytics grids ---------- */
         .analytics-charts-row {
           display: grid;
           grid-template-columns: 1.5fr 1fr;
@@ -596,15 +663,16 @@ const AdminOverview = () => {
           margin-bottom: 20px;
         }
 
-        .analytics-secondary-row {
+        .analytics-two-col {
           display: grid;
-          grid-template-columns: 1fr;
+          grid-template-columns: 1fr 1fr;
           gap: 20px;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
         }
 
         @media (max-width: 980px) {
           .analytics-charts-row { grid-template-columns: 1fr; }
+          .analytics-two-col { grid-template-columns: 1fr; }
         }
 
         /* ---------- Split section ---------- */
@@ -817,6 +885,12 @@ const AdminOverview = () => {
           </span>
         </div>
 
+        <div className="stat-card" style={{ borderLeft: '4px solid #2E7D74' }}>
+          <h4>AVG ORDER VALUE</h4>
+          <p className="stat-num stat-teal">₹{avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+          <span className="stat-subtitle">Across {nonCancelledCount} valid orders</span>
+        </div>
+
         <div className="stat-card" style={{ borderLeft: '4px solid #8A2A1F' }}>
           <h4>TOTAL CATALOG ITEMS</h4>
           <p className="stat-num stat-maroon">{totalCatalog}</p>
@@ -826,7 +900,8 @@ const AdminOverview = () => {
         </div>
       </div>
 
-      {/* Analytics Charts Row: Revenue Trend + Order Status Donut */}
+      {/* Row 1: Revenue Trend + Order Status Donut */}
+      <p className="section-eyebrow">SALES ANALYTICS</p>
       <div className="analytics-charts-row">
         <div className="panel-card" style={{ marginBottom: 0 }}>
           <div className="panel-header">
@@ -857,24 +932,54 @@ const AdminOverview = () => {
         </div>
       </div>
 
-      {/* Category-wise Catalog Breakdown (Laddu, Barfi, Cakes, etc.) */}
-      <div className="analytics-secondary-row">
+      {/* Row 2: Top Selling Items (laddu/barfi/etc. by actual orders) + Orders by City */}
+      <p className="section-eyebrow">WHAT'S SELLING &amp; WHERE FROM</p>
+      <div className="analytics-two-col">
         <div className="panel-card" style={{ marginBottom: 0 }}>
           <div className="panel-header">
             <div>
-              <h3>Catalog by Category</h3>
-              <small style={{ color: '#8a7a68' }}>Top categories across Sweets &amp; Cakes</small>
+              <h3>Top Selling Items</h3>
+              <small style={{ color: '#8a7a68' }}>Units ordered, all-time (excludes cancelled)</small>
             </div>
-            <span style={{ fontSize: '0.8rem', color: '#8a7a68' }}>{totalCatalog} items total</span>
           </div>
-          {categoryBreakdown.length === 0 ? (
-            <p style={{ textAlign: 'center', padding: '30px', color: '#8a7a68' }}>
-              No category data found. Make sure products/cakes have a <code>category</code> field.
-            </p>
-          ) : (
-            <CategoryBreakdownChart categories={categoryBreakdown} />
-          )}
+          <RankedBarChart
+            rows={topSellingItems}
+            valueLabel=" units"
+            emptyText="No item-level order data found. Make sure each order stores a line-item list (e.g. order.items) with a product name."
+          />
         </div>
+
+        <div className="panel-card" style={{ marginBottom: 0 }}>
+          <div className="panel-header">
+            <div>
+              <h3>Orders by City</h3>
+              <small style={{ color: '#8a7a68' }}>Where your customers are ordering from</small>
+            </div>
+          </div>
+          <RankedBarChart
+            rows={ordersByCity}
+            valueLabel=" orders"
+            showIcon={true}
+            emptyText="No city data found on orders yet."
+          />
+        </div>
+      </div>
+
+      {/* Row 3: Catalog by Category */}
+      <p className="section-eyebrow">CATALOG</p>
+      <div className="panel-card">
+        <div className="panel-header">
+          <div>
+            <h3>Catalog by Category</h3>
+            <small style={{ color: '#8a7a68' }}>Top categories across Sweets &amp; Cakes</small>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: '#8a7a68' }}>{totalCatalog} items total</span>
+        </div>
+        <RankedBarChart
+          rows={categoryBreakdown}
+          valueLabel=" items"
+          emptyText="No category data found. Make sure products/cakes have a category field."
+        />
       </div>
 
       {/* Split Layout: Orders on Left, Customers & Inquiries on Right */}
@@ -1003,7 +1108,7 @@ const AdminOverview = () => {
             )}
           </div>
 
-          {/* Inquiries & Bulk Enquiries — routes fixed to match actual admin pages */}
+          {/* Inquiries & Bulk Enquiries */}
           <div className="panel-card">
             <div className="panel-header">
               <h3>Customer Enquiries</h3>
