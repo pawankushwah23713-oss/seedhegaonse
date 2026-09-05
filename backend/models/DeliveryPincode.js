@@ -19,7 +19,7 @@ const deliveryPincodeSchema = new mongoose.Schema(
     },
     gstPercent: {
       type: Number,
-      default: 18 // Excel sheet ke mutabiq
+      default: 18 // Excel sheet ke hisaab se
     },
     isServiceable: {
       type: Boolean,

@@ -1,167 +1,327 @@
-/* Container Box */
-.pincode-admin-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 30px 15px;
-  background-color: #f8fafc;
-  min-height: 80vh;
+.pincode-admin-wrapper {
+  max-width: 950px;
+  margin: 20px auto;
+  padding: 0 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
 }
 
-.pincode-card {
+.admin-box-card {
   background: #ffffff;
-  width: 100%;
-  max-width: 460px;
-  padding: 28px 24px;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
-}
-
-/* Header */
-.pincode-card-header {
-  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  padding: 24px;
   margin-bottom: 24px;
 }
 
-.pincode-card-header .icon-badge {
-  display: inline-flex;
+.pincode-section-card {
+  border: 2px solid #b91c1c;
+}
+
+.card-header-row {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  background: #fef2f2;
-  color: #94191d;
-  font-size: 26px;
-  border-radius: 50%;
-  margin-bottom: 10px;
-  border: 1.5px solid #fee2e2;
+  gap: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
 }
 
-.pincode-card-header h3 {
-  margin: 0 0 6px;
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: #1e293b;
+.icon-badge {
+  font-size: 1.8rem;
 }
 
-.pincode-card-header p {
+.card-header-row h3 {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.card-header-row p {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
   color: #64748b;
 }
 
-/* Form Styles */
-.pincode-form {
+.toggle-label {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-group label {
-  font-size: 0.85rem;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  margin-bottom: 18px;
   font-weight: 600;
-  color: #334155;
+  font-size: 0.9rem;
 }
 
-.form-group label span {
+.toggle-label.active {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.toggle-label input {
+  width: 18px;
+  height: 18px;
+  accent-color: #16a34a;
+}
+
+.grid-form-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 5px;
+}
+
+.required-label::after {
+  content: ' *';
   color: #dc2626;
 }
 
-.pincode-input {
+.input-group input {
   width: 100%;
-  padding: 12px 14px;
-  border-radius: 8px;
+  padding: 10px 12px;
   border: 1.5px solid #cbd5e1;
-  font-size: 0.95rem;
-  color: #1e293b;
-  outline: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
   box-sizing: border-box;
-  transition: all 0.2s ease-in-out;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-.pincode-input:focus {
-  border-color: #94191d;
-  box-shadow: 0 0 0 3px rgba(148, 25, 29, 0.12);
+.input-group input:focus {
+  border-color: #0284c7;
 }
 
-.pincode-input::placeholder {
-  color: #94a3b8;
-  font-size: 0.88rem;
+.helper-text {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 4px;
 }
 
-/* Submit Button */
-.btn-save-pincode {
-  width: 100%;
-  padding: 13px;
-  margin-top: 6px;
-  background: #94191d;
+.button-group-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.btn-primary-blue {
+  background: #0284c7;
   color: #ffffff;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.btn-primary-red {
+  flex: 1;
+  background: #c00000;
+  color: #ffffff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  background: #64748b;
+  color: #ffffff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
   font-weight: 700;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: background 0.2s ease-in-out, transform 0.1s ease-in-out;
 }
 
-.btn-save-pincode:hover {
-  background: #7b1317;
-}
-
-.btn-save-pincode:active {
-  transform: scale(0.99);
-}
-
-.btn-save-pincode:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-/* Feedback Message Banner */
-.feedback-banner {
-  margin-top: 16px;
-  padding: 12px 14px;
-  border-radius: 8px;
+.status-msg {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
   font-size: 0.88rem;
   font-weight: 600;
+}
+
+.status-msg.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-msg.error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.red-excel-title {
   text-align: center;
+  color: #c00000;
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 0 0 16px 0;
+}
+
+.red-excel-banner {
+  margin: 22px 0;
+  padding: 12px;
+  text-align: center;
+  color: #c00000;
+  font-weight: 800;
+  font-size: 1rem;
+  background: #fff5f5;
+  border-top: 1.5px solid #fecaca;
+  border-bottom: 1.5px solid #fecaca;
+}
+
+.table-container-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  animation: fadeIn 0.3s ease-in-out;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.feedback-banner.success {
-  background: #ecfdf5;
-  color: #065f46;
-  border: 1.5px solid #a7f3d0;
+.table-container-header h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
 }
 
-.feedback-banner.error {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1.5px solid #fecaca;
+.search-input {
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.85rem;
+  width: 220px;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.table-responsive {
+  overflow-x: auto;
+}
+
+.pincode-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.pincode-data-table th {
+  background: #f8fafc;
+  padding: 11px 14px;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: 2px solid #cbd5e1;
+  text-align: left;
+}
+
+.pincode-data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.row-off {
+  background: #fff8f8;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.text-muted {
+  color: #64748b;
+}
+
+.text-blue {
+  color: #0284c7;
+}
+
+.text-green {
+  color: #15803d;
+}
+
+.status-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.pill-on {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pill-off {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.action-buttons {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.btn-toggle {
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.btn-toggle-on {
+  background: #16a34a;
+}
+
+.btn-toggle-off {
+  background: #f59e0b;
+}
+
+.btn-edit {
+  background: #0284c7;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.btn-delete {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 30px;
+  color: #64748b;
+  font-size: 0.9rem;
 }
