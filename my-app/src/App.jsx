@@ -67,7 +67,7 @@ import AdminReturnRefundPolicy from './pages/admin/AdminReturnRefundPolicy';
 import AdminPolicyEditor from './pages/admin/AdminPolicyEditor';
 import AdminCancellationPolicy from './pages/admin/Admincancellationpolicy';
 import AdminCouponLoyaltyPolicy from './pages/admin/AdminCouponLoyaltyPolicy';
-import AdminCorporateBulkOrders from './pages/admin/AdminCorporateBulkOrders'
+import AdminCorporateBulkOrders from './pages/admin/Admincorporatebulkorders'
 
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
@@ -302,7 +302,7 @@ const AppContent = ({
                   <Route path="cancellation" element={< AdminCancellationPolicy />} />
                    <Route path="coupon-loyalty-policy" element={<AdminCouponLoyaltyPolicy />} />
                    <Route path="admin/corporate-bulk-orders" element={<AdminCorporateBulkOrders />} />
-                   
+
              <Route path="addpincharges" element={<AdminPincodeManager />} />
            
           </Route>
