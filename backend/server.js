@@ -23,7 +23,7 @@ const enquiryRoutes = require('./routes/enquiryRoutes');
 const cakeRoutes = require('./routes/cakeRoutes');
 const aboutUsRoutes = require('./routes/aboutUsRoutes');
 const returnRefundPolicyRoutes = require('./routes/returnRefundPolicyRoutes'); // 🟢 NEW
-const couponLoyaltyPolicyRoutes = require('./routesCouponloyaltypolicyRoutes');
+const couponLoyaltyPolicyRoutes = require('./routesCouponloyaltypolicyroutes');
 const app = express();
 const server = http.createServer(app); // 🟢 Create HTTP server
 
