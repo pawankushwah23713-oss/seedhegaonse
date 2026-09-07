@@ -65,6 +65,7 @@ import AdminAboutUs from './pages/admin/AdminAboutUs';
 import AdminReturnRefundPolicy from './pages/admin/AdminReturnRefundPolicy';
 
 import AdminPolicyEditor from './pages/admin/AdminPolicyEditor';
+import AdminCancellationPolicy from './pages/admin/Admincancellationpolicy';
 
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
@@ -296,6 +297,7 @@ const AppContent = ({
               <Route path="aboutus" element={< AdminAboutUs />} />
                 <Route path="returnrefund" element={< AdminReturnRefundPolicy />} />
                  <Route path="shipping" element={< AdminPolicyEditor />} />
+                  <Route path="cancellation" element={< AdminCancellationPolicy />} />
 
              <Route path="addpincharges" element={<AdminPincodeManager />} />
            

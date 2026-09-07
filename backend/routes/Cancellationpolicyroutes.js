@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const CancellationPolicy = require('./models/CancellationPolicy');
+const CancellationPolicy = require('./models/Cancellationpolicy');
 
 // Uses your existing middleware/authMiddleware.js
 // `protect`   -> verifies JWT, fetches user from DB, attaches req.user
