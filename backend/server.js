@@ -7,6 +7,7 @@ const path = require('path');
 require('dotenv').config();
 
 // 🟢 Route Imports
+const policyRoutes = require('./routes/policyRoutes');
 const wishlistRoutes = require('./routes/wishlist');
 const paymentRoutes = require('./routes/payment.routes');
 const authRoutes = require('./routes/authRoutes');
@@ -69,7 +70,11 @@ app.use(
 // ==========================================
 // 🚀 API Routes
 // ==========================================
+// 1. Top me, jahan baaki routes require ho rahe hain (e.g. authRoutes, couponRoutes ke saath)
 
+
+// 2. Neeche, jahan app.use(...) se baaki routes mount ho rahe hain
+app.use('/api/policies', policyRoutes);
 app.use('/api/aboutus', aboutUsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

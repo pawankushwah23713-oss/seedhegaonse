@@ -63,7 +63,9 @@ import Faq from './pages/Faq';
 import AdminCouponsGiftManager from './pages/admin/AdminCouponGiftManager';
 import AdminAboutUs from './pages/admin/AdminAboutUs';
 import AdminReturnRefundPolicy from './pages/admin/AdminReturnRefundPolicy';
-// 🟢 Cart ko localStorage me save karne ki key
+
+import AdminPolicyEditor from './pages/admin/AdminPolicyEditor';
+
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
 // 🟢 Page load par purana cart wapas load karo
@@ -293,6 +295,7 @@ const AppContent = ({
              <Route path="admincontact" element={<AdminInquiries />} />
               <Route path="aboutus" element={< AdminAboutUs />} />
                 <Route path="returnrefund" element={< AdminReturnRefundPolicy />} />
+                 <Route path="shipping" element={< AdminPolicyEditor />} />
 
              <Route path="addpincharges" element={<AdminPincodeManager />} />
            
