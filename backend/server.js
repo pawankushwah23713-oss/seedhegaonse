@@ -7,6 +7,7 @@ const path = require('path');
 require('dotenv').config();
 
 // 🟢 Route Imports
+const cancellationPolicyRoutes = require('./routes/Cancellationpolicyroutes');
 const policyRoutes = require('./routes/policyRoutes');
 const wishlistRoutes = require('./routes/wishlist');
 const paymentRoutes = require('./routes/payment.routes');
@@ -75,6 +76,11 @@ app.use(
 
 
 // 2. Neeche, jahan app.use(...) se baaki routes mount ho rahe hain
+// Model auto-register ho jayega jab route file require hoga, alag se import karne ki zaroorat nahi
+
+
+// ...jahan tumhare baaki app.use() routes likhe hain, wahi ye bhi daal do:
+app.use('/api/cancellation-policy', cancellationPolicyRoutes);
 app.use('/api/policies', policyRoutes);
 app.use('/api/aboutus', aboutUsRoutes);
 app.use('/api/auth', authRoutes);
