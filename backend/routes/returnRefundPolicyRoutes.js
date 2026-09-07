@@ -80,9 +80,3 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
 });
 
 module.exports = router;
-
-/*
-  Register this router in your server.js / app.js:
-
-    app.use('/api/return-refund-policy', require('./routes/returnRefundPolicyRoutes'));
-*/
