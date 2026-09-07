@@ -1,12 +1,46 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ShippingPolicy.css';
 
+const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
+  ? process.env.REACT_APP_API_URL.replace('/auth', '')
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://seedhegaonse-1.onrender.com/api');
+
 const ShippingPolicy = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const containerRef = useRef(null);
 
+  // 🟢 NEW: Policy content now comes from the backend (admin-editable) instead of being hardcoded
+  const [policy, setPolicy] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
+  // 🟢 NEW: Fetch the Shipping Policy content
   useEffect(() => {
-    // Scroll reveal animation observer
+    const fetchPolicy = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}/policies/shipping`);
+        const data = await res.json();
+        if (res.ok && data.policy) {
+          setPolicy(data.policy);
+        } else {
+          setLoadError(data.message || 'Shipping policy not available right now.');
+        }
+      } catch (err) {
+        console.error('Failed to load shipping policy:', err);
+        setLoadError('Failed to load shipping policy. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPolicy();
+  }, []);
+
+  useEffect(() => {
+    // Scroll reveal animation observer — re-run whenever the fetched content changes
+    // so newly rendered sections get the reveal effect too.
+    if (!containerRef.current) return;
     const reveals = containerRef.current.querySelectorAll('.reveal');
 
     const observer = new IntersectionObserver(
@@ -41,7 +75,7 @@ const ShippingPolicy = () => {
       observer.disconnect();
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [policy]);
 
   const scrollToTop = () => {
     window.scrollTo({
@@ -50,72 +84,89 @@ const ShippingPolicy = () => {
     });
   };
 
+  // 🟢 NEW: Loading state
+  if (loading) {
+    return (
+      <div className="policy-page" ref={containerRef}>
+        <main className="policy-container">
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
+            ⏳ Loading Shipping Policy...
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // 🟢 NEW: Error / not-found state
+  if (loadError || !policy) {
+    return (
+      <div className="policy-page" ref={containerRef}>
+        <main className="policy-container">
+          <h1 className="page-title reveal">Shipping Policy</h1>
+          <div className="policy-card">
+            <div className="policy-section reveal">
+              <p>{loadError || 'Shipping policy content is not available right now. Please check back soon.'}</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="policy-page" ref={containerRef}>
       <main className="policy-container">
-        <h1 className="page-title reveal">Shipping Policy</h1>
+        <h1 className="page-title reveal">{policy.title}</h1>
 
         <div className="policy-card">
-          {/* Section 1 */}
-          <div className="policy-section reveal">
-            <p>
-              At <strong>Seedhe Gaon Se</strong>, every order is freshly procured from our trusted village Halwai's. Since our products are perishable and prepared in small batches, we strive to dispatch all confirmed orders at the earliest to preserve their authentic taste and freshness.
-            </p>
-          </div>
+          {/* Intro paragraph (🟢 now dynamic) */}
+          {policy.intro && (
+            <div className="policy-section reveal">
+              <p dangerouslySetInnerHTML={{ __html: policy.intro }} />
+            </div>
+          )}
 
-          {/* Section 2 */}
-          <div className="policy-section reveal">
-            <h2>Delivery coverage &amp; timelines</h2>
-            <p>
-              We currently offer delivery across <strong>Delhi NCR</strong> through our trusted delivery partners. Delivery timelines are indicative and may vary due to weather conditions, traffic, public holidays, operational constraints, or circumstances beyond our reasonable control. While we make every effort to ensure timely delivery, exact delivery times cannot be guaranteed.
-            </p>
-          </div>
+          {/* 🟢 Dynamic sections, admin-editable */}
+          {Array.isArray(policy.sections) &&
+            policy.sections.map((section, idx) => (
+              <div className="policy-section reveal" key={idx}>
+                {section.heading && <h2>{section.heading}</h2>}
+                <p dangerouslySetInnerHTML={{ __html: section.content }} />
+              </div>
+            ))}
 
-          {/* Section 3 */}
-          <div className="policy-section reveal">
-            <h2>Address accuracy &amp; customer responsibility</h2>
-            <p>
-              Customers are requested to provide a complete and accurate delivery address, landmark, and contact number while placing the order. <strong>Seedhe Gaon Se</strong> shall not be responsible for delays, failed deliveries, or additional delivery charges arising from incorrect or incomplete address details, customer unavailability, or unreachable contact numbers.
-            </p>
-          </div>
-
-          {/* Section 4 */}
-          <div className="policy-section reveal">
-            <h2>Ownership and risk</h2>
-            <p>
-              Ownership and risk of the products pass to the customer upon successful delivery at the provided address. Customers are requested to inspect the outer packaging immediately upon delivery and report any visible damage or tampering without delay.
-            </p>
-          </div>
-
-          {/* Section 5 */}
-          <div className="policy-section reveal">
-            <h2>Unsuccessful delivery attempts</h2>
-            <p>
-              In case a delivery is unsuccessful due to customer absence, refusal to accept the parcel, incorrect address, or repeated unsuccessful delivery attempts, the order shall be treated as cancelled from the customer's end. As the products are freshly procured and highly perishable, shipping charges and other applicable costs shall not be refundable.
-            </p>
-          </div>
-
-          {/* Section 6 */}
-          <div className="policy-section reveal">
-            <h2>Bulk &amp; special event orders</h2>
-            <p>
-              For bulk, corporate, festive, and wedding orders, delivery schedules are planned in advance. Customers are requested to ensure the availability of an authorised recipient at the delivery location. Any delay caused by the customer may affect product freshness, for which <strong>Seedhe Gaon Se</strong> shall not be held liable.
-            </p>
-          </div>
-
-          {/* Section 7 */}
-          <div className="policy-section reveal">
-            <p className="policy-footer-note">
-              We continuously work towards delivering authentic village sweets in the freshest possible condition and appreciate your understanding and cooperation in helping us maintain the highest quality standards.
-            </p>
-          </div>
+          {/* Footer note (🟢 now dynamic) */}
+          {policy.footerNote && (
+            <div className="policy-section reveal">
+              <p className="policy-footer-note">{policy.footerNote}</p>
+            </div>
+          )}
         </div>
       </main>
 
-     
-
-       
-    
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          aria-label="Scroll to top"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            width: '44px',
+            height: '44px',
+            borderRadius: '50%',
+            border: 'none',
+            background: '#881337',
+            color: '#fff',
+            fontSize: '1.2rem',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(136,19,55,0.35)',
+            zIndex: 999
+          }}
+        >
+          ↑
+        </button>
+      )}
     </div>
   );
 };
