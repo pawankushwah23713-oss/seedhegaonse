@@ -66,7 +66,7 @@ import AdminReturnRefundPolicy from './pages/admin/AdminReturnRefundPolicy';
 
 import AdminPolicyEditor from './pages/admin/AdminPolicyEditor';
 import AdminCancellationPolicy from './pages/admin/Admincancellationpolicy';
-import AdminCouponLoyaltyPolicy from './pages/admin/AdminCouponLoyaltyPolicy';
+import AdminCouponLoyaltyPolicy from './pages/admin/Admincouponloyaltypolicy';
 import AdminCorporateBulkOrders from './pages/admin/Admincorporatebulkorders'
 
 const CART_STORAGE_KEY = 'sgs_cart_items';
