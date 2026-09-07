@@ -19,6 +19,7 @@ const bannerRoutes = require('./routes/bannerRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes'); 
 const enquiryRoutes = require('./routes/enquiryRoutes');
 const cakeRoutes = require('./routes/cakeRoutes');
+const aboutUsRoutes = require('./routes/aboutUsRoutes');
 
 const app = express();
 const server = http.createServer(app); // 🟢 Create HTTP server
@@ -68,6 +69,8 @@ app.use(
 // ==========================================
 // 🚀 API Routes
 // ==========================================
+
+app.use('/api/aboutus', aboutUsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cakes', cakeRoutes);

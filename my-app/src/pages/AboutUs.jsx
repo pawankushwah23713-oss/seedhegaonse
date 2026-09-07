@@ -1,8 +1,73 @@
 import React, { useEffect, useState } from "react";
 import "./AboutUs.css";
 
+const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
+  ? process.env.REACT_APP_API_URL.replace('/auth', '')
+  : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://orange-ape-497824.hostingersite.com/api');
+
+// Fallback content — used only if the backend has no About Us content saved yet,
+// so the public page never looks broken/empty for visitors.
+const defaultContent = {
+  heroTitle: "Our Story",
+  heroSubtitle:
+    "Bringing India's forgotten village sweets back to your table while preserving generations of authentic Halwai traditions.",
+  journeyTitle: "Our Journey",
+  journeyParagraphs: [
+    "Every village in India has a sweet that tells a story, yet many of these traditional delicacies and the skilled Halwai's behind them are slowly disappearing.",
+    "Seedhe Gaon Se was born with a simple mission—to preserve India's authentic sweet heritage by bringing forgotten village delicacies directly to your home while supporting traditional Halwai's who have protected these recipes for generations.",
+    "Every order you place is more than just a box of sweets. It is a step toward preserving traditions, empowering local artisans, and ensuring the authentic taste of rural India continues to thrive."
+  ],
+  whyWeExistTitle: "Why We Exist",
+  whyWeExistText:
+    "We believe every traditional sweet carries a story, every village has a legacy, and every Halwai deserves recognition for keeping India's rich culinary heritage alive.",
+  promiseTitle: "Our Promise",
+  promiseParagraphs: [
+    "At Seedhe Gaon Se, we promise to deliver much more than sweets—we deliver authenticity, freshness, quality, and trust.",
+    "Every sweet is sourced directly from its place of origin and prepared by experienced village Halwai's using traditional recipes and premium ingredients.",
+    "Our commitment is to preserve India's rich sweet heritage while supporting village artisans and bringing the genuine taste of tradition to every home."
+  ],
+  quoteText:
+    "No Shortcuts. No False Promises. Just Authentic Village Sweets, Delivered with Honesty & Care.",
+  whatsappNumber: "919876543210"
+};
+
 const AboutUs = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [content, setContent] = useState(defaultContent);
+
+  // Fetch dynamic About Us content from the backend (admin-managed).
+  // Falls back to defaultContent above if nothing is saved yet or the request fails.
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/aboutus`);
+        if (!res.ok) return; // keep defaultContent (e.g. 404 = not set up yet)
+        const data = await res.json();
+        setContent({
+          heroTitle: data.heroTitle || defaultContent.heroTitle,
+          heroSubtitle: data.heroSubtitle || defaultContent.heroSubtitle,
+          journeyTitle: data.journeyTitle || defaultContent.journeyTitle,
+          journeyParagraphs:
+            Array.isArray(data.journeyParagraphs) && data.journeyParagraphs.length > 0
+              ? data.journeyParagraphs
+              : defaultContent.journeyParagraphs,
+          whyWeExistTitle: data.whyWeExistTitle || defaultContent.whyWeExistTitle,
+          whyWeExistText: data.whyWeExistText || defaultContent.whyWeExistText,
+          promiseTitle: data.promiseTitle || defaultContent.promiseTitle,
+          promiseParagraphs:
+            Array.isArray(data.promiseParagraphs) && data.promiseParagraphs.length > 0
+              ? data.promiseParagraphs
+              : defaultContent.promiseParagraphs,
+          quoteText: data.quoteText || defaultContent.quoteText,
+          whatsappNumber: data.whatsappNumber || defaultContent.whatsappNumber
+        });
+      } catch (err) {
+        console.error('Failed to load About Us content, showing defaults:', err);
+      }
+    };
+
+    fetchContent();
+  }, []);
 
   // Scroll to Top visibility logic
   useEffect(() => {
@@ -34,7 +99,7 @@ const AboutUs = () => {
     animatedElements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
-  }, []);
+  }, [content]);
 
   const scrollToTop = () => {
     window.scrollTo({
@@ -47,11 +112,8 @@ const AboutUs = () => {
     <div className="about-wrapper">
       {/* 1. Header Banner: Our Story */}
       <header className="hero-banner scroll-anim fade-up">
-        <h1 className="main-title">Our Story</h1>
-        <p className="hero-subtitle">
-          Bringing India's forgotten village sweets back to your table while
-          preserving generations of authentic Halwai traditions.
-        </p>
+        <h1 className="main-title">{content.heroTitle}</h1>
+        <p className="hero-subtitle">{content.heroSubtitle}</p>
       </header>
 
       {/* 2. Main Content Container */}
@@ -61,70 +123,38 @@ const AboutUs = () => {
           <div className="heart-badge" title="With Love">
             ❤️
           </div>
-          <h2 className="section-title">Our Journey</h2>
+          <h2 className="section-title">{content.journeyTitle}</h2>
           <div className="underline"></div>
 
           <div className="journey-text">
-            <p>
-              Every village in India has a sweet that tells a story, yet many of
-              these traditional delicacies and the skilled Halwai's behind them
-              are slowly disappearing.
-            </p>
-            <p>
-              <strong>Seedhe Gaon Se</strong> was born with a simple mission—to
-              preserve India's authentic sweet heritage by bringing forgotten
-              village delicacies directly to your home while supporting
-              traditional Halwai's who have protected these recipes for
-              generations.
-            </p>
-            <p>
-              Every order you place is more than just a box of sweets. It is a
-              step toward preserving traditions, empowering local artisans, and
-              ensuring the authentic taste of rural India continues to thrive.
-            </p>
+            {content.journeyParagraphs.map((para, idx) => (
+              <p key={idx}>{para}</p>
+            ))}
           </div>
         </section>
 
         {/* Why We Exist Box */}
         <div className="why-we-exist-box scroll-anim fade-left">
-          <h3 className="why-title">Why We Exist</h3>
-          <p>
-            We believe every traditional sweet carries a story, every village
-            has a legacy, and every Halwai deserves recognition for keeping
-            India's rich culinary heritage alive.
-          </p>
+          <h3 className="why-title">{content.whyWeExistTitle}</h3>
+          <p>{content.whyWeExistText}</p>
         </div>
 
         {/* Our Promise Section */}
         <section className="promise-section">
-          <h2 className="section-title scroll-anim fade-up">Our Promise</h2>
+          <h2 className="section-title scroll-anim fade-up">{content.promiseTitle}</h2>
           <div className="underline scroll-anim fade-up"></div>
 
           {/* Promise Card */}
           <div className="promise-card scroll-anim fade-up">
-            <p>
-              At <strong>Seedhe Gaon Se</strong>, we promise to deliver much
-              more than sweets—we deliver authenticity, freshness, quality, and
-              trust.
-            </p>
-            <p>
-              Every sweet is sourced directly from its place of origin and
-              prepared by experienced village Halwai's using traditional recipes
-              and premium ingredients.
-            </p>
-            <p>
-              Our commitment is to preserve India's rich sweet heritage while
-              supporting village artisans and bringing the genuine taste of
-              tradition to every home.
-            </p>
+            {content.promiseParagraphs.map((para, idx) => (
+              <p key={idx}>{para}</p>
+            ))}
           </div>
 
           {/* Golden Quote Card */}
           <div className="quote-banner scroll-anim zoom-in">
             <blockquote className="kquote-text">
-              “No Shortcuts. No False Promises. <br />
-              Just Authentic Village Sweets, <br />
-              Delivered with Honesty & Care.”
+              {content.quoteText}
             </blockquote>
           </div>
         </section>
@@ -134,7 +164,7 @@ const AboutUs = () => {
       <div className="floating-buttons">
         {/* WhatsApp Button */}
         <a
-          href="https://wa.me/919876543210"
+          href={`https://wa.me/${content.whatsappNumber}`}
           target="_blank"
           rel="noopener noreferrer"
           className="fab whatsapp-btn"
