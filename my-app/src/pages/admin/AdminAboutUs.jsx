@@ -5,16 +5,17 @@ const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_U
   ? process.env.REACT_APP_API_URL.replace('/auth', '')
   : (import.meta.env?.VITE_API_URL?.replace('/auth', '') || 'https://orange-ape-497824.hostingersite.com/api');
 
-// Empty form shape used both for "create new" and as a fallback
+const blankSection = () => ({
+  title: '',
+  style: 'card', // 'card' = normal box, 'highlight' = special callout box
+  badge: '',
+  paragraphsText: '' // textarea value: one paragraph per line
+});
+
 const emptyForm = {
   heroTitle: '',
   heroSubtitle: '',
-  journeyTitle: '',
-  journeyParagraphs: '', // textarea: one paragraph per line, split on save
-  whyWeExistTitle: '',
-  whyWeExistText: '',
-  promiseTitle: '',
-  promiseParagraphs: '', // textarea: one paragraph per line, split on save
+  sections: [blankSection()],
   quoteText: '',
   whatsappNumber: ''
 };
@@ -41,7 +42,6 @@ const AdminAboutUs = () => {
       setLoading(true);
       const res = await fetch(`${API_BASE}/aboutus`);
       if (res.status === 404) {
-        // Nothing saved yet — keep the blank form, this is a valid "create" state
         setExistingId(null);
         setForm(emptyForm);
         return;
@@ -52,12 +52,15 @@ const AdminAboutUs = () => {
         setForm({
           heroTitle: data.heroTitle || '',
           heroSubtitle: data.heroSubtitle || '',
-          journeyTitle: data.journeyTitle || '',
-          journeyParagraphs: (data.journeyParagraphs || []).join('\n'),
-          whyWeExistTitle: data.whyWeExistTitle || '',
-          whyWeExistText: data.whyWeExistText || '',
-          promiseTitle: data.promiseTitle || '',
-          promiseParagraphs: (data.promiseParagraphs || []).join('\n'),
+          sections:
+            Array.isArray(data.sections) && data.sections.length > 0
+              ? data.sections.map((s) => ({
+                  title: s.title || '',
+                  style: s.style || 'card',
+                  badge: s.badge || '',
+                  paragraphsText: (s.paragraphs || []).join('\n')
+                }))
+              : [blankSection()],
           quoteText: data.quoteText || '',
           whatsappNumber: data.whatsappNumber || ''
         });
@@ -73,25 +76,54 @@ const AdminAboutUs = () => {
     fetchContent();
   }, []);
 
-  const handleChange = (field) => (e) => {
+  const handleTopChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  // 🟠 Section helpers — add, remove, update, reorder
+  const updateSection = (idx, field, value) => {
+    setForm((prev) => {
+      const sections = [...prev.sections];
+      sections[idx] = { ...sections[idx], [field]: value };
+      return { ...prev, sections };
+    });
+  };
+
+  const addSection = () => {
+    setForm((prev) => ({ ...prev, sections: [...prev.sections, blankSection()] }));
+  };
+
+  const removeSection = (idx) => {
+    setForm((prev) => {
+      const sections = prev.sections.filter((_, i) => i !== idx);
+      return { ...prev, sections: sections.length > 0 ? sections : [blankSection()] };
+    });
+  };
+
+  const moveSection = (idx, direction) => {
+    setForm((prev) => {
+      const sections = [...prev.sections];
+      const target = idx + direction;
+      if (target < 0 || target >= sections.length) return prev;
+      [sections[idx], sections[target]] = [sections[target], sections[idx]];
+      return { ...prev, sections };
+    });
   };
 
   const buildPayload = () => ({
     heroTitle: form.heroTitle,
     heroSubtitle: form.heroSubtitle,
-    journeyTitle: form.journeyTitle,
-    journeyParagraphs: form.journeyParagraphs
-      .split('\n')
-      .map((p) => p.trim())
-      .filter(Boolean),
-    whyWeExistTitle: form.whyWeExistTitle,
-    whyWeExistText: form.whyWeExistText,
-    promiseTitle: form.promiseTitle,
-    promiseParagraphs: form.promiseParagraphs
-      .split('\n')
-      .map((p) => p.trim())
-      .filter(Boolean),
+    sections: form.sections
+      .filter((s) => s.title.trim() || s.paragraphsText.trim())
+      .map((s) => ({
+        title: s.title,
+        style: s.style,
+        badge: s.badge,
+        paragraphs: s.paragraphsText
+          .split('\n')
+          .map((p) => p.trim())
+          .filter(Boolean)
+      })),
     quoteText: form.quoteText,
     whatsappNumber: form.whatsappNumber
   });
@@ -244,7 +276,7 @@ const AdminAboutUs = () => {
           margin-left: 6px;
         }
 
-        .aa-input, .aa-textarea {
+        .aa-input, .aa-textarea, .aa-select {
           width: 100%;
           padding: 10px 12px;
           border-radius: 8px;
@@ -256,7 +288,7 @@ const AdminAboutUs = () => {
           background: #f8fafc;
         }
 
-        .aa-input:focus, .aa-textarea:focus {
+        .aa-input:focus, .aa-textarea:focus, .aa-select:focus {
           border-color: #3b82f6;
           background: #ffffff;
         }
@@ -297,12 +329,90 @@ const AdminAboutUs = () => {
         }
         .aa-btn-delete:hover { background: #dc2626; color: #fff; }
         .aa-btn-delete:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* 🟠 Section block styling */
+        .aa-section-block {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 18px;
+          margin-bottom: 16px;
+          position: relative;
+        }
+
+        .aa-section-block-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 14px;
+        }
+
+        .aa-section-block-header .tag {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: #2563eb;
+          background: #eff6ff;
+          padding: 4px 10px;
+          border-radius: 20px;
+          border: 1px solid #bfdbfe;
+        }
+
+        .aa-section-block-controls {
+          display: flex;
+          gap: 6px;
+        }
+
+        .aa-icon-btn {
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #334155;
+          width: 30px;
+          height: 30px;
+          border-radius: 7px;
+          cursor: pointer;
+          font-size: 0.85rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .aa-icon-btn:hover { background: #f1f5f9; }
+
+        .aa-icon-btn.danger { color: #dc2626; border-color: #fca5a5; }
+        .aa-icon-btn.danger:hover { background: #fee2e2; }
+
+        .aa-row-2col {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        @media (max-width: 640px) {
+          .aa-row-2col { grid-template-columns: 1fr; }
+        }
+
+        .aa-add-section-btn {
+          width: 100%;
+          padding: 12px;
+          border: 2px dashed #93c5fd;
+          background: #eff6ff;
+          color: #2563eb;
+          border-radius: 10px;
+          font-weight: 700;
+          cursor: pointer;
+          font-size: 0.88rem;
+        }
+
+        .aa-add-section-btn:hover {
+          background: #dbeafe;
+        }
       `}</style>
 
       <div className="aa-header">
         <div>
           <h1>📝 About Us — Content Manager</h1>
-          <p>Edit what customers see on the public About Us page.</p>
+          <p>Add, edit, or remove any section shown on the public About Us page.</p>
         </div>
         {!loading && (
           <span className={`aa-badge ${existingId ? 'exists' : 'new'}`}>
@@ -325,51 +435,86 @@ const AdminAboutUs = () => {
           <div className="aa-section-title">Hero Banner</div>
           <div className="aa-field">
             <label>Title</label>
-            <input className="aa-input" value={form.heroTitle} onChange={handleChange('heroTitle')} placeholder="Our Story" />
+            <input className="aa-input" value={form.heroTitle} onChange={handleTopChange('heroTitle')} placeholder="Our Story" />
           </div>
           <div className="aa-field">
             <label>Subtitle</label>
-            <textarea className="aa-textarea" style={{ minHeight: '60px' }} value={form.heroSubtitle} onChange={handleChange('heroSubtitle')} placeholder="Short tagline shown under the title" />
+            <textarea className="aa-textarea" style={{ minHeight: '60px' }} value={form.heroSubtitle} onChange={handleTopChange('heroSubtitle')} placeholder="Short tagline shown under the title" />
           </div>
 
-          <div className="aa-section-title">Our Journey Section</div>
-          <div className="aa-field">
-            <label>Section Title</label>
-            <input className="aa-input" value={form.journeyTitle} onChange={handleChange('journeyTitle')} placeholder="Our Journey" />
-          </div>
-          <div className="aa-field">
-            <label>Paragraphs <span className="hint">(one paragraph per line)</span></label>
-            <textarea className="aa-textarea" value={form.journeyParagraphs} onChange={handleChange('journeyParagraphs')} placeholder={'First paragraph...\nSecond paragraph...\nThird paragraph...'} />
+          <div className="aa-section-title">
+            Page Sections <span className="hint">(add as many as you want — they render in this order)</span>
           </div>
 
-          <div className="aa-section-title">Why We Exist Box</div>
-          <div className="aa-field">
-            <label>Title</label>
-            <input className="aa-input" value={form.whyWeExistTitle} onChange={handleChange('whyWeExistTitle')} placeholder="Why We Exist" />
-          </div>
-          <div className="aa-field">
-            <label>Text</label>
-            <textarea className="aa-textarea" style={{ minHeight: '70px' }} value={form.whyWeExistText} onChange={handleChange('whyWeExistText')} />
-          </div>
+          {form.sections.map((section, idx) => (
+            <div className="aa-section-block" key={idx}>
+              <div className="aa-section-block-header">
+                <span className="tag">Section {idx + 1}</span>
+                <div className="aa-section-block-controls">
+                  <button type="button" className="aa-icon-btn" title="Move up" onClick={() => moveSection(idx, -1)} disabled={idx === 0}>↑</button>
+                  <button type="button" className="aa-icon-btn" title="Move down" onClick={() => moveSection(idx, 1)} disabled={idx === form.sections.length - 1}>↓</button>
+                  <button type="button" className="aa-icon-btn danger" title="Remove section" onClick={() => removeSection(idx)}>🗑️</button>
+                </div>
+              </div>
 
-          <div className="aa-section-title">Our Promise Section</div>
-          <div className="aa-field">
-            <label>Section Title</label>
-            <input className="aa-input" value={form.promiseTitle} onChange={handleChange('promiseTitle')} placeholder="Our Promise" />
-          </div>
-          <div className="aa-field">
-            <label>Paragraphs <span className="hint">(one paragraph per line)</span></label>
-            <textarea className="aa-textarea" value={form.promiseParagraphs} onChange={handleChange('promiseParagraphs')} placeholder={'First paragraph...\nSecond paragraph...'} />
-          </div>
-          <div className="aa-field">
-            <label>Golden Quote</label>
-            <textarea className="aa-textarea" style={{ minHeight: '60px' }} value={form.quoteText} onChange={handleChange('quoteText')} placeholder="No Shortcuts. No False Promises..." />
-          </div>
+              <div className="aa-row-2col">
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>Section Title</label>
+                  <input
+                    className="aa-input"
+                    value={section.title}
+                    onChange={(e) => updateSection(idx, 'title', e.target.value)}
+                    placeholder="e.g. Our Journey"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>Style</label>
+                  <select
+                    className="aa-select"
+                    value={section.style}
+                    onChange={(e) => updateSection(idx, 'style', e.target.value)}
+                  >
+                    <option value="card">Normal card</option>
+                    <option value="highlight">Highlighted box</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>Badge <span className="hint">(emoji, optional)</span></label>
+                  <input
+                    className="aa-input"
+                    value={section.badge}
+                    onChange={(e) => updateSection(idx, 'badge', e.target.value)}
+                    placeholder="❤️"
+                  />
+                </div>
+              </div>
 
-          <div className="aa-section-title">Contact</div>
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Paragraphs <span className="hint">(one paragraph per line)</span>
+                </label>
+                <textarea
+                  className="aa-textarea"
+                  value={section.paragraphsText}
+                  onChange={(e) => updateSection(idx, 'paragraphsText', e.target.value)}
+                  placeholder={'First paragraph...\nSecond paragraph...'}
+                />
+              </div>
+            </div>
+          ))}
+
+          <button type="button" className="aa-add-section-btn" onClick={addSection}>
+            ➕ Add New Section
+          </button>
+
+          <div className="aa-section-title">Closing Quote &amp; Contact</div>
+          <div className="aa-field">
+            <label>Golden Quote <span className="hint">(shown at the bottom of the page)</span></label>
+            <textarea className="aa-textarea" style={{ minHeight: '60px' }} value={form.quoteText} onChange={handleTopChange('quoteText')} placeholder="No Shortcuts. No False Promises..." />
+          </div>
           <div className="aa-field">
             <label>WhatsApp Number <span className="hint">(digits only, with country code, e.g. 919876543210)</span></label>
-            <input className="aa-input" value={form.whatsappNumber} onChange={handleChange('whatsappNumber')} placeholder="919876543210" />
+            <input className="aa-input" value={form.whatsappNumber} onChange={handleTopChange('whatsappNumber')} placeholder="919876543210" />
           </div>
 
           <div className="aa-actions">
