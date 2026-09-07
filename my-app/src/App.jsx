@@ -301,7 +301,8 @@ const AppContent = ({
                  <Route path="shipping" element={< AdminPolicyEditor />} />
                   <Route path="cancellation" element={< AdminCancellationPolicy />} />
                    <Route path="coupon-loyalty-policy" element={<AdminCouponLoyaltyPolicy />} />
-                   <Route path="/admin/corporate-bulk-orders" element={<AdminCorporateBulkOrders />} />
+                   <Route path="admin/corporate-bulk-orders" element={<AdminCorporateBulkOrders />} />
+                   
              <Route path="addpincharges" element={<AdminPincodeManager />} />
            
           </Route>

@@ -102,6 +102,61 @@ const AdminLayout = ({ user, onLogout }) => {
           >
             📧 <span>addpincode</span>
           </NavLink>
+           <NavLink 
+            to="/admin/aboutus" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>editaboutus</span>
+          </NavLink>
+
+ <NavLink 
+            to="/admin/returnrefund" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Returnrefundpolicy</span>
+          </NavLink>
+
+ <NavLink 
+            to="/admin/shipping" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Shipping Policy</span>
+          </NavLink>
+           <NavLink 
+            to="/admin/cancellation" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Cancellation Policy</span>
+          </NavLink>
+           <NavLink 
+            to="/admin/coupon-loyalty-policy" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Coupon & Loyalty Policy</span>
+          </NavLink>
+          <NavLink 
+            to="/admin/admin/corporate-bulk-orders" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Corporate Bulk Orders</span>
+          </NavLink>
+
+
+
+
+
+
+                       
+                           
+                           
+                        
+          
  
           
         </nav>
