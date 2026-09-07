@@ -23,7 +23,7 @@ const enquiryRoutes = require('./routes/enquiryRoutes');
 const cakeRoutes = require('./routes/cakeRoutes');
 const aboutUsRoutes = require('./routes/aboutUsRoutes');
 const returnRefundPolicyRoutes = require('./routes/returnRefundPolicyRoutes'); // 🟢 NEW
-
+const couponLoyaltyPolicyRoutes = require('./routesCouponloyaltypolicyRoutes');
 const app = express();
 const server = http.createServer(app); // 🟢 Create HTTP server
 
@@ -80,6 +80,7 @@ app.use(
 
 
 // ...jahan tumhare baaki app.use() routes likhe hain, wahi ye bhi daal do:
+app.use('/api/coupon-loyalty-policy', couponLoyaltyPolicyRoutes);
 app.use('/api/cancellation-policy', cancellationPolicyRoutes);
 app.use('/api/policies', policyRoutes);
 app.use('/api/aboutus', aboutUsRoutes);
