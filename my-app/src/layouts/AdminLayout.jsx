@@ -148,6 +148,21 @@ const AdminLayout = ({ user, onLogout }) => {
           </NavLink>
 
 
+          <NavLink 
+            to="/admin/coupons" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Add coupons</span>
+          </NavLink>
+          <NavLink 
+            to="/admin/social-links" 
+            onClick={closeSidebar}
+            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
+          >
+            📧 <span>Social link</span>
+          </NavLink>
+
 
 
 
