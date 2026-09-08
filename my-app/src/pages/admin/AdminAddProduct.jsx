@@ -59,11 +59,19 @@ const defaultForm = {
   ]
 };
 
+const defaultSlots = [
+  { file: null, preview: '', existingUrl: '' },
+  { file: null, preview: '', existingUrl: '' },
+  { file: null, preview: '', existingUrl: '' }
+];
+
 const AdminAllInOneProducts = () => {
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState(defaultForm);
-  const [imageFiles, setImageFiles] = useState([]);
-  const [imagePreviews, setImagePreviews] = useState([]);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+
+  // 3 Dedicated Image Slots
+  const [imageSlots, setImageSlots] = useState(defaultSlots);
 
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -123,11 +131,23 @@ const AdminAllInOneProducts = () => {
     }));
   };
 
-  // Multi-image change (Image +1, +2, +3)
-  const handleImageChange = (e) => {
-    const files = Array.from(e.target.files).slice(0, 3);
-    setImageFiles(files);
-    setImagePreviews(files.map((file) => URL.createObjectURL(file)));
+  // 3 Images Slots Handler (Individual slot file pick & remove)
+  const handleSlotImageChange = (index, file) => {
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setImageSlots((prev) => {
+      const updated = [...prev];
+      updated[index] = { file, preview: previewUrl, existingUrl: '' };
+      return updated;
+    });
+  };
+
+  const handleRemoveSlotImage = (index) => {
+    setImageSlots((prev) => {
+      const updated = [...prev];
+      updated[index] = { file: null, preview: '', existingUrl: '' };
+      return updated;
+    });
   };
 
   // Submit / Save
@@ -148,10 +168,20 @@ const AdminAllInOneProducts = () => {
         }
       });
 
-      // Append multi-image files
-      imageFiles.forEach((file) => {
-        data.append('images', file);
+      // Append newly uploaded files from 3 slots
+      imageSlots.forEach((slot) => {
+        if (slot.file) {
+          data.append('images', slot.file);
+        }
       });
+
+      // If editing, retain any existing images kept by the user
+      if (editingId) {
+        const retainedExisting = imageSlots
+          .filter((slot) => !slot.file && slot.existingUrl)
+          .map((slot) => slot.existingUrl);
+        data.append('existingImages', JSON.stringify(retainedExisting));
+      }
 
       const url = editingId ? `${API_BASE}/products/${editingId}` : `${API_BASE}/products`;
       const method = editingId ? 'PUT' : 'POST';
@@ -181,6 +211,11 @@ const AdminAllInOneProducts = () => {
 
   const handleEditClick = (p) => {
     setEditingId(p._id);
+
+    // Check if category is standard or custom
+    const isCustom = !CATEGORIES.some((c) => c.value === p.category);
+    setIsCustomCategory(isCustom);
+
     setFormData({
       name: p.name || '',
       category: p.category || 'ladoo',
@@ -202,17 +237,27 @@ const AdminAllInOneProducts = () => {
       variants: Array.isArray(p.variants) && p.variants.length > 0 ? p.variants : defaultForm.variants
     });
 
+    // Populate existing images into slots 1, 2, 3
     const imgs = p.images?.length > 0 ? p.images : (p.image ? [p.image] : []);
-    setImagePreviews(imgs.map((img) => (img.startsWith('http') ? img : `${API_BASE.replace('/api', '')}${img}`)));
-    setImageFiles([]);
+    const populatedSlots = [0, 1, 2].map((idx) => {
+      const rawUrl = imgs[idx] || '';
+      const fullUrl = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `${API_BASE.replace('/api', '')}${rawUrl}`) : '';
+      return {
+        file: null,
+        preview: fullUrl,
+        existingUrl: rawUrl
+      };
+    });
+    setImageSlots(populatedSlots);
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setFormData(defaultForm);
-    setImageFiles([]);
-    setImagePreviews([]);
+    setIsCustomCategory(false);
+    setImageSlots(defaultSlots);
   };
 
   const handleDelete = async (id) => {
@@ -254,12 +299,52 @@ const AdminAllInOneProducts = () => {
         {/* ROW 1: BASIC METADATA */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
           <div>
-            <label style={labelStyle}>Category (Drop Down) *</label>
-            <select name="category" value={formData.category} onChange={handleChange} style={inputStyle}>
-              {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={labelStyle}>Category *</label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomCategory(!isCustomCategory);
+                  if (isCustomCategory) {
+                    setFormData((prev) => ({ ...prev, category: 'ladoo' }));
+                  }
+                }}
+                style={{ background: 'none', border: 'none', color: '#94191d', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 'bold', padding: 0 }}
+              >
+                {isCustomCategory ? '← Choose from List' : '+ Add Custom'}
+              </button>
+            </div>
+
+            {isCustomCategory ? (
+              <input
+                type="text"
+                name="category"
+                required
+                placeholder="Type custom category (e.g. Namkeen)"
+                value={formData.category}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            ) : (
+              <select
+                name="category"
+                value={formData.category}
+                onChange={(e) => {
+                  if (e.target.value === '__add_custom__') {
+                    setIsCustomCategory(true);
+                    setFormData((prev) => ({ ...prev, category: '' }));
+                  } else {
+                    handleChange(e);
+                  }
+                }}
+                style={inputStyle}
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+                <option value="__add_custom__">+ Add Custom Category...</option>
+              </select>
+            )}
           </div>
 
           <div>
@@ -360,14 +445,112 @@ const AdminAllInOneProducts = () => {
           </div>
         </div>
 
-        {/* ROW 6: IMAGES UPLOAD */}
-        <div style={{ marginTop: '20px' }}>
-          <label style={labelStyle}>Images Upload (Image +1, Image +2, Image +3) — Suggested Size: 800x800 px</label>
-          <input type="file" accept="image/*" multiple onChange={handleImageChange} style={{ marginTop: '8px', display: 'block' }} />
-          <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
-            {imagePreviews.map((src, idx) => (
-              <img key={idx} src={src} alt={`Preview ${idx + 1}`} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-            ))}
+        {/* ROW 6: FIXED 3 IMAGES SLOTS UPLOAD */}
+        <div style={{ marginTop: '25px' }}>
+          <label style={labelStyle}>Images Upload (Image 1, Image 2, Image 3) — Suggested Size: 800x800 px</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '16px', marginTop: '12px' }}>
+            {[0, 1, 2].map((idx) => {
+              const slot = imageSlots[idx];
+              const slotLabels = ['Image +1 (Main Cover)', 'Image +2', 'Image +3'];
+
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    border: '2px dashed #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    background: slot.preview ? '#f8fafc' : '#ffffff',
+                    position: 'relative',
+                    minHeight: '150px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
+                >
+                  {slot.preview ? (
+                    <div style={{ width: '100%' }}>
+                      <img
+                        src={slot.preview}
+                        alt={`Slot ${idx + 1}`}
+                        style={{
+                          width: '100%',
+                          height: '110px',
+                          objectFit: 'cover',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          marginBottom: '8px'
+                        }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                        <label
+                          style={{
+                            background: '#0284c7',
+                            color: '#fff',
+                            padding: '5px 10px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Change
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleSlotImageChange(idx, e.target.files[0])}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSlotImage(idx)}
+                          style={{
+                            background: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '5px 10px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      style={{
+                        cursor: 'pointer',
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '10px 0'
+                      }}
+                    >
+                      <span style={{ fontSize: '2rem', color: '#94a3b8' }}>📷</span>
+                      <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 'bold', marginTop: '6px' }}>
+                        + {slotLabels[idx]}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>Click to select</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleSlotImageChange(idx, e.target.files[0])}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
