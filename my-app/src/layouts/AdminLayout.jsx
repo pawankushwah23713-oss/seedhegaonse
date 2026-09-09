@@ -63,14 +63,7 @@ const AdminLayout = ({ user, onLogout }) => {
             📦 <span>Customer Orders</span>
           </NavLink>
 
-          <NavLink 
-            to="/admin/products" 
-            onClick={closeSidebar}
-            className={({ isActive }) => `admin-link ${isActive ? 'active' : ''}`}
-          >
-            🍬 <span>Add cakes</span>
-          </NavLink>
-
+         
           <NavLink 
             to="/admin/add-product" 
             onClick={closeSidebar}
