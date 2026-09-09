@@ -224,6 +224,43 @@ const Navbar = ({
     ];
   };
 
+  // 🟢 FIX: Cakes dropdown was always showing the hardcoded SHELF_MENUS.cakes
+  // list and never looked at liveCategories — so any admin category saved
+  // with menuGroup "cakes" never appeared anywhere. This mirrors
+  // getSweetsLinks() above: if any category is tagged "cakes", show those
+  // (linking into the /cake page's search) instead of the static list.
+  const getCakesLinks = () => {
+    const cakesCats = liveCategories.filter(
+      (c) => normalizeGroup(c.menuGroup).toLowerCase() === 'cakes'
+    );
+    if (cakesCats.length === 0) return SHELF_MENUS.cakes.links;
+    return [
+      { to: '/cake', label: '🎂 All Fresh Cakes' },
+      ...cakesCats.map((c) => ({
+        to: `/cake?search=${encodeURIComponent(c.name)}`,
+        label: `🎂 ${c.name}`
+      }))
+    ];
+  };
+
+  // 🟢 FIX: same bug as Cakes — About Us dropdown always rendered the
+  // hardcoded SHELF_MENUS.about list only. Admin categories tagged "about"
+  // are now appended after the existing static links (kept, since those are
+  // real informational pages, not products).
+  const getAboutLinks = () => {
+    const aboutCats = liveCategories.filter(
+      (c) => normalizeGroup(c.menuGroup).toLowerCase() === 'about'
+    );
+    if (aboutCats.length === 0) return SHELF_MENUS.about.links;
+    return [
+      ...SHELF_MENUS.about.links,
+      ...aboutCats.map((c) => ({
+        to: `/?search=${encodeURIComponent(c.name)}`,
+        label: `📖 ${c.name}`
+      }))
+    ];
+  };
+
   // 🟢 NEW: any category whose menuGroup isn't sweets/cakes/about gets its
   // own brand-new navbar dropdown, named after whatever group it was
   // assigned when the admin created (or later moved) it. Returns an object
@@ -574,7 +611,7 @@ const Navbar = ({
               </ul>
             </li>
 
-            {/* 🎂 CAKES DROPDOWN */}
+            {/* 🎂 CAKES DROPDOWN — 🟢 FIX: now uses 'cakes'-tagged live categories */}
             <li className={`menu-nav-item has-dropdown ${shelfMenu === 'cakes' ? 'is-open' : ''}`}>
               <Link
                 to="/cake"
@@ -587,13 +624,13 @@ const Navbar = ({
                 </svg>
               </Link>
               <ul className="dropdown-flyout">
-                {SHELF_MENUS.cakes.links.map((l) => (
+                {getCakesLinks().map((l) => (
                   <li key={l.to + l.label}><Link to={l.to}>{l.label}</Link></li>
                 ))}
               </ul>
             </li>
 
-            {/* 🏢 ABOUT US DROPDOWN */}
+            {/* 🏢 ABOUT US DROPDOWN — 🟢 FIX: now uses 'about'-tagged live categories */}
             <li className={`menu-nav-item has-dropdown ${shelfMenu === 'about' ? 'is-open' : ''}`}>
               <a
                 href="#about-us"
@@ -606,7 +643,7 @@ const Navbar = ({
                 </svg>
               </a>
               <ul className="dropdown-flyout">
-                {SHELF_MENUS.about.links.map((l) => (
+                {getAboutLinks().map((l) => (
                   <li key={l.to + l.label}><a href={l.to}>{l.label}</a></li>
                 ))}
               </ul>
@@ -655,7 +692,14 @@ const Navbar = ({
       {/* 📲 3b. MOBILE SUB-MENU PANEL (Sweets / Cakes / About / custom tap karne par) */}
       {isMobileView && shelfMenu && (SHELF_MENUS[shelfMenu] || dynamicMenus[shelfMenu]) && (() => {
         const menu = SHELF_MENUS[shelfMenu] || dynamicMenus[shelfMenu];
-        const links = shelfMenu === 'sweets' ? getSweetsLinks() : menu.links;
+        // 🟢 FIX: Cakes and About now also read live categories (previously
+        // only 'sweets' did, so newly added cakes/about categories never
+        // showed up in this mobile tap-panel either).
+        const links =
+          shelfMenu === 'sweets' ? getSweetsLinks() :
+          shelfMenu === 'cakes' ? getCakesLinks() :
+          shelfMenu === 'about' ? getAboutLinks() :
+          menu.links;
         return (
           <div className="mobile-subnav-panel">
             <div className="mobile-subnav-head">
@@ -747,7 +791,9 @@ const Navbar = ({
               )}
             </li>
 
-            {/* Accordion 2: Cakes */}
+            {/* Accordion 2: Cakes — 🟢 FIX: now reads live 'cakes'-tagged
+                categories too (was a fully hardcoded list before, so newly
+                added cake categories never appeared here). */}
             <li className="drawer-accordion-group">
               <div className="drawer-accordion-trigger" onClick={() => toggleMobileSubmenu('cakes')}>
                 <span>🎂 Cakes & Bakery</span>
@@ -755,16 +801,17 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'cakes' && (
                 <ul className="drawer-sub-links-tree">
-                  <li><Link to="/cake" onClick={closeMobileMenu}>All Cakes</Link></li>
-                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍫 Chocolate Truffle</Link></li>
-                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>❤️ Red Velvet</Link></li>
-                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🍓 Fresh Fruit Cake</Link></li>
-                  <li><Link to="/cakes#cakes" onClick={closeMobileMenu}>🧀 Cheesecakes & Bento</Link></li>
+                  {getCakesLinks().map((l) => (
+                    <li key={l.to + l.label}>
+                      <Link to={l.to} onClick={closeMobileMenu}>{l.label}</Link>
+                    </li>
+                  ))}
                 </ul>
               )}
             </li>
 
-            {/* Accordion 3: About Us */}
+            {/* Accordion 3: About Us — 🟢 FIX: now reads live 'about'-tagged
+                categories too, appended after the existing static links. */}
             <li className="drawer-accordion-group">
               <div className="drawer-accordion-trigger" onClick={() => toggleMobileSubmenu('about')}>
                 <span>📖 About Us</span>
@@ -772,8 +819,17 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'about' && (
                 <ul className="drawer-sub-links-tree">
-                  <li><a href="/AboutUs" onClick={closeMobileMenu}>Our Story</a></li>
-                  <li><a href="/why-us" onClick={closeMobileMenu}>Why Choose Us</a></li>
+                  {getAboutLinks().map((l) =>
+                    l.anchor ? (
+                      <li key={l.to + l.label}>
+                        <a href={l.to} onClick={closeMobileMenu}>{l.label}</a>
+                      </li>
+                    ) : (
+                      <li key={l.to + l.label}>
+                        <Link to={l.to} onClick={closeMobileMenu}>{l.label}</Link>
+                      </li>
+                    )
+                  )}
                 </ul>
               )}
             </li>
