@@ -127,6 +127,18 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
+router.delete('/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const deleted = await Category.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+    res.json({ message: 'Category deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to delete category', error: err.message });
+  }
+});
+
 module.exports = router;
 
 /*
