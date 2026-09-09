@@ -4,39 +4,140 @@ import axios from 'axios';
 const API_BASE = 'https://seedhegaonse-1.onrender.com/api';
 
 const AdminCouponGiftManager = () => {
+  // ==========================================
+  // 🎁 1. FREE GIFT / MILESTONES STATE
+  // ==========================================
+  const [giftMilestones, setGiftMilestones] = useState([]);
+  const [giftTitle, setGiftTitle] = useState('');
+  const [giftMinOrder, setGiftMinOrder] = useState('');
+  const [giftDesc, setGiftDesc] = useState('');
+  const [giftImage, setGiftImage] = useState(null);
+  const [giftLoading, setGiftLoading] = useState(false);
+  const [giftListLoading, setGiftListLoading] = useState(false);
+  const [giftStatusMsg, setGiftStatusMsg] = useState({ text: '', type: '' });
+
   // 🎟️ Coupon Form State
   const [code, setCode] = useState('');
-  const [noOfTimesUse, setNoOfTimesUse] = useState('first_time'); // 'first_time', '10', '2', custom
+  const [noOfTimesUse, setNoOfTimesUse] = useState('first_time');
   const [customUseCount, setCustomUseCount] = useState('');
   const [baseValue, setBaseValue] = useState('');
-  const [discountType, setDiscountType] = useState('lumpsum'); // 'lumpsum' or 'percentage'
+  const [discountType, setDiscountType] = useState('lumpsum');
   const [lumpsumAmount, setLumpsumAmount] = useState('');
   const [percentageAmount, setPercentageAmount] = useState('');
   const [maxDiscountValue, setMaxDiscountValue] = useState('');
-  // 🟢 NEW: agar bhara gaya to ye coupon sirf usi user ke liye lock ho jayega
   const [assignedUser, setAssignedUser] = useState('');
 
   const [couponList, setCouponList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [listLoading, setListLoading] = useState(false);
-  const [busyId, setBusyId] = useState(null); // Track which item is being deleted
+  const [busyId, setBusyId] = useState(null);
   const [statusMsg, setStatusMsg] = useState({ text: '', type: '' });
 
-  // 🎁 Free Gift Settings State
-  const [giftTier1, setGiftTier1] = useState('Delicious Sweets Gift Box (Tier 1)');
-  const [giftTier2, setGiftTier2] = useState('Special Premium Gift (Tier 2)');
-  const [giftSavedMsg, setGiftSavedMsg] = useState('');
-
-  // 👛 NEW: Wallet Credit Form State
-  const [walletIdentifier, setWalletIdentifier] = useState(''); // userId / email / phone
+  // 👛 Wallet State
+  const [walletIdentifier, setWalletIdentifier] = useState('');
   const [walletAmount, setWalletAmount] = useState('');
   const [walletNote, setWalletNote] = useState('');
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletStatusMsg, setWalletStatusMsg] = useState({ text: '', type: '' });
-  const [walletResult, setWalletResult] = useState(null); // last successful credit result
+  const [walletResult, setWalletResult] = useState(null);
+
+  // Helper for Auth Token
+  const getAuthHeader = () => {
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('adminToken') ||
+      localStorage.getItem('userToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
   // =========================================================
-  // 🔄 1. FETCH ALL COUPONS
+  // 🔄 FETCH ALL FREE GIFTS (/api/gifts)
+  // =========================================================
+  const fetchGifts = async () => {
+    setGiftListLoading(true);
+    try {
+      // Pehle admin route try karega, fallback me public
+      let res;
+      try {
+        res = await axios.get(`${API_BASE}/gifts/all`, { headers: getAuthHeader() });
+      } catch (err) {
+        res = await axios.get(`${API_BASE}/gifts`);
+      }
+
+      if (Array.isArray(res.data)) {
+        setGiftMilestones(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching gifts:', err);
+    } finally {
+      setGiftListLoading(false);
+    }
+  };
+
+  // =========================================================
+  // ➕ ADD CUSTOM FREE GIFT WITH IMAGE
+  // =========================================================
+  const handleAddGift = async (e) => {
+    e.preventDefault();
+    if (!giftImage) {
+      alert('Kripya ek Gift Image zaroor select karein!');
+      return;
+    }
+
+    setGiftLoading(true);
+    setGiftStatusMsg({ text: '', type: '' });
+
+    try {
+      const formData = new FormData();
+      formData.append('title', giftTitle.trim());
+      formData.append('minOrder', Number(giftMinOrder));
+      formData.append('description', giftDesc.trim());
+      formData.append('image', giftImage);
+
+      await axios.post(`${API_BASE}/gifts`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          ...getAuthHeader()
+        }
+      });
+
+      setGiftStatusMsg({ text: '✅ Custom Free Gift successfully add ho gaya!', type: 'success' });
+      setGiftTitle('');
+      setGiftMinOrder('');
+      setGiftDesc('');
+      setGiftImage(null);
+      // Reset file input
+      const fileInput = document.getElementById('giftImageInput');
+      if (fileInput) fileInput.value = '';
+
+      fetchGifts();
+    } catch (err) {
+      setGiftStatusMsg({
+        text: err.response?.data?.message || 'Gift add karne me error aaya.',
+        type: 'error'
+      });
+    } finally {
+      setGiftLoading(false);
+    }
+  };
+
+  // =========================================================
+  // 🗑️ DELETE FREE GIFT
+  // =========================================================
+  const handleDeleteGift = async (id, title) => {
+    if (!window.confirm(`Kya aap "${title}" gift milestone ko delete karna chahte hain?`)) return;
+
+    try {
+      await axios.delete(`${API_BASE}/gifts/${id}`, { headers: getAuthHeader() });
+      setGiftMilestones((prev) => prev.filter((g) => g._id !== id));
+      setGiftStatusMsg({ text: `🗑️ Gift "${title}" delete ho gaya!`, type: 'success' });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Delete karne me dikkat aayi.');
+    }
+  };
+
+  // =========================================================
+  // 🔄 COUPONS & WALLET HANDLERS
   // =========================================================
   const fetchCoupons = async () => {
     setListLoading(true);
@@ -53,20 +154,15 @@ const AdminCouponGiftManager = () => {
   };
 
   useEffect(() => {
+    fetchGifts();
     fetchCoupons();
   }, []);
 
-  // =========================================================
-  // ⚡ 2. SEED DEFAULT SHEET COUPONS (SGS50, SGS100, SGS125)
-  // =========================================================
   const handleSeedSheet = async () => {
     try {
       setLoading(true);
       const res = await axios.post(`${API_BASE}/coupons/seed-excel-coupons`);
-      setStatusMsg({ 
-        text: res.data?.message || '✅ Excel Sheet Coupons (SGS50, SGS100, SGS125) seeded successfully!', 
-        type: 'success' 
-      });
+      setStatusMsg({ text: res.data?.message || '✅ Excel Sheet Coupons seeded!', type: 'success' });
       fetchCoupons();
     } catch (err) {
       setStatusMsg({ text: 'Seed failed: ' + err.message, type: 'error' });
@@ -75,9 +171,6 @@ const AdminCouponGiftManager = () => {
     }
   };
 
-  // =========================================================
-  // ➕ 3. SAVE / ADD NEW COUPON
-  // =========================================================
   const handleSaveCoupon = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -95,19 +188,11 @@ const AdminCouponGiftManager = () => {
         percentageAmount: discountType === 'percentage' ? Number(percentageAmount) || 0 : 0,
         maxDiscountValue: Number(maxDiscountValue) || (discountType === 'lumpsum' ? Number(lumpsumAmount) : 0),
         isActive: true,
-        // 🟢 NEW: agar admin ne koi specific user diya hai, to wahi bhejo
         assignedUser: assignedUser.trim() || undefined
       };
 
       await axios.post(`${API_BASE}/coupons/admin/add`, payload);
-      setStatusMsg({
-        text: assignedUser.trim()
-          ? `✅ Private Coupon "${payload.code}" sirf "${assignedUser.trim()}" ke liye add ho gaya!`
-          : `✅ Coupon "${payload.code}" added successfully!`,
-        type: 'success'
-      });
-      
-      // Reset form
+      setStatusMsg({ text: `✅ Coupon "${payload.code}" added!`, type: 'success' });
       setCode('');
       setBaseValue('');
       setLumpsumAmount('');
@@ -124,73 +209,36 @@ const AdminCouponGiftManager = () => {
     }
   };
 
-  // =========================================================
-  // 🗑️ 4. DELETE COUPON (Calls DELETE /api/coupons/admin/:id)
-  // =========================================================
   const handleDeleteCoupon = async (coupon) => {
-    const deleteId = coupon._id;
-    if (!deleteId) {
-      alert('Coupon ID missing hai.');
-      return;
-    }
-
-    if (!window.confirm(`Kya aap sach me coupon "${coupon.code}" ko delete karna chahte hain?`)) {
-      return;
-    }
-
-    setBusyId(deleteId);
-    setStatusMsg({ text: '', type: '' });
-
+    if (!window.confirm(`Delete coupon "${coupon.code}"?`)) return;
+    setBusyId(coupon._id);
     try {
-      const res = await axios.delete(`${API_BASE}/coupons/admin/${deleteId}`);
-      setStatusMsg({
-        text: res.data?.message || `🗑️ Coupon "${coupon.code}" delete ho gaya!`,
-        type: 'success'
-      });
-
-      // Table se instantly hatao
-      setCouponList((prev) => prev.filter((c) => c._id !== deleteId));
+      await axios.delete(`${API_BASE}/coupons/admin/${coupon._id}`);
+      setCouponList((prev) => prev.filter((c) => c._id !== coupon._id));
     } catch (err) {
-      console.error('Delete error:', err);
-      setStatusMsg({
-        text: err.response?.data?.message || 'Coupon delete karne me dikkat aayi.',
-        type: 'error'
-      });
+      alert('Delete error');
     } finally {
       setBusyId(null);
     }
   };
 
-  // =========================================================
-  // 👛 5. 🟢 NEW: ADD WALLET CREDIT TO A SPECIFIC USER
-  // =========================================================
   const handleAddWalletCredit = async (e) => {
     e.preventDefault();
     setWalletLoading(true);
     setWalletStatusMsg({ text: '', type: '' });
     setWalletResult(null);
-
     try {
       const res = await axios.post(`${API_BASE}/coupons/admin/wallet-credit`, {
         identifier: walletIdentifier.trim(),
         amount: Number(walletAmount),
         note: walletNote.trim()
       });
-
-      setWalletStatusMsg({
-        text: res.data?.message || '✅ Wallet credit ho gaya!',
-        type: 'success'
-      });
+      setWalletStatusMsg({ text: res.data?.message || '✅ Wallet credit ho gaya!', type: 'success' });
       setWalletResult(res.data?.wallet || null);
-
-      // Reset form (identifier rehne dete hain taaki dobara dekh sake)
       setWalletAmount('');
       setWalletNote('');
     } catch (err) {
-      setWalletStatusMsg({
-        text: err.response?.data?.message || 'Wallet credit karne me dikkat aayi.',
-        type: 'error'
-      });
+      setWalletStatusMsg({ text: err.response?.data?.message || 'Error', type: 'error' });
     } finally {
       setWalletLoading(false);
     }
@@ -199,82 +247,142 @@ const AdminCouponGiftManager = () => {
   return (
     <div style={{ maxWidth: '980px', margin: '20px auto', padding: '0 15px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       
-      {/* ================= 🎁 1. FREE GIFT ADMIN CARD ================= */}
+      {/* ================= 🎁 1. REAL DYNAMIC FREE GIFT SECTION ================= */}
       <div style={{ background: '#fff', border: '2px solid #b91c1c', borderRadius: '10px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-        <h2 style={{ color: '#c00000', margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: 800 }}>🎁 Free Gift Configuration</h2>
+        <h2 style={{ color: '#c00000', margin: '0 0 6px 0', fontSize: '1.4rem', fontWeight: 800 }}>🎁 Free Gift Configuration (Milestones)</h2>
         <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 16px 0' }}>
-          Always Amount/Value Base Show: Tier 1 unlocks at ₹1500. Tier 2 at ₹2500 (Tier 1 turns OFF automatically).
+          Apni marzi ka koi bhi Custom Order Base Value (e.g. ₹1500, ₹2500, ₹3000) aur Free Gift add karein.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-          <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', display: 'block', marginBottom: '4px' }}>
-              Order (Base Value) Rs. 1500/- Gift Title
-            </label>
-            <input
-              type="text"
-              value={giftTier1}
-              onChange={(e) => setGiftTier1(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
-            />
-            <span style={{ fontSize: '0.74rem', color: '#15803d', fontWeight: 600, display: 'block', marginTop: '4px' }}>
-              ✓ Free Gift automatically shows
-            </span>
-          </div>
-
-          <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', display: 'block', marginBottom: '4px' }}>
-              Order (Base Value) Rs. 2500/- Gift Title
-            </label>
-            <input
-              type="text"
-              value={giftTier2}
-              onChange={(e) => setGiftTier2(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
-            />
-            <span style={{ fontSize: '0.74rem', color: '#b91c1c', fontWeight: 600, display: 'block', marginTop: '4px' }}>
-              ✓ First Free Gift Show OFF and new Gift Show
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setGiftSavedMsg('✅ Free Gift titles saved!')}
-          style={{ marginTop: '14px', background: '#0284c7', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}
-        >
-          Save Free Gift Tiers
-        </button>
-        {giftSavedMsg && <span style={{ marginLeft: '12px', color: '#15803d', fontSize: '0.88rem', fontWeight: 700 }}>{giftSavedMsg}</span>}
-      </div>
-
-      {/* ================= 👛 2. 🟢 NEW: WALLET CREDIT (SPECIFIC USER) CARD ================= */}
-      <div style={{ background: '#fff', border: '2px solid #0284c7', borderRadius: '10px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-        <h2 style={{ color: '#0369a1', margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: 800 }}>👛 Wallet Credit (Specific User)</h2>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 16px 0' }}>
-          Kisi ek customer ke wallet me seedha paisa daalo — koi coupon code nahi lagega, wo khud checkout par is balance ko use kar payega.
-        </p>
-
-        <form onSubmit={handleAddWalletCredit}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+        {/* Add Form */}
+        <form onSubmit={handleAddGift} style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+          <h4 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '1rem' }}>➕ Add New Custom Gift Milestone</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
             <div>
-              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                User (userId / email / phone) *
-              </label>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Gift Title *</label>
               <input
                 type="text"
-                placeholder="e.g. 98xxxxxxxx ya user@email.com"
-                value={walletIdentifier}
-                onChange={(e) => setWalletIdentifier(e.target.value)}
+                placeholder="e.g. Delicious Sweets Box"
+                value={giftTitle}
+                onChange={(e) => setGiftTitle(e.target.value)}
                 required
                 style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
               />
             </div>
 
             <div>
-              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                Amount (₹) *
-              </label>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Order (Base Value) Rs. *</label>
+              <input
+                type="number"
+                placeholder="e.g. 1500, 2500 ya 5000"
+                value={giftMinOrder}
+                onChange={(e) => setGiftMinOrder(e.target.value)}
+                required
+                min="1"
+                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Gift Image *</label>
+              <input
+                id="giftImageInput"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setGiftImage(e.target.files[0])}
+                required
+                style={{ width: '100%', padding: '6px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box', background: '#fff' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Description (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Special festive treat"
+                value={giftDesc}
+                onChange={(e) => setGiftDesc(e.target.value)}
+                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={giftLoading}
+            style={{ marginTop: '14px', background: '#0284c7', color: '#fff', border: 'none', padding: '10px 22px', borderRadius: '6px', fontWeight: 700, cursor: giftLoading ? 'wait' : 'pointer' }}
+          >
+            {giftLoading ? 'Adding...' : '💾 Save Custom Gift'}
+          </button>
+
+          {giftStatusMsg.text && (
+            <div style={{ marginTop: '10px', color: giftStatusMsg.type === 'success' ? '#15803d' : '#b91c1c', fontWeight: 700, fontSize: '0.88rem' }}>
+              {giftStatusMsg.text}
+            </div>
+          )}
+        </form>
+
+        {/* Existing Gifts List */}
+        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#0f172a', fontWeight: 800 }}>
+          Active Free Gift Milestones ({giftMilestones.length})
+        </h4>
+
+        {giftListLoading ? (
+          <div style={{ padding: '15px', color: '#64748b' }}>Gifts load ho rahe hain...</div>
+        ) : giftMilestones.length === 0 ? (
+          <div style={{ padding: '15px', color: '#64748b', background: '#f8fafc', borderRadius: '6px' }}>
+            Abhi koi custom gift configure nahi hai. Upar se add karein.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+            {giftMilestones.map((g) => (
+              <div key={g._id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', display: 'flex', gap: '12px', alignItems: 'center', background: '#fff' }}>
+                {g.image ? (
+                  <img
+                    src={`https://seedhegaonse-1.onrender.com${g.image}`}
+                    alt={g.title}
+                    style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div style={{ width: '55px', height: '55px', background: '#f1f5f9', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>🎁</div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.92rem' }}>{g.title}</div>
+                  <div style={{ color: '#0284c7', fontWeight: 700, fontSize: '0.84rem' }}>Min Order: ₹{g.minOrder}</div>
+                  {g.description && <div style={{ color: '#64748b', fontSize: '0.75rem' }}>{g.description}</div>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteGift(g._id, g.title)}
+                  style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '0.78rem' }}
+                >
+                  🗑️ Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ================= 👛 2. WALLET CREDIT (SPECIFIC USER) CARD ================= */}
+      <div style={{ background: '#fff', border: '2px solid #0284c7', borderRadius: '10px', padding: '20px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ color: '#0369a1', margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: 800 }}>👛 Wallet Credit (Specific User)</h2>
+        <form onSubmit={handleAddWalletCredit}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>User (userId / email / phone) *</label>
+              <input
+                type="text"
+                placeholder="e.g. 98xxxxxxxx"
+                value={walletIdentifier}
+                onChange={(e) => setWalletIdentifier(e.target.value)}
+                required
+                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Amount (₹) *</label>
               <input
                 type="number"
                 placeholder="e.g. 100"
@@ -285,39 +393,32 @@ const AdminCouponGiftManager = () => {
                 style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
               />
             </div>
-
             <div>
-              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                Note (Optional)
-              </label>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Note (Optional)</label>
               <input
                 type="text"
-                placeholder="e.g. Referral bonus, Birthday gift..."
+                placeholder="e.g. Referral bonus"
                 value={walletNote}
                 onChange={(e) => setWalletNote(e.target.value)}
                 style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
               />
             </div>
           </div>
-
           <button
             type="submit"
             disabled={walletLoading}
-            style={{ width: '100%', background: '#0284c7', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 800, fontSize: '0.95rem', cursor: walletLoading ? 'wait' : 'pointer' }}
+            style={{ width: '100%', background: '#0284c7', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 800, cursor: walletLoading ? 'wait' : 'pointer' }}
           >
             {walletLoading ? 'Adding...' : '👛 Add to Wallet'}
           </button>
-
           {walletStatusMsg.text && (
-            <div style={{ marginTop: '12px', padding: '10px', borderRadius: '6px', fontSize: '0.88rem', fontWeight: 700, background: walletStatusMsg.type === 'success' ? '#dcfce7' : '#fee2e2', color: walletStatusMsg.type === 'success' ? '#15803d' : '#b91c1c' }}>
+            <div style={{ marginTop: '10px', color: walletStatusMsg.type === 'success' ? '#15803d' : '#b91c1c', fontWeight: 700 }}>
               {walletStatusMsg.text}
             </div>
           )}
-
           {walletResult && (
-            <div style={{ marginTop: '10px', padding: '12px', borderRadius: '6px', background: '#f0f9ff', border: '1px solid #bae6fd', fontSize: '0.85rem', color: '#0c4a6e' }}>
-              <strong>{walletResult.name || walletResult.email || walletResult.phone}</strong> ka naya wallet balance:{' '}
-              <strong style={{ color: '#0369a1' }}>₹{walletResult.walletBalance}</strong>
+            <div style={{ marginTop: '10px', padding: '10px', background: '#f0f9ff', borderRadius: '6px', color: '#0c4a6e' }}>
+              Naya Balance: <strong>₹{walletResult.walletBalance}</strong>
             </div>
           )}
         </form>
@@ -325,22 +426,20 @@ const AdminCouponGiftManager = () => {
 
       {/* ================= 🎟️ 3. COUPON ADMIN CARD ================= */}
       <div style={{ background: '#fff', border: '2px solid #b91c1c', borderRadius: '10px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ color: '#c00000', margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>🎟️ Coupon Admin</h2>
           <button
             type="button"
             onClick={handleSeedSheet}
             disabled={loading}
-            style={{ background: '#15803d', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 700, cursor: loading ? 'wait' : 'pointer' }}
+            style={{ background: '#15803d', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
           >
-            ⚡ Seed Excel Sheet Coupons (SGS50, SGS100, SGS125)
+            ⚡ Seed Excel Sheet Coupons
           </button>
         </div>
 
         <form onSubmit={handleSaveCoupon}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '14px' }}>
-            
-            {/* 1. Coupon Code */}
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Coupon Code *</label>
               <input
@@ -352,8 +451,6 @@ const AdminCouponGiftManager = () => {
                 style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
               />
             </div>
-
-            {/* 2. No. of times Use */}
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>No. of times Use *</label>
               <select
@@ -369,31 +466,27 @@ const AdminCouponGiftManager = () => {
               {noOfTimesUse === 'custom' && (
                 <input
                   type="number"
-                  placeholder="Enter count (e.g. 5)"
+                  placeholder="Count (e.g. 5)"
                   value={customUseCount}
                   onChange={(e) => setCustomUseCount(e.target.value)}
-                  style={{ width: '100%', padding: '6px 8px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box' }}
                   required
                 />
               )}
             </div>
-
-            {/* 3. Base Value */}
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Base Value (Min Order) *</label>
               <input
                 type="number"
-                placeholder="e.g. 500, 1500, 1000"
+                placeholder="e.g. 500"
                 value={baseValue}
                 onChange={(e) => setBaseValue(e.target.value)}
                 required
                 style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
               />
             </div>
-
-            {/* 4. Discount Type */}
             <div>
-              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Type (Lumpsum vs %) *</label>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Type *</label>
               <select
                 value={discountType}
                 onChange={(e) => setDiscountType(e.target.value)}
@@ -403,8 +496,6 @@ const AdminCouponGiftManager = () => {
                 <option value="percentage">% Amount on Value</option>
               </select>
             </div>
-
-            {/* 5. Value (Lumpsum or %) */}
             {discountType === 'lumpsum' ? (
               <div>
                 <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Lumpsum (Rs.) *</label>
@@ -422,7 +513,7 @@ const AdminCouponGiftManager = () => {
                 <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>% (Percentage) *</label>
                 <input
                   type="number"
-                  placeholder="e.g. 5 or 10"
+                  placeholder="e.g. 10"
                   value={percentageAmount}
                   onChange={(e) => setPercentageAmount(e.target.value)}
                   required
@@ -430,138 +521,69 @@ const AdminCouponGiftManager = () => {
                 />
               </div>
             )}
-
-            {/* 6. Max Discount Value */}
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Max Discount Value *</label>
               <input
                 type="number"
-                placeholder="e.g. 50, 100, 75"
+                placeholder="e.g. 100"
                 value={maxDiscountValue}
                 onChange={(e) => setMaxDiscountValue(e.target.value)}
                 required
                 style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
               />
             </div>
-
-            {/* 7. 🟢 NEW: Assign to a specific user (optional) */}
-            <div>
-              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                Assign to Specific User (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="userId / email / phone"
-                value={assignedUser}
-                onChange={(e) => setAssignedUser(e.target.value)}
-                style={{ width: '100%', padding: '9px', border: '1.5px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
-              />
-              <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
-                Blank chhodo agar sabke liye public coupon banana hai.
-              </span>
-            </div>
           </div>
-
           <button
             type="submit"
             disabled={loading}
-            style={{ width: '100%', background: '#c00000', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 800, fontSize: '0.95rem', cursor: loading ? 'wait' : 'pointer' }}
+            style={{ width: '100%', background: '#c00000', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}
           >
             {loading ? 'Saving...' : '💾 Add Coupon to Store'}
           </button>
-
           {statusMsg.text && (
-            <div style={{ marginTop: '12px', padding: '10px', borderRadius: '6px', fontSize: '0.88rem', fontWeight: 700, background: statusMsg.type === 'success' ? '#dcfce7' : '#fee2e2', color: statusMsg.type === 'success' ? '#15803d' : '#b91c1c' }}>
+            <div style={{ marginTop: '10px', color: statusMsg.type === 'success' ? '#15803d' : '#b91c1c', fontWeight: 700 }}>
               {statusMsg.text}
             </div>
           )}
         </form>
 
-        {/* ================= 📋 4. COUPONS TABLE (With Delete Action) ================= */}
-        <div style={{ marginTop: '25px', overflowX: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 800 }}>
-              Active Coupons List ({couponList.length})
-            </h4>
-            <button
-              type="button"
-              onClick={fetchCoupons}
-              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '5px 10px', borderRadius: '5px', fontSize: '0.78rem', cursor: 'pointer' }}
-            >
-              🔄 Refresh
-            </button>
-          </div>
-
-          {listLoading ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>Loading coupons...</div>
-          ) : couponList.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', background: '#f8fafc', borderRadius: '6px' }}>
-              No coupons configured yet. Click on <strong>"Seed Excel Sheet Coupons"</strong> above.
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                  <th style={{ padding: '10px 8px' }}>Coupon Code</th>
-                  <th style={{ padding: '10px 8px' }}>No. of times Use</th>
-                  <th style={{ padding: '10px 8px' }}>Base Value</th>
-                  <th style={{ padding: '10px 8px' }}>Lumpsum</th>
-                  <th style={{ padding: '10px 8px' }}>%</th>
-                  <th style={{ padding: '10px 8px' }}>Max Discount Value</th>
-                  <th style={{ padding: '10px 8px' }}>Assigned User</th>
-                  <th style={{ padding: '10px 8px', textAlign: 'center' }}>Action</th>
+        {/* Coupons Table */}
+        <div style={{ marginTop: '20px', overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                <th style={{ padding: '8px' }}>Code</th>
+                <th style={{ padding: '8px' }}>Usage</th>
+                <th style={{ padding: '8px' }}>Min Order</th>
+                <th style={{ padding: '8px' }}>Discount</th>
+                <th style={{ padding: '8px' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {couponList.map((c) => (
+                <tr key={c._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px', fontWeight: 800, color: '#c00000' }}>{c.code}</td>
+                  <td style={{ padding: '8px' }}>{c.noOfTimesUse}</td>
+                  <td style={{ padding: '8px' }}>₹{c.baseValue}</td>
+                  <td style={{ padding: '8px' }}>
+                    {c.discountType === 'lumpsum' ? `₹${c.lumpsumAmount}` : `${c.percentageAmount}% (Max ₹${c.maxDiscountValue})`}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCoupon(c)}
+                      style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {couponList.map((c) => {
-                  const isDeleting = busyId === c._id;
-                  return (
-                    <tr key={c._id || c.code} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px 8px', fontWeight: 800, color: '#c00000' }}>{c.code}</td>
-                      <td style={{ padding: '10px 8px', color: '#b91c1c', fontWeight: 600 }}>
-                        {c.noOfTimesUse === 'first_time' ? 'First Time use' : `${c.noOfTimesUse} times`}
-                      </td>
-                      <td style={{ padding: '10px 8px', fontWeight: 700 }}>₹{c.baseValue}</td>
-                      <td style={{ padding: '10px 8px' }}>{c.discountType === 'lumpsum' ? `₹${c.lumpsumAmount}` : '-'}</td>
-                      <td style={{ padding: '10px 8px' }}>{c.discountType === 'percentage' ? `${c.percentageAmount}%` : '-'}</td>
-                      <td style={{ padding: '10px 8px', fontWeight: 800, color: '#15803d' }}>₹{c.maxDiscountValue}</td>
-                      <td style={{ padding: '10px 8px' }}>
-                        {c.assignedUser ? (
-                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 700 }}>
-                            🔒 Private
-                          </span>
-                        ) : (
-                          <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>Public</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCoupon(c)}
-                          disabled={isDeleting}
-                          style={{
-                            background: '#ef4444',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '6px 12px',
-                            borderRadius: '5px',
-                            fontWeight: 700,
-                            fontSize: '0.78rem',
-                            cursor: isDeleting ? 'wait' : 'pointer'
-                          }}
-                        >
-                          {isDeleting ? '...' : '🗑️ Delete'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
-
       </div>
+
     </div>
   );
 };

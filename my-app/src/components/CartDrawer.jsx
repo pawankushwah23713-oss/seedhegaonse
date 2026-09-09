@@ -138,6 +138,9 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
   const [, setStoreProducts] = useState([]);
   const [productOffers, setProductOffers] = useState({});
 
+  // 🎁 DYNAMIC FREE GIFTS FROM /api/gifts
+  const [giftMilestones, setGiftMilestones] = useState([]);
+
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
@@ -215,6 +218,28 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
       console.error(err);
     }
   }, [shippingMode]);
+
+  // 🎁 FETCH ACTIVE FREE GIFTS FROM BACKEND (/api/gifts)
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const loadGifts = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/gifts`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data)) {
+            const sorted = [...data].sort((a, b) => Number(a.minOrder) - Number(b.minOrder));
+            setGiftMilestones(sorted);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load free gifts:', err);
+      }
+    };
+    loadGifts();
+    return () => { cancelled = true; };
+  }, [isOpen]);
 
   // Fetch User Wallet Balance from Database
   const refreshWalletBalance = useCallback(async () => {
@@ -721,29 +746,52 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
     }
   }, [effectiveCartTotal, availableCoupons, appliedCoupon]);
 
+  // 🎁 DYNAMIC FREE GIFT STATE (Supports custom milestones from admin)
   const freeGiftState = useMemo(() => {
+    if (giftMilestones && giftMilestones.length > 0) {
+      // Find all milestones unlocked by current cart total
+      const unlockedGifts = giftMilestones.filter((g) => effectiveCartTotal >= Number(g.minOrder));
+      // Active gift is the highest unlocked milestone
+      const activeGift = unlockedGifts.length > 0 ? unlockedGifts[unlockedGifts.length - 1] : null;
+      // Next locked milestone
+      const nextGift = giftMilestones.find((g) => effectiveCartTotal < Number(g.minOrder));
+
+      return {
+        activeTitle: activeGift ? activeGift.title : null,
+        activeGiftId: activeGift ? activeGift._id : null,
+        isUnlocked: Boolean(activeGift),
+        remainingForNext: nextGift ? round2(Number(nextGift.minOrder) - effectiveCartTotal) : 0,
+        nextGiftTitle: nextGift ? nextGift.title : null,
+        isDynamic: true
+      };
+    }
+
+    // Default Fallback if no milestones added yet
     if (effectiveCartTotal >= 2500) {
       return {
         activeTitle: 'Special Premium Gift (Tier 2)',
         tier: 2,
         isUnlocked: true,
-        message: '🎉 Tier 2 Premium Gift Unlocked!'
+        message: '🎉 Tier 2 Premium Gift Unlocked!',
+        isDynamic: false
       };
     } else if (effectiveCartTotal >= 1500) {
       return {
         activeTitle: 'Delicious Sweets Gift Box (Tier 1)',
         tier: 1,
         isUnlocked: true,
-        message: '🎉 Free Sweets Gift Box Unlocked!'
+        message: '🎉 Free Sweets Gift Box Unlocked!',
+        isDynamic: false
       };
     }
     return {
       activeTitle: null,
       tier: 0,
       isUnlocked: false,
-      remainingForTier1: round2(1500 - effectiveCartTotal)
+      remainingForTier1: round2(1500 - effectiveCartTotal),
+      isDynamic: false
     };
-  }, [effectiveCartTotal]);
+  }, [effectiveCartTotal, giftMilestones]);
 
   const isFreeDelivery = enrichedCartItems.some((i) => isTrueFlag(i.isFreeDelivery));
   let shippingCharge = 0;
@@ -1049,7 +1097,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
           if (debitRes.ok && debitData.walletBalance !== undefined) {
             setWalletBalance(Number(debitData.walletBalance));
           } else {
-            // Re-fetch to ensure fresh data
             await refreshWalletBalance();
           }
         } catch (wErr) {
@@ -1335,61 +1382,129 @@ const CartDrawer = ({ isOpen, onClose, cartItems = [], cartCount, changeQty, rem
                     </div>
                   </div>
 
-                  {/* FREE GIFT SECTION */}
+                  {/* 🎁 DYNAMIC FREE GIFT SECTION (Loaded from /api/gifts) */}
                   <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontWeight: '800', color: '#94191d', fontSize: '0.95rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span>🎁</span> <strong>Free Gift on Order Value (Base Value)</strong>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 1 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 1 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                        <div>
-                          <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 1 ? '#15803d' : '#475569' }}>
-                            {freeGiftState.tier === 1 ? '🎉' : '🔒'} Orders ₹1,500+: <strong>Free Sweets Gift Box (Tier 1)</strong>
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                            {freeGiftState.tier === 1 ? '✓ Free Gift Automatically added' : freeGiftState.tier === 2 ? '⚠️ Upgraded to Tier 2 Premium Gift' : `Add ₹${formatMoney(freeGiftState.remainingForTier1)} more to unlock`}
-                          </div>
-                        </div>
-                        <div>
-                          {freeGiftState.tier === 1 ? (
-                            <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
-                              ACTIVE
-                            </span>
-                          ) : freeGiftState.tier === 2 ? (
-                            <span style={{ background: '#e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: '700', padding: '3px 7px', borderRadius: '4px' }}>
-                              UPGRADED
-                            </span>
-                          ) : (
-                            <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                              LOCKED
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                      {giftMilestones && giftMilestones.length > 0 ? (
+                        giftMilestones.map((g) => {
+                          const isUnlocked = effectiveCartTotal >= Number(g.minOrder);
+                          const isActive = freeGiftState.activeGiftId === g._id;
+                          const isUpgraded = isUnlocked && !isActive;
+                          const remainingToUnlock = round2(Number(g.minOrder) - effectiveCartTotal);
+                          const giftImgUrl = resolveItemImage({ image: g.image });
 
-                      <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 2 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 2 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                        <div>
-                          <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 2 ? '#15803d' : '#475569' }}>
-                            {freeGiftState.tier === 2 ? '🎉' : '🔒'} Orders ₹2,500+: <strong>New Premium Gift (Tier 2)</strong>
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                            {freeGiftState.tier === 2 ? '✓ Special Premium Gift Unlocked!' : `Add ₹${formatMoney(Math.max(0, 2500 - effectiveCartTotal))} more to upgrade`}
-                          </div>
-                        </div>
-                        <div>
-                          {freeGiftState.tier === 2 ? (
-                            <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
-                              ACTIVE
-                            </span>
-                          ) : (
-                            <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
-                              LOCKED
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                          return (
+                            <div
+                              key={g._id}
+                              style={{
+                                padding: '12px 14px',
+                                borderRadius: '8px',
+                                background: isActive ? '#f0fdf4' : '#f8fafc',
+                                border: `1.5px solid ${isActive ? '#22c55e' : '#cbd5e1'}`,
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '8px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {g.image && (
+                                  <img
+                                    src={giftImgUrl}
+                                    alt={g.title}
+                                    style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                  />
+                                )}
+                                <div>
+                                  <div style={{ fontWeight: '700', fontSize: '0.88rem', color: isActive ? '#15803d' : '#475569' }}>
+                                    {isActive ? '🎉' : '🔒'} Orders ₹{formatMoney(g.minOrder)}+: <strong>{g.title}</strong>
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                    {isActive
+                                      ? '✓ Free Gift Automatically added'
+                                      : isUpgraded
+                                        ? '⚠️ Upgraded to Higher Tier Gift'
+                                        : `Add ₹${formatMoney(remainingToUnlock)} more to unlock`}
+                                  </div>
+                                </div>
+                              </div>
 
+                              <div>
+                                {isActive ? (
+                                  <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
+                                    ACTIVE
+                                  </span>
+                                ) : isUpgraded ? (
+                                  <span style={{ background: '#e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: '700', padding: '3px 7px', borderRadius: '4px' }}>
+                                    UPGRADED
+                                  </span>
+                                ) : (
+                                  <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
+                                    LOCKED
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        /* Default Static Fallback (Jab tak database me gift add na ho) */
+                        <>
+                          <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 1 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 1 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 1 ? '#15803d' : '#475569' }}>
+                                {freeGiftState.tier === 1 ? '🎉' : '🔒'} Orders ₹1,500+: <strong>Delicious Sweets Gift Box (Tier 1)</strong>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                {freeGiftState.tier === 1 ? '✓ Free Gift Automatically added' : freeGiftState.tier === 2 ? '⚠️ Upgraded to Tier 2 Premium Gift' : `Add ₹${formatMoney(freeGiftState.remainingForTier1)} more to unlock`}
+                              </div>
+                            </div>
+                            <div>
+                              {freeGiftState.tier === 1 ? (
+                                <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
+                                  ACTIVE
+                                </span>
+                              ) : freeGiftState.tier === 2 ? (
+                                <span style={{ background: '#e2e8f0', color: '#64748b', fontSize: '10px', fontWeight: '700', padding: '3px 7px', borderRadius: '4px' }}>
+                                  UPGRADED
+                                </span>
+                              ) : (
+                                <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
+                                  LOCKED
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div style={{ padding: '12px 14px', borderRadius: '8px', background: freeGiftState.tier === 2 ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${freeGiftState.tier === 2 ? '#22c55e' : '#cbd5e1'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '0.88rem', color: freeGiftState.tier === 2 ? '#15803d' : '#475569' }}>
+                                {freeGiftState.tier === 2 ? '🎉' : '🔒'} Orders ₹2,500+: <strong>Special Premium Gift (Tier 2)</strong>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                {freeGiftState.tier === 2 ? '✓ Special Premium Gift Unlocked!' : `Add ₹${formatMoney(Math.max(0, 2500 - effectiveCartTotal))} more to upgrade`}
+                              </div>
+                            </div>
+                            <div>
+                              {freeGiftState.tier === 2 ? (
+                                <span style={{ background: '#22c55e', color: '#fff', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px' }}>
+                                  ACTIVE
+                                </span>
+                              ) : (
+                                <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
+                                  LOCKED
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
