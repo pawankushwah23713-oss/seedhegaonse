@@ -17,19 +17,10 @@ const getBaseApiUrl = () => {
 
 const API_BASE = getBaseApiUrl();
 
-const CATEGORIES = [
-  { value: 'ladoo', label: 'Ladoo' },
-  { value: 'peda', label: 'Peda' },
-  { value: 'petha', label: 'Petha' },
-  { value: 'halwa', label: 'Halwa' },
-  { value: 'barfi', label: 'Barfi & Katli' },
-  { value: 'special', label: 'Regional Special' }
-];
-
 const defaultForm = {
   // 1. Basic Metadata
   name: '',
-  category: 'ladoo',
+  category: '',
   productRank: '1',
   latestProduct: false,
   skuNo: '',
@@ -70,6 +61,15 @@ const AdminAllInOneProducts = () => {
   const [formData, setFormData] = useState(defaultForm);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
 
+  // 🟢 NEW: Categories now come from the database (persistent, editable later)
+  // instead of a hardcoded list — this is the only functional change requested.
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [showManageCategories, setShowManageCategories] = useState(false);
+  const [categoryEdits, setCategoryEdits] = useState({}); // { [id]: editedName }
+  const [categoryMsg, setCategoryMsg] = useState('');
+
   // 3 Dedicated Image Slots
   const [imageSlots, setImageSlots] = useState(defaultSlots);
 
@@ -95,8 +95,34 @@ const AdminAllInOneProducts = () => {
     }
   };
 
+  // 🟢 NEW: Fetch all categories (admin view — includes inactive so they can
+  // be managed/reactivated later) from the persistent Category collection.
+  const fetchCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      const res = await fetch(`${API_BASE}/categories/all`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        setCategories(data);
+        // Default the form to the first active category once loaded, if empty
+        setFormData((prev) => {
+          if (prev.category) return prev;
+          const firstActive = data.find((c) => c.isActive);
+          return firstActive ? { ...prev, category: firstActive.value } : prev;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   const handleChange = (e) => {
@@ -148,6 +174,89 @@ const AdminAllInOneProducts = () => {
       updated[index] = { file: null, preview: '', existingUrl: '' };
       return updated;
     });
+  };
+
+  // 🟢 NEW: Persist a newly typed category to the database so it's available
+  // forever afterward (not just for this one product).
+  const handleSaveNewCategory = async () => {
+    const typedName = String(formData.category || '').trim();
+    if (!typedName) {
+      setCategoryMsg('Please type a category name first.');
+      return;
+    }
+    try {
+      setSavingCategory(true);
+      setCategoryMsg('');
+      const res = await fetch(`${API_BASE}/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: typedName })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to save category');
+
+      // Add it to the local list if it isn't already there, then select it
+      setCategories((prev) => {
+        const exists = prev.some((c) => c._id === data._id);
+        return exists ? prev : [...prev, data];
+      });
+      setFormData((prev) => ({ ...prev, category: data.value }));
+      setIsCustomCategory(false);
+    } catch (err) {
+      setCategoryMsg(err.message);
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  // 🟢 NEW: Rename an existing category (kept for later editing, as requested)
+  const handleRenameCategory = async (id) => {
+    const newName = (categoryEdits[id] || '').trim();
+    if (!newName) return;
+    try {
+      const res = await fetch(`${API_BASE}/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newName })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Rename failed');
+      setCategories((prev) => prev.map((c) => (c._id === id ? data : c)));
+    } catch (err) {
+      setCategoryMsg(err.message);
+    }
+  };
+
+  // 🟢 NEW: Toggle a category active/inactive (hides it from the dropdown
+  // without deleting products that already used it)
+  const handleToggleCategoryActive = async (cat) => {
+    try {
+      const res = await fetch(`${API_BASE}/categories/${cat._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ isActive: !cat.isActive })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Update failed');
+      setCategories((prev) => prev.map((c) => (c._id === cat._id ? data : c)));
+    } catch (err) {
+      setCategoryMsg(err.message);
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    if (!window.confirm('Delete this category? Products already using it will keep their existing value.')) return;
+    try {
+      const res = await fetch(`${API_BASE}/categories/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Delete failed');
+      setCategories((prev) => prev.filter((c) => c._id !== id));
+    } catch (err) {
+      setCategoryMsg(err.message);
+    }
   };
 
   // Submit / Save
@@ -212,13 +321,13 @@ const AdminAllInOneProducts = () => {
   const handleEditClick = (p) => {
     setEditingId(p._id);
 
-    // Check if category is standard or custom
-    const isCustom = !CATEGORIES.some((c) => c.value === p.category);
+    // Check if category is standard or custom (i.e. not in our saved list)
+    const isCustom = !categories.some((c) => c.value === p.category);
     setIsCustomCategory(isCustom);
 
     setFormData({
       name: p.name || '',
-      category: p.category || 'ladoo',
+      category: p.category || (categories[0]?.value || ''),
       productRank: p.productRank || '1',
       latestProduct: !!p.latestProduct,
       skuNo: p.skuNo || '',
@@ -255,7 +364,7 @@ const AdminAllInOneProducts = () => {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setFormData(defaultForm);
+    setFormData({ ...defaultForm, category: categories.find((c) => c.isActive)?.value || '' });
     setIsCustomCategory(false);
     setImageSlots(defaultSlots);
   };
@@ -299,32 +408,59 @@ const AdminAllInOneProducts = () => {
         {/* ROW 1: BASIC METADATA */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
               <label style={labelStyle}>Category *</label>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCustomCategory(!isCustomCategory);
-                  if (isCustomCategory) {
-                    setFormData((prev) => ({ ...prev, category: 'ladoo' }));
-                  }
-                }}
-                style={{ background: 'none', border: 'none', color: '#94191d', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 'bold', padding: 0 }}
-              >
-                {isCustomCategory ? '← Choose from List' : '+ Add Custom'}
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowManageCategories(true)}
+                  style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 'bold', padding: 0 }}
+                >
+                  ⚙️ Manage
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomCategory(!isCustomCategory);
+                    setCategoryMsg('');
+                    if (isCustomCategory) {
+                      setFormData((prev) => ({ ...prev, category: categories[0]?.value || '' }));
+                    } else {
+                      setFormData((prev) => ({ ...prev, category: '' }));
+                    }
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#94191d', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 'bold', padding: 0 }}
+                >
+                  {isCustomCategory ? '← Choose from List' : '+ Add Custom'}
+                </button>
+              </div>
             </div>
 
             {isCustomCategory ? (
-              <input
-                type="text"
-                name="category"
-                required
-                placeholder="Type custom category (e.g. Namkeen)"
-                value={formData.category}
-                onChange={handleChange}
-                style={inputStyle}
-              />
+              <div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <input
+                    type="text"
+                    name="category"
+                    required
+                    placeholder="Type new category (e.g. Namkeen)"
+                    value={formData.category}
+                    onChange={handleChange}
+                    style={{ ...inputStyle, marginTop: 0 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveNewCategory}
+                    disabled={savingCategory}
+                    style={{ background: '#15803d', color: '#fff', border: 'none', padding: '0 16px', borderRadius: '6px', fontWeight: 'bold', cursor: savingCategory ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    {savingCategory ? 'Saving...' : '✓ Save'}
+                  </button>
+                </div>
+                <small style={{ color: '#64748b', display: 'block', marginTop: '4px' }}>
+                  Click "Save" to add this category permanently — it'll show up in the dropdown from now on, and you can rename or remove it later via "⚙️ Manage".
+                </small>
+              </div>
             ) : (
               <select
                 name="category"
@@ -339,11 +475,18 @@ const AdminAllInOneProducts = () => {
                 }}
                 style={inputStyle}
               >
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
+                {categoriesLoading && <option value="">Loading categories...</option>}
+                {!categoriesLoading && categories.filter((c) => c.isActive).length === 0 && (
+                  <option value="">No categories yet — add one below</option>
+                )}
+                {categories.filter((c) => c.isActive).map((c) => (
+                  <option key={c._id} value={c.value}>{c.name}</option>
                 ))}
                 <option value="__add_custom__">+ Add Custom Category...</option>
               </select>
+            )}
+            {categoryMsg && (
+              <small style={{ color: '#b91c1c', display: 'block', marginTop: '4px' }}>{categoryMsg}</small>
             )}
           </div>
 
@@ -598,6 +741,67 @@ const AdminAllInOneProducts = () => {
           })}
         </div>
       </div>
+
+      {/* 🟢 NEW: Manage Categories modal — rename or delete any saved category */}
+      {showManageCategories && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '16px'
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowManageCategories(false); }}
+        >
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '22px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: '#1e293b' }}>⚙️ Manage Categories</h3>
+              <button onClick={() => setShowManageCategories(false)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}>×</button>
+            </div>
+
+            {categoryMsg && <div style={{ color: '#b91c1c', fontSize: '0.85rem', marginBottom: '10px' }}>{categoryMsg}</div>}
+
+            {categories.length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: '0.9rem' }}>No categories yet. Use "+ Add Custom" to create your first one.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {categories.map((cat) => (
+                  <div key={cat._id} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px' }}>
+                    <input
+                      type="text"
+                      value={categoryEdits[cat._id] !== undefined ? categoryEdits[cat._id] : cat.name}
+                      onChange={(e) => setCategoryEdits((prev) => ({ ...prev, [cat._id]: e.target.value }))}
+                      style={{ ...inputStyle, marginTop: 0, flex: 1, opacity: cat.isActive ? 1 : 0.5 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRenameCategory(cat._id)}
+                      title="Save rename"
+                      style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCategoryActive(cat)}
+                      title={cat.isActive ? 'Hide from dropdown' : 'Show in dropdown'}
+                      style={{ background: cat.isActive ? '#f1f5f9' : '#dcfce7', color: cat.isActive ? '#334155' : '#15803d', border: '1px solid #e2e8f0', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+                    >
+                      {cat.isActive ? 'Hide' : 'Unhide'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCategory(cat._id)}
+                      title="Delete permanently"
+                      style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

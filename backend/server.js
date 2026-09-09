@@ -26,6 +26,7 @@ const returnRefundPolicyRoutes = require('./routes/returnRefundPolicyRoutes'); /
 const couponLoyaltyPolicyRoutes = require('./routes/Couponloyaltypolicyroutes');
 const corporateBulkOrdersRoutes = require('./routes/corporateBulkOrdersRoutes');
 const socialLinkRoutes = require('./routes/socialLinkRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 const app = express();
 const server = http.createServer(app); // 🟢 Create HTTP server
@@ -83,6 +84,7 @@ app.use(
 
 
 // ...jahan tumhare baaki app.use() routes likhe hain, wahi ye bhi daal do:
+app.use('/api/categories', categoryRoutes); 
 app.use('/api/coupon-loyalty-policy', couponLoyaltyPolicyRoutes);
 app.use('/api/cancellation-policy', cancellationPolicyRoutes);
 app.use('/api/policies', policyRoutes);
@@ -102,6 +104,7 @@ app.use('/api/enquiry', enquiryRoutes);
 app.use('/api/return-refund-policy', returnRefundPolicyRoutes); // 🟢 NEW
 app.use('/api/corporate-bulk-orders', corporateBulkOrdersRoutes);
 app.use('/api/social-links', socialLinkRoutes);
+
 
 // Optional: Agar aapne Couponwallet.routes.js alag rakha hai:
 try {
