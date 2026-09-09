@@ -70,6 +70,16 @@ const AdminAllInOneProducts = () => {
   const [categoryEdits, setCategoryEdits] = useState({}); // { [id]: editedName }
   const [categoryMsg, setCategoryMsg] = useState('');
 
+  // 🟢 NEW: which navbar dropdown a freshly-typed category should belong to.
+  // 'sweets' | 'cakes' | 'about' = existing dropdowns, '__new__' = create a
+  // brand new dropdown named after newCategoryCustomGroup.
+  const [newCategoryGroup, setNewCategoryGroup] = useState('sweets');
+  const [newCategoryCustomGroup, setNewCategoryCustomGroup] = useState('');
+
+  // 🟢 NEW: tracks per-row "creating a new dropdown" state inside the
+  // Manage Categories modal ( { [id]: '__new__' } while typing a new name)
+  const [categoryGroupEdits, setCategoryGroupEdits] = useState({});
+
   // 3 Dedicated Image Slots
   const [imageSlots, setImageSlots] = useState(defaultSlots);
 
@@ -177,20 +187,28 @@ const AdminAllInOneProducts = () => {
   };
 
   // 🟢 NEW: Persist a newly typed category to the database so it's available
-  // forever afterward (not just for this one product).
+  // forever afterward (not just for this one product) — including which
+  // navbar dropdown it should render in.
   const handleSaveNewCategory = async () => {
     const typedName = String(formData.category || '').trim();
     if (!typedName) {
       setCategoryMsg('Please type a category name first.');
       return;
     }
+
+    // Resolve which menuGroup to send: an existing dropdown, or a brand new
+    // one typed by the admin (falls back to 'sweets' if left blank).
+    const menuGroup = newCategoryGroup === '__new__'
+      ? (newCategoryCustomGroup.trim() || 'sweets')
+      : newCategoryGroup;
+
     try {
       setSavingCategory(true);
       setCategoryMsg('');
       const res = await fetch(`${API_BASE}/categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: typedName })
+        body: JSON.stringify({ name: typedName, menuGroup }) // 🟢 menuGroup added
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to save category');
@@ -202,6 +220,8 @@ const AdminAllInOneProducts = () => {
       });
       setFormData((prev) => ({ ...prev, category: data.value }));
       setIsCustomCategory(false);
+      setNewCategoryGroup('sweets');   // 🟢 reset for next time
+      setNewCategoryCustomGroup('');   // 🟢 reset for next time
     } catch (err) {
       setCategoryMsg(err.message);
     } finally {
@@ -235,6 +255,23 @@ const AdminAllInOneProducts = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isActive: !cat.isActive })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Update failed');
+      setCategories((prev) => prev.map((c) => (c._id === cat._id ? data : c)));
+    } catch (err) {
+      setCategoryMsg(err.message);
+    }
+  };
+
+  // 🟢 NEW: Move an existing category to a different navbar dropdown
+  // (or a brand new one, if `group` isn't one of the existing ones).
+  const handleChangeCategoryGroup = async (cat, group) => {
+    try {
+      const res = await fetch(`${API_BASE}/categories/${cat._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ menuGroup: group })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Update failed');
@@ -457,8 +494,33 @@ const AdminAllInOneProducts = () => {
                     {savingCategory ? 'Saving...' : '✓ Save'}
                   </button>
                 </div>
+
+                {/* 🟢 NEW: choose which navbar dropdown this category lands in */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label style={{ ...labelStyle, marginRight: '4px' }}>Show in navbar dropdown:</label>
+                  <select
+                    value={newCategoryGroup}
+                    onChange={(e) => setNewCategoryGroup(e.target.value)}
+                    style={{ ...inputStyle, marginTop: 0, width: 'auto' }}
+                  >
+                    <option value="sweets">🍬 Sweets (existing)</option>
+                    <option value="cakes">🎂 Cakes (existing)</option>
+                    <option value="about">📖 About Us (existing)</option>
+                    <option value="__new__">+ Create New Dropdown</option>
+                  </select>
+                  {newCategoryGroup === '__new__' && (
+                    <input
+                      type="text"
+                      placeholder="New dropdown name (e.g. Namkeen)"
+                      value={newCategoryCustomGroup}
+                      onChange={(e) => setNewCategoryCustomGroup(e.target.value)}
+                      style={{ ...inputStyle, marginTop: 0, width: 'auto', flex: 1, minWidth: '160px' }}
+                    />
+                  )}
+                </div>
+
                 <small style={{ color: '#64748b', display: 'block', marginTop: '4px' }}>
-                  Click "Save" to add this category permanently — it'll show up in the dropdown from now on, and you can rename or remove it later via "⚙️ Manage".
+                  Click "Save" to add this category permanently — it'll show up in the chosen navbar dropdown, and you can move, rename or remove it later via "⚙️ Manage".
                 </small>
               </div>
             ) : (
@@ -742,7 +804,8 @@ const AdminAllInOneProducts = () => {
         </div>
       </div>
 
-      {/* 🟢 NEW: Manage Categories modal — rename or delete any saved category */}
+      {/* 🟢 NEW: Manage Categories modal — rename, delete, or move any saved
+          category to a different (or brand new) navbar dropdown */}
       {showManageCategories && (
         <div
           style={{
@@ -751,7 +814,7 @@ const AdminAllInOneProducts = () => {
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowManageCategories(false); }}
         >
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '22px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '22px', width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, color: '#1e293b' }}>⚙️ Manage Categories</h3>
               <button onClick={() => setShowManageCategories(false)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}>×</button>
@@ -764,13 +827,50 @@ const AdminAllInOneProducts = () => {
             ) : (
               <div style={{ display: 'grid', gap: '10px' }}>
                 {categories.map((cat) => (
-                  <div key={cat._id} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px' }}>
+                  <div key={cat._id} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', flexWrap: 'wrap' }}>
                     <input
                       type="text"
                       value={categoryEdits[cat._id] !== undefined ? categoryEdits[cat._id] : cat.name}
                       onChange={(e) => setCategoryEdits((prev) => ({ ...prev, [cat._id]: e.target.value }))}
-                      style={{ ...inputStyle, marginTop: 0, flex: 1, opacity: cat.isActive ? 1 : 0.5 }}
+                      style={{ ...inputStyle, marginTop: 0, flex: 1, minWidth: '120px', opacity: cat.isActive ? 1 : 0.5 }}
                     />
+
+                    {/* 🟢 NEW: move this category to a different navbar dropdown */}
+                    {categoryGroupEdits[cat._id] === '__new__' ? (
+                      <input
+                        type="text"
+                        placeholder="New dropdown name"
+                        autoFocus
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          setCategoryGroupEdits((prev) => ({ ...prev, [cat._id]: undefined }));
+                          if (val) handleChangeCategoryGroup(cat, val);
+                        }}
+                        style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.78rem', width: '130px' }}
+                      />
+                    ) : (
+                      <select
+                        value={cat.menuGroup || 'sweets'}
+                        onChange={(e) => {
+                          if (e.target.value === '__new__') {
+                            setCategoryGroupEdits((prev) => ({ ...prev, [cat._id]: '__new__' }));
+                          } else {
+                            handleChangeCategoryGroup(cat, e.target.value);
+                          }
+                        }}
+                        title="Navbar dropdown"
+                        style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.78rem' }}
+                      >
+                        <option value="sweets">Sweets</option>
+                        <option value="cakes">Cakes</option>
+                        <option value="about">About Us</option>
+                        {cat.menuGroup && !['sweets', 'cakes', 'about'].includes(cat.menuGroup) && (
+                          <option value={cat.menuGroup}>{cat.menuGroup} (custom)</option>
+                        )}
+                        <option value="__new__">+ New Dropdown...</option>
+                      </select>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => handleRenameCategory(cat._id)}

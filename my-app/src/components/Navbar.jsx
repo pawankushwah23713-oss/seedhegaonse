@@ -3,6 +3,25 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import logoImg from '../assets/logo.png';
 import './Navbar.css';
 
+// 🟢 NEW: resolve API base the same way the rest of the app does, so we can
+// fetch the admin-managed category list for the navbar dropdowns.
+const API_BASE = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
+  ? process.env.REACT_APP_API_URL.replace('/auth', '')
+  : (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL?.replace('/auth', '')) || '';
+
+// 🟢 NEW: best-effort emoji per category name, purely cosmetic — falls back
+// to a generic sweet emoji if nothing matches.
+const sweetIcon = (name = '') => {
+  const n = name.toLowerCase();
+  if (n.includes('laddu') || n.includes('ladoo')) return '🟡';
+  if (n.includes('peda') || n.includes('pedha')) return '🟤';
+  if (n.includes('petha')) return '⚪';
+  if (n.includes('halwa') || n.includes('halva')) return '🥣';
+  if (n.includes('barfi') || n.includes('burfi') || n.includes('katli')) return '🔶';
+  if (n.includes('special') || n.includes('festive')) return '⭐';
+  return '🍬';
+};
+
 // 🟢 Shelf dropdown menus ka data (desktop hover + mobile tap dono isi se chalte hain)
 const SHELF_MENUS = {
   sweets: {
@@ -108,6 +127,10 @@ const resolveSearchRoute = (rawQuery) => {
   return null;
 };
 
+// 🟢 NEW: normalize a category's menuGroup — untagged/blank categories
+// default to 'sweets' so old data keeps working exactly as before.
+const normalizeGroup = (g) => String(g || 'sweets').trim();
+
 const Navbar = ({ 
   cartCount = 0, 
   onCartClick, 
@@ -123,7 +146,11 @@ const Navbar = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState(userAddress);
 
-  // 🟢 Mobile par shelf dropdown (Sweets / Cakes / About) tap se khulega
+  // 🟢 NEW: admin-managed categories, used both for the Sweets dropdown and
+  // for any brand-new dropdowns created via the admin category manager.
+  const [liveCategories, setLiveCategories] = useState([]);
+
+  // 🟢 Mobile par shelf dropdown (Sweets / Cakes / About / custom) tap se khulega
   const [isMobileView, setIsMobileView] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   );
@@ -160,6 +187,63 @@ const Navbar = ({
     window.addEventListener('storage', syncUser);
     return () => window.removeEventListener('storage', syncUser);
   }, [location.pathname, isLoggedIn, userName]);
+
+  // 🟢 NEW: fetch admin-managed categories once on mount, for the navbar
+  // menus. Fails silently (keeps the hardcoded fallback list) if the API
+  // isn't reachable.
+  useEffect(() => {
+    const fetchLiveCategories = async () => {
+      if (!API_BASE) return;
+      try {
+        const res = await fetch(`${API_BASE}/categories`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data)) setLiveCategories(data);
+      } catch (err) {
+        console.error('Failed to load categories for navbar:', err);
+      }
+    };
+    fetchLiveCategories();
+  }, []);
+
+  // 🟢 CHANGED: only categories tagged 'sweets' (or untagged, for backward
+  // compatibility with data saved before menuGroup existed) go into the
+  // existing Sweets dropdown now — everything else gets its own dropdown
+  // via getDynamicMenus() below.
+  const getSweetsLinks = () => {
+    const sweetsCats = liveCategories.filter(
+      (c) => normalizeGroup(c.menuGroup).toLowerCase() === 'sweets'
+    );
+    if (sweetsCats.length === 0) return SHELF_MENUS.sweets.links;
+    return [
+      { to: '/', label: '🍬 All Sweets' },
+      ...sweetsCats.map((c) => ({
+        to: `/?search=${encodeURIComponent(c.name)}`,
+        label: `${sweetIcon(c.name)} ${c.name}`
+      }))
+    ];
+  };
+
+  // 🟢 NEW: any category whose menuGroup isn't sweets/cakes/about gets its
+  // own brand-new navbar dropdown, named after whatever group it was
+  // assigned when the admin created (or later moved) it. Returns an object
+  // keyed by the lowercase group name, e.g. { namkeen: { title, links } }.
+  const getDynamicMenus = () => {
+    const groups = {};
+    liveCategories.forEach((c) => {
+      const rawGroup = normalizeGroup(c.menuGroup);
+      const key = rawGroup.toLowerCase();
+      if (key === 'sweets' || key === 'cakes' || key === 'about') return;
+      if (!groups[key]) {
+        groups[key] = { title: rawGroup, links: [] };
+      }
+      groups[key].links.push({
+        to: `/?search=${encodeURIComponent(c.name)}`,
+        label: `${sweetIcon(c.name)} ${c.name}`
+      });
+    });
+    return groups;
+  };
 
   // 🟢 Screen size track (mobile par tap-dropdown, desktop par hover)
   useEffect(() => {
@@ -263,6 +347,9 @@ const Navbar = ({
   const isAdminUser = Boolean(userData?.role === 'admin' || userData?.isAdmin === true || userData?.userType === 'admin');
   const displayName = userData?.name || userData?.fullName || userData?.username || (userData?.email ? userData.email.split('@')[0] : '') || userName || 'User';
   const userInitial = displayName ? displayName.charAt(0).toUpperCase() : 'U';
+
+  // 🟢 NEW: computed once per render, used by both desktop nav and drawer
+  const dynamicMenus = getDynamicMenus();
 
   return (
     <div className="navbar-root-wrapper">
@@ -468,7 +555,7 @@ const Navbar = ({
               <Link to="/" className="menu-nav-link active-link">Home</Link>
             </li>
 
-            {/* 🍬 SWEETS DROPDOWN */}
+            {/* 🍬 SWEETS DROPDOWN — 🟢 now uses only 'sweets'-tagged live categories */}
             <li className={`menu-nav-item has-dropdown ${shelfMenu === 'sweets' ? 'is-open' : ''}`}>
               <a
                 href="/#products"
@@ -481,7 +568,7 @@ const Navbar = ({
                 </svg>
               </a>
               <ul className="dropdown-flyout">
-                {SHELF_MENUS.sweets.links.map((l) => (
+                {getSweetsLinks().map((l) => (
                   <li key={l.to + l.label}><Link to={l.to}>{l.label}</Link></li>
                 ))}
               </ul>
@@ -525,6 +612,29 @@ const Navbar = ({
               </ul>
             </li>
 
+            {/* 🟢 NEW: any custom dropdowns created from the admin category
+                manager (menuGroup other than sweets/cakes/about) render here
+                automatically, one <li> per group. */}
+            {Object.entries(dynamicMenus).map(([key, menu]) => (
+              <li key={key} className={`menu-nav-item has-dropdown ${shelfMenu === key ? 'is-open' : ''}`}>
+                <a
+                  href="/#products"
+                  className="menu-nav-link"
+                  onClick={(e) => handleShelfDropdownClick(e, key)}
+                >
+                  {menu.title}
+                  <svg className="dropdown-arrow-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </a>
+                <ul className="dropdown-flyout">
+                  {menu.links.map((l) => (
+                    <li key={l.to + l.label}><Link to={l.to}>{l.label}</Link></li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+
             {/* 🎁 BULK / GIFTING */}
             <li>
               <Link to="/bulk-gifting" className="menu-nav-link">Bulk / Gifting</Link>
@@ -542,36 +652,40 @@ const Navbar = ({
         </div>
       </nav>
 
-      {/* 📲 3b. MOBILE SUB-MENU PANEL (Sweets / Cakes / About tap karne par) */}
-      {isMobileView && shelfMenu && SHELF_MENUS[shelfMenu] && (
-        <div className="mobile-subnav-panel">
-          <div className="mobile-subnav-head">
-            <span>{SHELF_MENUS[shelfMenu].title}</span>
-            <button
-              type="button"
-              className="mobile-subnav-close"
-              onClick={() => setShelfMenu(null)}
-              aria-label="Close menu"
-            >
-              ✕
-            </button>
-          </div>
+      {/* 📲 3b. MOBILE SUB-MENU PANEL (Sweets / Cakes / About / custom tap karne par) */}
+      {isMobileView && shelfMenu && (SHELF_MENUS[shelfMenu] || dynamicMenus[shelfMenu]) && (() => {
+        const menu = SHELF_MENUS[shelfMenu] || dynamicMenus[shelfMenu];
+        const links = shelfMenu === 'sweets' ? getSweetsLinks() : menu.links;
+        return (
+          <div className="mobile-subnav-panel">
+            <div className="mobile-subnav-head">
+              <span>{menu.title}</span>
+              <button
+                type="button"
+                className="mobile-subnav-close"
+                onClick={() => setShelfMenu(null)}
+                aria-label="Close menu"
+              >
+                ✕
+              </button>
+            </div>
 
-          <ul className="mobile-subnav-links">
-            {SHELF_MENUS[shelfMenu].links.map((l) =>
-              l.anchor ? (
-                <li key={l.to + l.label}>
-                  <a href={l.to} onClick={() => setShelfMenu(null)}>{l.label}</a>
-                </li>
-              ) : (
-                <li key={l.to + l.label}>
-                  <Link to={l.to} onClick={() => setShelfMenu(null)}>{l.label}</Link>
-                </li>
-              )
-            )}
-          </ul>
-        </div>
-      )}
+            <ul className="mobile-subnav-links">
+              {links.map((l) =>
+                l.anchor ? (
+                  <li key={l.to + l.label}>
+                    <a href={l.to} onClick={() => setShelfMenu(null)}>{l.label}</a>
+                  </li>
+                ) : (
+                  <li key={l.to + l.label}>
+                    <Link to={l.to} onClick={() => setShelfMenu(null)}>{l.label}</Link>
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* 📱 5. MOBILE OVERLAY + SLIDE-OUT DRAWER */}
       {mobileMenuOpen && (
@@ -606,7 +720,7 @@ const Navbar = ({
               <Link to="/" className="drawer-link-item" onClick={closeMobileMenu}>🏠 Home</Link>
             </li>
 
-            {/* Accordion 1: Sweets */}
+            {/* Accordion 1: Sweets — 🟢 now uses only 'sweets'-tagged live categories */}
             <li className="drawer-accordion-group">
               <div className="drawer-accordion-trigger" onClick={() => toggleMobileSubmenu('sweets')}>
                 <span>🍬 Sweets</span>
@@ -614,11 +728,21 @@ const Navbar = ({
               </div>
               {mobileDropdown === 'sweets' && (
                 <ul className="drawer-sub-links-tree">
-                  <li><Link to="/" onClick={closeMobileMenu}>All Sweets</Link></li>
-                  <li><Link to="/laddu" onClick={closeMobileMenu}>🟡 Laddu & Peda</Link></li>
-                  <li><Link to="/#products" onClick={closeMobileMenu}>⚪ Agra Petha</Link></li>
-                  <li><Link to="/#products" onClick={closeMobileMenu}>🥣 Moong Dal Halwa</Link></li>
-                  <li><Link to="/#products" onClick={closeMobileMenu}>🔶 Kaju Katli</Link></li>
+                  {liveCategories.length > 0 ? (
+                    getSweetsLinks().map((l) => (
+                      <li key={l.to + l.label}>
+                        <Link to={l.to} onClick={closeMobileMenu}>{l.label}</Link>
+                      </li>
+                    ))
+                  ) : (
+                    <>
+                      <li><Link to="/" onClick={closeMobileMenu}>All Sweets</Link></li>
+                      <li><Link to="/laddu" onClick={closeMobileMenu}>🟡 Laddu & Peda</Link></li>
+                      <li><Link to="/#products" onClick={closeMobileMenu}>⚪ Agra Petha</Link></li>
+                      <li><Link to="/#products" onClick={closeMobileMenu}>🥣 Moong Dal Halwa</Link></li>
+                      <li><Link to="/#products" onClick={closeMobileMenu}>🔶 Kaju Katli</Link></li>
+                    </>
+                  )}
                 </ul>
               )}
             </li>
@@ -653,6 +777,26 @@ const Navbar = ({
                 </ul>
               )}
             </li>
+
+            {/* 🟢 NEW: one accordion per custom dropdown, same pattern as
+                Sweets/Cakes/About above */}
+            {Object.entries(dynamicMenus).map(([key, menu]) => (
+              <li className="drawer-accordion-group" key={key}>
+                <div className="drawer-accordion-trigger" onClick={() => toggleMobileSubmenu(key)}>
+                  <span>{menu.title}</span>
+                  <span className={`accordion-icon-rotate ${mobileDropdown === key ? 'open' : ''}`}>▼</span>
+                </div>
+                {mobileDropdown === key && (
+                  <ul className="drawer-sub-links-tree">
+                    {menu.links.map((l) => (
+                      <li key={l.to + l.label}>
+                        <Link to={l.to} onClick={closeMobileMenu}>{l.label}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
 
             <li>
               <Link to="/bulk-gifting" className="drawer-link-item" onClick={closeMobileMenu}>🎁 Bulk / Gifting</Link>

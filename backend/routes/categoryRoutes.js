@@ -12,9 +12,16 @@ const toValue = (name) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
+// 🟢 NEW: normalize a menuGroup string (falls back to 'sweets' when empty)
+const toMenuGroup = (group) => {
+  const g = String(group || '').trim();
+  return g || 'sweets';
+};
+
 /**
  * GET /api/categories
- * Public — active categories only, sorted for use in the product dropdown.
+ * Public — active categories only, sorted for use in the product dropdown
+ * and the navbar (navbar groups these client-side by menuGroup).
  */
 router.get('/', async (req, res) => {
   try {
@@ -41,7 +48,8 @@ router.get('/all', protect, adminOnly, async (req, res) => {
 /**
  * POST /api/categories
  * Admin only — add a new category. This is what makes a typed category
- * permanent instead of one-off.
+ * permanent instead of one-off. Accepts an optional menuGroup so the admin
+ * can choose which navbar dropdown (existing or brand new) it lands in.
  */
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
@@ -51,6 +59,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
     }
 
     const value = toValue(name);
+    const menuGroup = toMenuGroup(req.body.menuGroup); // 🟢 NEW
+
     const existing = await Category.findOne({ value });
     if (existing) {
       // Already exists — just return it instead of erroring, so re-adding
@@ -58,7 +68,12 @@ router.post('/', protect, adminOnly, async (req, res) => {
       return res.status(200).json(existing);
     }
 
-    const category = new Category({ name, value, order: Number(req.body.order) || 0 });
+    const category = new Category({
+      name,
+      value,
+      order: Number(req.body.order) || 0,
+      menuGroup // 🟢 NEW
+    });
     await category.save();
     res.status(201).json(category);
   } catch (err) {
@@ -68,7 +83,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
 /**
  * PUT /api/categories/:id
- * Admin only — rename, reorder, or activate/deactivate a category.
+ * Admin only — rename, reorder, activate/deactivate, or move a category to
+ * a different navbar dropdown (menuGroup).
  * Note: renaming only changes the display name; the stored "value" on
  * existing products is untouched unless you explicitly update it here.
  */
@@ -78,6 +94,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     if (req.body.name !== undefined) update.name = String(req.body.name).trim();
     if (req.body.order !== undefined) update.order = Number(req.body.order) || 0;
     if (req.body.isActive !== undefined) update.isActive = !!req.body.isActive;
+    if (req.body.menuGroup !== undefined) update.menuGroup = toMenuGroup(req.body.menuGroup); // 🟢 NEW
 
     const updated = await Category.findByIdAndUpdate(req.params.id, update, {
       new: true,
