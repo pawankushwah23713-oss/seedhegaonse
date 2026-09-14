@@ -69,7 +69,7 @@ import AdminCancellationPolicy from './pages/admin/Admincancellationpolicy';
 import AdminCouponLoyaltyPolicy from './pages/admin/Admincouponloyaltypolicy';
 import AdminCorporateBulkOrders from './pages/admin/Admincorporatebulkorders'
 import AdminSocialLinks from './pages/admin/AdminSocialLinks';
-
+import StoreSettingsAdmin from './pages/admin/StoreSettingsAdmin';
 const CART_STORAGE_KEY = 'sgs_cart_items';
 
 // 🟢 Page load par purana cart wapas load karo
@@ -304,7 +304,8 @@ const AppContent = ({
                    <Route path="coupon-loyalty-policy" element={<AdminCouponLoyaltyPolicy />} />
                    <Route path="admin/corporate-bulk-orders" element={<AdminCorporateBulkOrders />} />
                     <Route path="social-links" element={<AdminSocialLinks />} />
-
+                    
+                     <Route path="settings" element={<StoreSettingsAdmin />} />
              <Route path="addpincharges" element={<AdminPincodeManager />} />
            
           </Route>

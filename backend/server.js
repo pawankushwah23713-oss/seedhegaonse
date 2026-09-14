@@ -7,7 +7,7 @@ const path = require('path');
 require('dotenv').config();
 
 // 🟢 Route Imports
-const cancellationPolicyRoutes = require('./routes/CancellationPolicyroutes');
+const cancellationPolicyRoutes = require('./routes/Cancellationpolicyroutes');
 const policyRoutes = require('./routes/policyRoutes');
 const wishlistRoutes = require('./routes/wishlist');
 const paymentRoutes = require('./routes/payment.routes');
