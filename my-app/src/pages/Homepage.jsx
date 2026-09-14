@@ -25,6 +25,25 @@ const isDummyProduct = (product) => {
 // 🟢 STOCK HELPER — inStock === false hone par hi Out of Stock
 const isOutOfStock = (product) => product?.inStock === false;
 
+// 🟢 FIX: Homepage pehle "/products" ka SAARA data dikha raha tha — jisme
+// cakes bhi mix ho ke aa rahe the. Ab yahan cake-family items ko explicitly
+// exclude karte hain taaki Home page par SIRF sweets (mithai) hi dikhein.
+// Cake page apna alag "/cake" route use karta hai jo isi list ko keep karta hai.
+const CAKE_KEYWORDS = [
+  'cake', 'cakes', 'bakery', 'bake', 'pastry',
+  'truffle', 'chocolate truffle', 'dutch truffle',
+  'red velvet', 'redvelvet', 'velvet',
+  'cheesecake', 'cheese cake',
+  'bento', 'mini cake',
+  'butterscotch', 'butter scotch'
+];
+
+const isCakeItem = (product) => {
+  const category = String(product?.category || '').toLowerCase();
+  const name = String(product?.name || '').toLowerCase();
+  return CAKE_KEYWORDS.some((kw) => category.includes(kw) || name.includes(kw));
+};
+
 // 🟢 Helper to get Default Variants (Lowest Weight Default & No Fake Discount on Dummy)
 export const getProductVariants = (product) => {
   if (Array.isArray(product.variants) && product.variants.length > 0) {
@@ -728,6 +747,8 @@ const Homepage = ({ addToCart, addedToast }) => {
   }, []);
 
   // 🟢 STRICT FETCH FROM ENVIRONMENT VARIABLE (.env) ONLY
+  // 🟢 FIX: cakes ko yahin par exclude kar dete hain, taaki Home page par
+  // sirf sweets/mithai dikhein — cakes sirf apne dedicated "/cake" page par dikhenge.
   useEffect(() => {
     const fetchLiveProducts = async () => {
       try {
@@ -736,7 +757,7 @@ const Homepage = ({ addToCart, addedToast }) => {
         const data = await res.json();
 
         if (res.ok && Array.isArray(data)) {
-          setProducts(data);
+          setProducts(data.filter((p) => !isCakeItem(p)));
         } else {
           setProducts([]);
         }

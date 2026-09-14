@@ -36,16 +36,24 @@ const SHELF_MENUS = {
       { to: '/specials', label: '⭐ Special Festive Mithai' }
     ]
   },
+  // 🟢 FIX: these fallback links used to point to dedicated pages like
+  // '/cakes/chocolate-truffle', '/cakes/red-velvet', etc. that don't exist
+  // in the app (same issue already called out for the sweets sub-categories
+  // in SEARCH_ROUTES below). That's why the Cakes dropdown looked like it
+  // wasn't "searching" properly — it was just 404'ing / landing nowhere
+  // useful. These now route to '/cake?search=...' instead, so CakePage's
+  // tiered search (filterProductsBySearch) filters the real catalog, exactly
+  // like the working Sweets dropdown already does via '/?search=...'.
   cakes: {
     title: '🎂 Cakes',
     links: [
       { to: '/cake', label: '🎂 All Fresh Cakes' },
-      { to: '/cakes/chocolate-truffle', label: '🍫 Dutch Truffle Cake' },
-      { to: '/cakes/red-velvet', label: '❤️ Royal Red Velvet' },
-      { to: '/cakes/fresh-fruit', label: '🍓 Fresh Exotic Fruit' },
-      { to: '/cakes/cheesecake', label: '🧀 Baked Cheesecakes' },
-      { to: '/cakes/bento-mini', label: '🎀 Bento & Mini Cakes' },
-      { to: '/cakes/butterscotch', label: '🍯 Butterscotch Crunch' }
+      { to: '/cake?search=' + encodeURIComponent('chocolate truffle'), label: '🍫 Dutch Truffle Cake' },
+      { to: '/cake?search=' + encodeURIComponent('red velvet'), label: '❤️ Royal Red Velvet' },
+      { to: '/cake?search=' + encodeURIComponent('fresh fruit'), label: '🍓 Fresh Exotic Fruit' },
+      { to: '/cake?search=' + encodeURIComponent('cheesecake'), label: '🧀 Baked Cheesecakes' },
+      { to: '/cake?search=' + encodeURIComponent('bento mini cake'), label: '🎀 Bento & Mini Cakes' },
+      { to: '/cake?search=' + encodeURIComponent('butterscotch'), label: '🍯 Butterscotch Crunch' }
     ]
   },
   about: {
@@ -630,7 +638,10 @@ const Navbar = ({
               </ul>
             </li>
 
-            {/* 🏢 ABOUT US DROPDOWN — 🟢 FIX: now uses 'about'-tagged live categories */}
+            {/* 🏢 ABOUT US DROPDOWN — 🟢 FIX: now uses 'about'-tagged live categories,
+                and non-anchor entries (dynamic admin categories) use <Link> so they
+                filter client-side via React Router instead of doing a full page
+                reload like the static anchor pages do. */}
             <li className={`menu-nav-item has-dropdown ${shelfMenu === 'about' ? 'is-open' : ''}`}>
               <a
                 href="#about-us"
@@ -644,7 +655,13 @@ const Navbar = ({
               </a>
               <ul className="dropdown-flyout">
                 {getAboutLinks().map((l) => (
-                  <li key={l.to + l.label}><a href={l.to}>{l.label}</a></li>
+                  <li key={l.to + l.label}>
+                    {l.anchor ? (
+                      <a href={l.to}>{l.label}</a>
+                    ) : (
+                      <Link to={l.to}>{l.label}</Link>
+                    )}
+                  </li>
                 ))}
               </ul>
             </li>

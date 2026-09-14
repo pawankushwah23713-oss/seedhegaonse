@@ -28,15 +28,30 @@
   padding: 0 16px;
 }
 
-/* SCROLL REVEAL */
+/* SCROLL REVEAL (Visibility Safeguard Added) */
 .ck-reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.ck-reveal.ck-active {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@supports (display: grid) {
+  .ck-reveal:not(.ck-active) {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+.ck-reveal.ck-active {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* FLOATING WHATSAPP */
@@ -322,7 +337,11 @@
   padding: 8px 10px;
   position: absolute;
   top: 0; left: 0; right: 0;
-  z-index: 5;
+  z-index: 10;
+  pointer-events: none;
+}
+.ck-card-top-bar > * {
+  pointer-events: auto;
 }
 
 .ck-badge-discount {
@@ -605,6 +624,58 @@
 }
 
 /* =================================================== */
+/* EMPTY STATE & LOADING SPINNER STYLES                */
+/* =================================================== */
+.ck-empty-loading-state {
+  text-align: center;
+  padding: 50px 20px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+  margin: 20px 0;
+}
+
+.ck-empty-loading-state p {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cake-text-muted);
+  margin: 12px 0 0;
+}
+
+.ck-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border: 3px solid #f1f5f9;
+  border-top: 3px solid var(--cake-primary);
+  border-radius: 50%;
+  animation: ck-spin 0.8s linear infinite;
+}
+
+@keyframes ck-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.ck-primary-btn {
+  background: var(--cake-primary);
+  color: #ffffff;
+  border: none;
+  padding: 9px 20px;
+  border-radius: 25px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(148, 25, 29, 0.2);
+}
+
+.ck-primary-btn:hover {
+  background: var(--cake-hover);
+  transform: translateY(-1px);
+}
+
+/* =================================================== */
 /* MODAL QUICK VIEW                                    */
 /* =================================================== */
 .ck-product-modal-backdrop {
@@ -690,6 +761,29 @@
   align-items: center;
   justify-content: center;
   position: relative;
+}
+
+/* MODAL SLIDER DOTS */
+.ck-modal-slider-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+.ck-modal-slider-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  transition: all 0.25s ease;
+}
+.ck-modal-slider-dot.ck-active {
+  background: var(--cake-primary);
+  width: 18px;
+  border-radius: 4px;
 }
 
 .ck-modal-info-col {
@@ -1199,12 +1293,6 @@
   }
 }
 
-/* =================================================== */
-/* 🟢 EXTRA RESPONSIVE FIXES (fills gaps, nothing else  */
-/* changed — ultra-small phones, foldables, landscape,  */
-/* wide desktops, modal overflow guards, tap targets)   */
-/* =================================================== */
-
 /* Ultra-small phones (<= 360px) */
 @media screen and (max-width: 360px) {
   .ck-modern-product-grid {
@@ -1256,14 +1344,7 @@
   }
 }
 
-/* Foldables / narrow tablets in between breakpoints (481px - 600px) */
-@media screen and (min-width: 481px) and (max-width: 600px) {
-  .ck-modern-product-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* Landscape phones (short height, wider width) */
+/* Landscape phones */
 @media screen and (max-height: 480px) and (orientation: landscape) {
   .ck-hero-slider-section {
     height: clamp(140px, 30vw, 260px);
@@ -1280,7 +1361,7 @@
   }
 }
 
-/* Large desktops / wide monitors (>= 1440px) */
+/* Large desktops (>= 1440px) */
 @media screen and (min-width: 1440px) {
   .ck-container {
     max-width: 1400px;
@@ -1292,32 +1373,4 @@
   .ck-hero-slider-section {
     height: clamp(300px, 38vw, 560px);
   }
-}
-
-/* Prevent modal overflow / horizontal scroll on any small device */
-@media screen and (max-width: 768px) {
-  .ck-product-modal-backdrop {
-    padding: 8px;
-  }
-  .ck-product-modal-card {
-    width: 100%;
-    max-width: 100%;
-  }
-  .ck-modal-price-box,
-  .ck-modal-tags-row,
-  .ck-modal-variant-chips {
-    flex-wrap: wrap;
-  }
-}
-
-/* Ensure grid never single-column-squishes oddly on very narrow (<= 340px) devices */
-@media screen and (max-width: 340px) {
-  .ck-modern-product-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .ck-card-body {
-    padding: 6px;
-  }
-  
 }

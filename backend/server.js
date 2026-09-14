@@ -7,7 +7,7 @@ const path = require('path');
 require('dotenv').config();
 
 // 🟢 Route Imports
-const cancellationPolicyRoutes = require('./routes/Cancellationpolicyroutes');
+const cancellationPolicyRoutes = require('./routes/CancellationPolicyroutes');
 const policyRoutes = require('./routes/policyRoutes');
 const wishlistRoutes = require('./routes/wishlist');
 const paymentRoutes = require('./routes/payment.routes');
@@ -27,6 +27,7 @@ const couponLoyaltyPolicyRoutes = require('./routes/Couponloyaltypolicyroutes');
 const corporateBulkOrdersRoutes = require('./routes/corporateBulkOrdersRoutes');
 const socialLinkRoutes = require('./routes/socialLinkRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const storeSettingsRoutes = require('./routes/storeSettingsRoutes');
 
 const app = express();
 const server = http.createServer(app); // 🟢 Create HTTP server
@@ -104,6 +105,7 @@ app.use('/api/enquiry', enquiryRoutes);
 app.use('/api/return-refund-policy', returnRefundPolicyRoutes); // 🟢 NEW
 app.use('/api/corporate-bulk-orders', corporateBulkOrdersRoutes);
 app.use('/api/social-links', socialLinkRoutes);
+app.use('/api/delivery', storeSettingsRoutes);
 
 
 // Optional: Agar aapne Couponwallet.routes.js alag rakha hai:
